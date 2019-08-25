@@ -41,12 +41,12 @@ class ECC_Basepoint_Mul_Tests final : public Text_Based_Test
          result.test_eq("p1 affine X", p1.get_affine_x(), X);
          result.test_eq("p1 affine Y", p1.get_affine_y(), Y);
 
-         std::vector<Botan::BigInt> ws;
-         const Botan::PointGFp p2 = group.blinded_base_point_multiply(m, Test::rng(), ws);
+         Botan::BN_Pool pool;
+         const Botan::PointGFp p2 = group.blinded_base_point_multiply(m, Test::rng(), pool);
          result.test_eq("p2 affine X", p2.get_affine_x(), X);
          result.test_eq("p2 affine Y", p2.get_affine_y(), Y);
 
-         const Botan::PointGFp p3 = group.blinded_var_point_multiply(base_point, m, Test::rng(), ws);
+         const Botan::PointGFp p3 = group.blinded_var_point_multiply(base_point, m, Test::rng(), pool);
          result.test_eq("p3 affine X", p3.get_affine_x(), X);
          result.test_eq("p3 affine Y", p3.get_affine_y(), Y);
 

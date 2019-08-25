@@ -762,10 +762,12 @@ class Lucas_Primality_Test final : public Test
 
          Test::Result result("Lucas primality test");
 
+         Botan::BN_Pool pool;
+
          for(uint32_t i = 3; i <= lucas_max; i += 2)
             {
             Botan::Modular_Reducer mod_i(i);
-            const bool passes_lucas = Botan::is_lucas_probable_prime(i, mod_i);
+            const bool passes_lucas = Botan::is_lucas_probable_prime(i, mod_i, pool);
             const bool is_prime = Botan::is_prime(i, Test::rng());
 
             const bool is_lucas_pp = (is_prime == false && passes_lucas == true);

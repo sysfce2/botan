@@ -62,6 +62,8 @@ class BOTAN_PUBLIC_API(2,0) Modular_Reducer
       */
       void reduce(BigInt& out, const BigInt& x, secure_vector<word>& ws) const;
 
+      void reduce(BigInt& val, BN_Pool& pool) const;
+
       bool initialized() const { return (m_mod_words != 0); }
 
       Modular_Reducer() { m_mod_words = 0; }

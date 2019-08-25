@@ -372,6 +372,16 @@ bool is_prime(const BigInt& n,
               size_t prob,
               bool is_random)
    {
+   BN_Pool pool;
+   return is_prime(n, rng, pool, prob, is_random);
+   }
+
+bool is_prime(const BigInt& n,
+              RandomNumberGenerator& rng,
+              BN_Pool& pool,
+              size_t prob,
+              bool is_random)
+   {
    if(n == 2)
       return true;
    if(n <= 1 || n.is_even())
@@ -393,17 +403,17 @@ bool is_prime(const BigInt& n,
       {
       const size_t t = miller_rabin_test_iterations(n_bits, prob, is_random);
 
-      if(is_miller_rabin_probable_prime(n, mod_n, rng, t) == false)
+      if(is_miller_rabin_probable_prime(n, mod_n, rng, t, pool) == false)
          return false;
 
       if(is_random)
          return true;
       else
-         return is_lucas_probable_prime(n, mod_n);
+         return is_lucas_probable_prime(n, mod_n, pool);
       }
    else
       {
-      return is_bailie_psw_probable_prime(n, mod_n);
+      return is_bailie_psw_probable_prime(n, mod_n, pool);
       }
    }
 

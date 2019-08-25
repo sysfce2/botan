@@ -58,7 +58,7 @@ class ECGDSA_Signature_Operation final : public PK_Ops::Signature_with_EMSA
    private:
       const EC_Group m_group;
       const BigInt& m_x;
-      std::vector<BigInt> m_ws;
+      BN_Pool m_pool;
    };
 
 secure_vector<uint8_t>
@@ -70,7 +70,7 @@ ECGDSA_Signature_Operation::raw_sign(const uint8_t msg[], size_t msg_len,
    const BigInt k = m_group.random_scalar(rng);
 
    const BigInt r = m_group.mod_order(
-      m_group.blinded_base_point_multiply_x(k, rng, m_ws));
+      m_group.blinded_base_point_multiply_x(k, rng, m_pool));
 
    const BigInt kr = m_group.multiply_mod_order(k, r);
 
@@ -107,6 +107,7 @@ class ECGDSA_Verification_Operation final : public PK_Ops::Verification_with_EMS
    private:
       const EC_Group m_group;
       const PointGFp_Multi_Point_Precompute m_gy_mul;
+      BN_Pool m_pool;
    };
 
 bool ECGDSA_Verification_Operation::verify(const uint8_t msg[], size_t msg_len,
@@ -127,12 +128,12 @@ bool ECGDSA_Verification_Operation::verify(const uint8_t msg[], size_t msg_len,
 
    const BigInt u1 = m_group.multiply_mod_order(e, w);
    const BigInt u2 = m_group.multiply_mod_order(s, w);
-   const PointGFp R = m_gy_mul.multi_exp(u1, u2);
+   const PointGFp R = m_gy_mul.multi_exp(u1, u2, m_pool);
 
    if(R.is_zero())
       return false;
 
-   const BigInt v = m_group.mod_order(R.get_affine_x());
+   const BigInt v = m_group.mod_order(R.get_affine_x(m_pool));
    return (v == r);
    }
 

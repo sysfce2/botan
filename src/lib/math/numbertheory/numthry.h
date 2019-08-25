@@ -114,6 +114,12 @@ bool BOTAN_PUBLIC_API(2,0) is_prime(const BigInt& n,
                                     size_t prob = 64,
                                     bool is_random = false);
 
+bool BOTAN_PUBLIC_API(2,12) is_prime(const BigInt& n,
+                                     RandomNumberGenerator& rng,
+                                     BN_Pool& pool,
+                                     size_t prob = 64,
+                                     bool is_random = false);
+
 /**
 * Test if the positive integer x is a perfect square ie if there
 * exists some positive integer y st y*y == x

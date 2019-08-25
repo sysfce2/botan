@@ -67,6 +67,15 @@ void cnd_rev_sub(bool cnd, BigInt& x, const word y[], size_t y_sw, secure_vector
 
 }
 
+void Modular_Reducer::reduce(BigInt& val, BN_Pool& pool) const
+   {
+   auto scope = pool.scope();
+   BigInt& t = scope.get();
+   secure_vector<word>& ws = scope.get_vec();
+   reduce(t, val, ws);
+   val.swap(t);
+   }
+
 void Modular_Reducer::reduce(BigInt& t1, const BigInt& x, secure_vector<word>& ws) const
    {
    if(&t1 == &x)

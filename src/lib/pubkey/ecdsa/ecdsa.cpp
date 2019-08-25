@@ -45,6 +45,7 @@ PointGFp recover_ecdsa_public_key(const EC_Group& group,
    const uint8_t y_odd = v % 2;
    const uint8_t add_order = v >> 1;
    const size_t p_bytes = group.get_p_bytes();
+   BN_Pool pool;
 
    try
       {
@@ -66,7 +67,7 @@ PointGFp recover_ecdsa_public_key(const EC_Group& group,
       // Compute r_inv * (s*R - eG)
       PointGFp_Multi_Point_Precompute RG_mul(R, group.get_base_point());
       const BigInt ne = group.mod_order(group_order - e);
-      return r_inv * RG_mul.multi_exp(s, ne);
+      return r_inv * RG_mul.multi_exp(s, ne, pool);
       }
    catch(...)
       {
@@ -166,7 +167,7 @@ class ECDSA_Signature_Operation final : public PK_Ops::Signature_with_EMSA
       std::unique_ptr<RFC6979_Nonce_Generator> m_rfc6979;
 #endif
 
-      std::vector<BigInt> m_ws;
+      BN_Pool m_pool;
 
       BigInt m_b, m_b_inv;
    };
@@ -177,16 +178,24 @@ ECDSA_Signature_Operation::raw_sign(const uint8_t msg[], size_t msg_len,
    {
    BigInt m = BigInt::from_bytes_with_max_bits(msg, msg_len, m_group.get_order_bits());
 
+   auto scope = m_pool.scope();
+   BigInt& k = scope.get();
+   BigInt& k_inv = scope.get();
+   BigInt& r = scope.get();
+   BigInt& s = scope.get();
+   BigInt& xr_m = scope.get();
+
+   BigInt m(msg, msg_len, m_group.get_order_bits());
+
 #if defined(BOTAN_HAS_RFC6979_GENERATOR)
-   const BigInt k = m_rfc6979->nonce_for(m);
+   k = m_rfc6979->nonce_for(m);
 #else
-   const BigInt k = m_group.random_scalar(rng);
+   k = m_group.random_scalar(rng);
 #endif
 
-   const BigInt r = m_group.mod_order(
-      m_group.blinded_base_point_multiply_x(k, rng, m_ws));
+   r = m_group.mod_order(m_group.blinded_base_point_multiply_x(k, rng, m_pool));
 
-   const BigInt k_inv = m_group.inverse_mod_order(k);
+   k_inv = m_group.inverse_mod_order(k);
 
    /*
    * Blind the input message and compute x*r+m as (x*r*b + m*b)/b
@@ -195,9 +204,9 @@ ECDSA_Signature_Operation::raw_sign(const uint8_t msg[], size_t msg_len,
    m_b_inv = m_group.square_mod_order(m_b_inv);
 
    m = m_group.multiply_mod_order(m_b, m_group.mod_order(m));
-   const BigInt xr_m = m_group.mod_order(m_group.multiply_mod_order(m_x, m_b, r) + m);
+   xr_m = m_group.mod_order(m_group.multiply_mod_order(m_x, m_b, r) + m);
 
-   const BigInt s = m_group.multiply_mod_order(k_inv, xr_m, m_b_inv);
+   s = m_group.multiply_mod_order(k_inv, xr_m, m_b_inv);
 
    // With overwhelming probability, a bug rather than actual zero r/s
    if(r.is_zero() || s.is_zero())
@@ -229,6 +238,7 @@ class ECDSA_Verification_Operation final : public PK_Ops::Verification_with_EMSA
    private:
       const EC_Group m_group;
       const PointGFp_Multi_Point_Precompute m_gy_mul;
+      BN_Pool m_pool;
    };
 
 bool ECDSA_Verification_Operation::verify(const uint8_t msg[], size_t msg_len,
@@ -253,12 +263,12 @@ bool ECDSA_Verification_Operation::verify(const uint8_t msg[], size_t msg_len,
 
    const BigInt u1 = m_group.multiply_mod_order(m_group.mod_order(e), w);
    const BigInt u2 = m_group.multiply_mod_order(r, w);
-   const PointGFp R = m_gy_mul.multi_exp(u1, u2);
+   const PointGFp R = m_gy_mul.multi_exp(u1, u2, m_pool);
 
    if(R.is_zero())
       return false;
 
-   const BigInt v = m_group.mod_order(R.get_affine_x());
+   const BigInt v = m_group.mod_order(R.get_affine_x(m_pool));
    return (v == r);
    }
 

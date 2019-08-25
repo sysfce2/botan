@@ -60,7 +60,7 @@ class CurveGFp_Montgomery final : public CurveGFp_Repr
 
       size_t get_ws_size() const override { return 2*m_p_words + 4; }
 
-      BigInt invert_element(const BigInt& x, secure_vector<word>& ws) const override;
+      BigInt invert_element(const BigInt& x, BN_Pool& pool) const override;
 
       void to_curve_rep(BigInt& x, secure_vector<word>& ws) const override;
 
@@ -91,12 +91,15 @@ class CurveGFp_Montgomery final : public CurveGFp_Repr
       bool m_a_is_minus_3;
    };
 
-BigInt CurveGFp_Montgomery::invert_element(const BigInt& x, secure_vector<word>& ws) const
+BigInt CurveGFp_Montgomery::invert_element(const BigInt& x, BN_Pool& pool) const
    {
    // Should we use Montgomery inverse instead?
-   const BigInt inv = inverse_mod(x, m_p);
-   BigInt res;
-   curve_mul(res, inv, m_r3, ws);
+   auto scope = pool.scope();
+
+   BigInt& inv = scope.get();
+   inv = inverse_mod(x, m_p);
+   BigInt& res = scope.get();
+   curve_mul(res, inv, m_r3, scope.get_vec());
    return res;
    }
 
@@ -202,7 +205,7 @@ class CurveGFp_NIST : public CurveGFp_Repr
 
       virtual void redc_mod_p(BigInt& z, secure_vector<word>& ws) const = 0;
 
-      BigInt invert_element(const BigInt& x, secure_vector<word>& ws) const override;
+      BigInt invert_element(const BigInt& x, BN_Pool& pool) const override;
 
       void curve_mul_words(BigInt& z,
                            const word x_words[],
@@ -233,9 +236,9 @@ class CurveGFp_NIST : public CurveGFp_Repr
       size_t m_p_words; // cache of m_p.sig_words()
    };
 
-BigInt CurveGFp_NIST::invert_element(const BigInt& x, secure_vector<word>& ws) const
+BigInt CurveGFp_NIST::invert_element(const BigInt& x, BN_Pool& pool) const
    {
-   BOTAN_UNUSED(ws);
+   BOTAN_UNUSED(pool);
    return inverse_mod(x, get_p());
    }
 
@@ -313,12 +316,20 @@ class CurveGFp_P256 final : public CurveGFp_NIST
       const BigInt& get_p() const override { return prime_p256(); }
    private:
       void redc_mod_p(BigInt& x, secure_vector<word>& ws) const override { redc_p256(x, ws); }
-      BigInt invert_element(const BigInt& x, secure_vector<word>& ws) const override;
+      BigInt invert_element(const BigInt& x, BN_Pool& pool) const override;
    };
 
-BigInt CurveGFp_P256::invert_element(const BigInt& x, secure_vector<word>& ws) const
+BigInt CurveGFp_P256::invert_element(const BigInt& x, BN_Pool& pool) const
    {
-   BigInt r, p2, p4, p8, p16, p32, tmp;
+   auto scope = pool.scope();
+   secure_vector<word>& ws = scope.get_vec();
+   BigInt& r = scope.get();
+   BigInt& p2 = scope.get();
+   BigInt& p4 = scope.get();
+   BigInt& p8 = scope.get();
+   BigInt& p16 = scope.get();
+   BigInt& p32 = scope.get();
+   BigInt& tmp = scope.get();
 
    curve_sqr(r, x, ws);
 
@@ -388,14 +399,22 @@ class CurveGFp_P384 final : public CurveGFp_NIST
       const BigInt& get_p() const override { return prime_p384(); }
    private:
       void redc_mod_p(BigInt& x, secure_vector<word>& ws) const override { redc_p384(x, ws); }
-      BigInt invert_element(const BigInt& x, secure_vector<word>& ws) const override;
+      BigInt invert_element(const BigInt& x, BN_Pool& pool) const override;
    };
 
-BigInt CurveGFp_P384::invert_element(const BigInt& x, secure_vector<word>& ws) const
+BigInt CurveGFp_P384::invert_element(const BigInt& x, BN_Pool& pool) const
    {
    // From https://briansmith.org/ecc-inversion-addition-chains-01
 
-   BigInt r, x2, x3, x15, x30, tmp, rl;
+   auto scope = pool.scope();
+   secure_vector<word>& ws = scope.get_vec();
+   BigInt& r = scope.get();
+   BigInt& x2 = scope.get();
+   BigInt& x3 = scope.get();
+   BigInt& x15 = scope.get();
+   BigInt& x30 = scope.get();
+   BigInt& tmp = scope.get();
+   BigInt& rl = scope.get();
 
    r = x;
    curve_sqr_tmp(r, tmp, ws);
@@ -474,17 +493,19 @@ class CurveGFp_P521 final : public CurveGFp_NIST
       const BigInt& get_p() const override { return prime_p521(); }
    private:
       void redc_mod_p(BigInt& x, secure_vector<word>& ws) const override { redc_p521(x, ws); }
-      BigInt invert_element(const BigInt& x, secure_vector<word>& ws) const override;
+      BigInt invert_element(const BigInt& x, BN_Pool& pool) const override;
    };
 
-BigInt CurveGFp_P521::invert_element(const BigInt& x, secure_vector<word>& ws) const
+BigInt CurveGFp_P521::invert_element(const BigInt& x, BN_Pool& pool) const
    {
    // Addition chain from https://eprint.iacr.org/2014/852.pdf section
 
-   BigInt r;
-   BigInt rl;
-   BigInt a7;
-   BigInt tmp;
+   auto scope = pool.scope();
+   secure_vector<word>& ws = scope.get_vec();
+   BigInt& r = scope.get();
+   BigInt& rl = scope.get();
+   BigInt& a7 = scope.get();
+   BigInt& tmp = scope.get();
 
    curve_sqr(r, x, ws);
    curve_mul_tmp(r, x, tmp, ws);

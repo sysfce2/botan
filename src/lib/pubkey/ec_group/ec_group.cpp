@@ -126,9 +126,9 @@ class EC_Group_Data final
 
       PointGFp blinded_base_point_multiply(const BigInt& k,
                                            RandomNumberGenerator& rng,
-                                           std::vector<BigInt>& ws) const
+                                           BN_Pool& pool) const
          {
-         return m_base_mult.mul(k, rng, m_order, ws);
+         return m_base_mult.mul(k, rng, m_order, pool);
          }
 
       EC_Group_Source source() const { return m_source; }
@@ -370,7 +370,15 @@ std::shared_ptr<EC_Group_Data> EC_Group::BER_decode_EC_group(const uint8_t bits[
       }
    else if(obj.type() == ASN1_Type::Sequence)
       {
-      BigInt p, a, b, order, cofactor;
+      BN_Pool pool;
+
+      auto scope = pool.scope();
+      BigInt& p = scope.get();
+      BigInt& a = scope.get();
+      BigInt& b = scope.get();
+      BigInt& order = scope.get();
+      BigInt& cofactor = scope.get();
+
       std::vector<uint8_t> base_pt;
       std::vector<uint8_t> seed;
 
@@ -393,7 +401,7 @@ std::shared_ptr<EC_Group_Data> EC_Group::BER_decode_EC_group(const uint8_t bits[
          .end_cons()
          .verify_end();
 
-      if(p.bits() < 64 || p.is_negative() || !is_bailie_psw_probable_prime(p))
+      if(p.bits() < 64 || p.is_negative() || !is_bailie_psw_probable_prime(p, pool))
          throw Decoding_Error("Invalid ECC p parameter");
 
       if(a.is_negative() || a >= p)
@@ -402,7 +410,7 @@ std::shared_ptr<EC_Group_Data> EC_Group::BER_decode_EC_group(const uint8_t bits[
       if(b <= 0 || b >= p)
          throw Decoding_Error("Invalid ECC b parameter");
 
-      if(order <= 0 || !is_bailie_psw_probable_prime(order))
+      if(order <= 0 || !is_bailie_psw_probable_prime(order, pool))
          throw Decoding_Error("Invalid ECC order parameter");
 
       if(cofactor <= 0 || cofactor >= 16)
@@ -632,26 +640,27 @@ PointGFp EC_Group::point(const BigInt& x, const BigInt& y) const
 
 PointGFp EC_Group::point_multiply(const BigInt& x, const PointGFp& pt, const BigInt& y) const
    {
+   BN_Pool pool; // fixme take as arg
    PointGFp_Multi_Point_Precompute xy_mul(get_base_point(), pt);
-   return xy_mul.multi_exp(x, y);
+   return xy_mul.multi_exp(x, y, pool);
    }
 
 PointGFp EC_Group::blinded_base_point_multiply(const BigInt& k,
                                                RandomNumberGenerator& rng,
-                                               std::vector<BigInt>& ws) const
+                                               BN_Pool& pool) const
    {
-   return data().blinded_base_point_multiply(k, rng, ws);
+   return data().blinded_base_point_multiply(k, rng, pool);
    }
 
 BigInt EC_Group::blinded_base_point_multiply_x(const BigInt& k,
                                                RandomNumberGenerator& rng,
-                                               std::vector<BigInt>& ws) const
+                                               BN_Pool& pool) const
    {
-   const PointGFp pt = data().blinded_base_point_multiply(k, rng, ws);
+   const PointGFp pt = data().blinded_base_point_multiply(k, rng, pool);
 
    if(pt.is_zero())
       return BigInt::zero();
-   return pt.get_affine_x();
+   return pt.get_affine_x(pool);
    }
 
 BigInt EC_Group::random_scalar(RandomNumberGenerator& rng) const
@@ -662,10 +671,10 @@ BigInt EC_Group::random_scalar(RandomNumberGenerator& rng) const
 PointGFp EC_Group::blinded_var_point_multiply(const PointGFp& point,
                                               const BigInt& k,
                                               RandomNumberGenerator& rng,
-                                              std::vector<BigInt>& ws) const
+                                              BN_Pool& pool) const
    {
-   PointGFp_Var_Point_Precompute mul(point, rng, ws);
-   return mul.mul(k, rng, get_order(), ws);
+   PointGFp_Var_Point_Precompute mul(point, rng, pool);
+   return mul.mul(k, rng, get_order(), pool);
    }
 
 PointGFp EC_Group::zero_point() const

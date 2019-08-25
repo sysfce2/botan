@@ -25,8 +25,8 @@ class SM2_Encryption_Operation final : public PK_Ops::Encryption
                                const std::string& kdf_hash) :
          m_group(key.domain()),
          m_kdf_hash(kdf_hash),
-         m_ws(PointGFp::WORKSPACE_SIZE),
-         m_mul_public_point(key.public_point(), rng, m_ws)
+         m_pool(),
+         m_mul_public_point(key.public_point(), rng, m_pool)
          {
          std::unique_ptr<HashFunction> hash = HashFunction::create_or_throw(m_kdf_hash);
          m_hash_size = hash->output_length();
@@ -57,18 +57,18 @@ class SM2_Encryption_Operation final : public PK_Ops::Encryption
 
          const BigInt k = m_group.random_scalar(rng);
 
-         const PointGFp C1 = m_group.blinded_base_point_multiply(k, rng, m_ws);
-         const BigInt x1 = C1.get_affine_x();
-         const BigInt y1 = C1.get_affine_y();
+         const PointGFp C1 = m_group.blinded_base_point_multiply(k, rng, m_pool);
+         const BigInt x1 = C1.get_affine_x(m_pool);
+         const BigInt y1 = C1.get_affine_y(m_pool);
          std::vector<uint8_t> x1_bytes(p_bytes);
          std::vector<uint8_t> y1_bytes(p_bytes);
          BigInt::encode_1363(x1_bytes.data(), x1_bytes.size(), x1);
          BigInt::encode_1363(y1_bytes.data(), y1_bytes.size(), y1);
 
-         const PointGFp kPB = m_mul_public_point.mul(k, rng, m_group.get_order(), m_ws);
+         const PointGFp kPB = m_mul_public_point.mul(k, rng, m_group.get_order(), m_pool);
 
-         const BigInt x2 = kPB.get_affine_x();
-         const BigInt y2 = kPB.get_affine_y();
+         const BigInt x2 = kPB.get_affine_x(m_pool);
+         const BigInt y2 = kPB.get_affine_y(m_pool);
          std::vector<uint8_t> x2_bytes(p_bytes);
          std::vector<uint8_t> y2_bytes(p_bytes);
          BigInt::encode_1363(x2_bytes.data(), x2_bytes.size(), x2);
@@ -104,7 +104,7 @@ class SM2_Encryption_Operation final : public PK_Ops::Encryption
       const EC_Group m_group;
       const std::string m_kdf_hash;
 
-      std::vector<BigInt> m_ws;
+      BN_Pool m_pool;
       PointGFp_Var_Point_Precompute m_mul_public_point;
       size_t m_hash_size;
    };
@@ -196,10 +196,10 @@ class SM2_Decryption_Operation final : public PK_Ops::Decryption
             }
 
          const PointGFp dbC1 = group.blinded_var_point_multiply(
-            C1, m_key.private_value(), m_rng, m_ws);
+            C1, m_key.private_value(), m_rng, m_pool);
 
-         const BigInt x2 = dbC1.get_affine_x();
-         const BigInt y2 = dbC1.get_affine_y();
+         const BigInt x2 = dbC1.get_affine_x(m_pool);
+         const BigInt y2 = dbC1.get_affine_y(m_pool);
 
          secure_vector<uint8_t> x2_bytes(p_bytes);
          secure_vector<uint8_t> y2_bytes(p_bytes);
@@ -230,7 +230,7 @@ class SM2_Decryption_Operation final : public PK_Ops::Decryption
       const SM2_Encryption_PrivateKey& m_key;
       RandomNumberGenerator& m_rng;
       const std::string m_kdf_hash;
-      std::vector<BigInt> m_ws;
+      BN_Pool m_pool;
       size_t m_hash_size;
    };
 

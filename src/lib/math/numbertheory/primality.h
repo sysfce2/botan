@@ -14,6 +14,7 @@
 namespace Botan {
 
 class BigInt;
+class BN_Pool;
 class Modular_Reducer;
 class Montgomery_Params;
 class RandomNumberGenerator;
@@ -29,7 +30,7 @@ class RandomNumberGenerator;
 * @param mod_n a pre-created Modular_Reducer for n
 * @return true if n seems probably prime, false if n is composite
 */
-bool BOTAN_TEST_API is_lucas_probable_prime(const BigInt& n, const Modular_Reducer& mod_n);
+bool BOTAN_TEST_API is_lucas_probable_prime(const BigInt& n, const Modular_Reducer& mod_n, BN_Pool& pool);
 
 /**
 * Perform Bailie-PSW primality test
@@ -42,7 +43,7 @@ bool BOTAN_TEST_API is_lucas_probable_prime(const BigInt& n, const Modular_Reduc
 * @param mod_n a pre-created Modular_Reducer for n
 * @return true if n seems probably prime, false if n is composite
 */
-bool BOTAN_TEST_API is_bailie_psw_probable_prime(const BigInt& n, const Modular_Reducer& mod_n);
+bool BOTAN_TEST_API is_bailie_psw_probable_prime(const BigInt& n, const Modular_Reducer& mod_n, BN_Pool& pool);
 
 /**
 * Perform Bailie-PSW primality test
@@ -54,7 +55,7 @@ bool BOTAN_TEST_API is_bailie_psw_probable_prime(const BigInt& n, const Modular_
 * @param n the positive integer to test
 * @return true if n seems probably prime, false if n is composite
 */
-bool is_bailie_psw_probable_prime(const BigInt& n);
+bool is_bailie_psw_probable_prime(const BigInt& n, BN_Pool& pool);
 
 /**
 * Return required number of Miller-Rabin tests in order to
@@ -79,7 +80,8 @@ size_t miller_rabin_test_iterations(size_t n_bits, size_t prob, bool random);
 bool passes_miller_rabin_test(const BigInt& n,
                               const Modular_Reducer& mod_n,
                               const std::shared_ptr<Montgomery_Params>& monty_n,
-                              const BigInt& a);
+                              const BigInt& a,
+                              BN_Pool& pool);
 
 /**
 * Perform t iterations of a Miller-Rabin primality test with random bases
@@ -94,7 +96,8 @@ bool passes_miller_rabin_test(const BigInt& n,
 bool BOTAN_TEST_API is_miller_rabin_probable_prime(const BigInt& n,
                                                    const Modular_Reducer& mod_n,
                                                    RandomNumberGenerator& rng,
-                                                   size_t t);
+                                                   size_t t,
+                                                   BN_Pool& pool);
 
 /**
 * Generate DSA parameters using the FIPS 186 kosherizer

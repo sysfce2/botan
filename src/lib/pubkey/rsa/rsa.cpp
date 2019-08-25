@@ -406,7 +406,7 @@ class RSA_Private_Operation
 
    private:
 
-      BigInt rsa_private_op(const BigInt& m) const
+      BigInt rsa_private_op(const BigInt& m)
          {
          /*
          TODO
@@ -417,7 +417,9 @@ class RSA_Private_Operation
          static constexpr size_t powm_window = 4;
 
          // Compute this in main thread to avoid racing on the rng
-         const BigInt d1_mask(m_blinder.rng(), m_blinding_bits);
+
+         auto scope = m_pool.scope();
+         const BigInt& d1_mask = scope.get(m_blinder.rng(), m_blinding_bits);
 
 #if defined(BOTAN_HAS_THREAD_UTILS) && !defined(BOTAN_HAS_VALGRIND)
    #define BOTAN_RSA_USE_ASYNC
@@ -442,7 +444,7 @@ class RSA_Private_Operation
          });
 #endif
 
-         const BigInt d2_mask(m_blinder.rng(), m_blinding_bits);
+         const BigInt& d2_mask = scope.get(m_blinder.rng(), m_blinding_bits);
          const BigInt masked_d2 = m_private->get_d2() + (d2_mask * (m_private->get_q() - 1));
          auto powm_d2_q = monty_precompute(m_private->m_monty_q, m_private->m_mod_q.reduce(m), powm_window);
          const BigInt j2 = monty_execute(*powm_d2_q, masked_d2, m_max_d2_bits);
@@ -476,6 +478,7 @@ class RSA_Private_Operation
       const size_t m_blinding_bits;
       const size_t m_max_d1_bits;
       const size_t m_max_d2_bits;
+      BN_Pool m_pool;
    };
 
 class RSA_Signature_Operation final : public PK_Ops::Signature_with_EMSA,

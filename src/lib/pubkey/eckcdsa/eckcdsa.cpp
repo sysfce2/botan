@@ -72,8 +72,8 @@ class ECKCDSA_Signature_Operation final : public PK_Ops::Signature_with_EMSA
          if(hash->output_length() > m_group.get_order_bytes())
             throw Encoding_Error("ECKCDSA does not support the hash being larger than the group");
 
-         const BigInt public_point_x = eckcdsa.public_point().get_affine_x();
-         const BigInt public_point_y = eckcdsa.public_point().get_affine_y();
+         const BigInt public_point_x = eckcdsa.public_point().get_affine_x(m_pool);
+         const BigInt public_point_y = eckcdsa.public_point().get_affine_y(m_pool);
 
          const size_t order_bytes = m_group.get_order_bytes();
 
@@ -98,7 +98,7 @@ class ECKCDSA_Signature_Operation final : public PK_Ops::Signature_with_EMSA
       const EC_Group m_group;
       const BigInt& m_x;
       secure_vector<uint8_t> m_prefix;
-      std::vector<BigInt> m_ws;
+      BN_Pool m_pool;
    };
 
 secure_vector<uint8_t>
@@ -106,7 +106,7 @@ ECKCDSA_Signature_Operation::raw_sign(const uint8_t msg[], size_t /*msg_len*/,
                                       RandomNumberGenerator& rng)
    {
    const BigInt k = m_group.random_scalar(rng);
-   const BigInt k_times_P_x = m_group.blinded_base_point_multiply_x(k, rng, m_ws);
+   const BigInt k_times_P_x = m_group.blinded_base_point_multiply_x(k, rng, m_pool);
 
    secure_vector<uint8_t> to_be_hashed(k_times_P_x.bytes());
    k_times_P_x.binary_encode(to_be_hashed.data());
@@ -145,8 +145,8 @@ class ECKCDSA_Verification_Operation final : public PK_Ops::Verification_with_EM
          m_gy_mul(m_group.get_base_point(), eckcdsa.public_point()),
          m_prefix()
          {
-         const BigInt public_point_x = eckcdsa.public_point().get_affine_x();
-         const BigInt public_point_y = eckcdsa.public_point().get_affine_y();
+         const BigInt public_point_x = eckcdsa.public_point().get_affine_x(m_pool);
+         const BigInt public_point_y = eckcdsa.public_point().get_affine_y(m_pool);
 
          const size_t order_bytes = m_group.get_order_bytes();
 
@@ -172,6 +172,7 @@ class ECKCDSA_Verification_Operation final : public PK_Ops::Verification_with_EM
       const EC_Group m_group;
       const PointGFp_Multi_Point_Precompute m_gy_mul;
       secure_vector<uint8_t> m_prefix;
+      BN_Pool m_pool;
    };
 
 bool ECKCDSA_Verification_Operation::verify(const uint8_t msg[], size_t /*msg_len*/,
@@ -203,7 +204,7 @@ bool ECKCDSA_Verification_Operation::verify(const uint8_t msg[], size_t /*msg_le
    BigInt w(r_xor_e.data(), r_xor_e.size());
    w = m_group.mod_order(w);
 
-   const PointGFp q = m_gy_mul.multi_exp(w, s);
+   const PointGFp q = m_gy_mul.multi_exp(w, s, m_pool);
    if(q.is_zero())
       {
       return false;

@@ -1146,13 +1146,13 @@ class Speed final : public Command
             Botan::PointGFp non_affine_pt = ec_group.get_base_point() * random_k;
             Botan::PointGFp pt = ec_group.get_base_point();
 
-            std::vector<Botan::BigInt> ws(Botan::PointGFp::WORKSPACE_SIZE);
+            Botan::BN_Pool pool;
 
             while(add_timer->under(runtime) && addf_timer->under(runtime) && dbl_timer->under(runtime))
                {
-               dbl_timer->run([&]() { pt.mult2(ws); });
-               add_timer->run([&]() { pt.add(non_affine_pt, ws); });
-               addf_timer->run([&]() { pt.add_affine(base_point, ws); });
+               dbl_timer->run([&]() { pt.mult2(pool); });
+               add_timer->run([&]() { pt.add(non_affine_pt, pool); });
+               addf_timer->run([&]() { pt.add_affine(base_point, pool); });
                }
 
             record_result(dbl_timer);
@@ -1189,7 +1189,7 @@ class Speed final : public Command
 
             const Botan::PointGFp& base_point = ec_group.get_base_point();
 
-            std::vector<Botan::BigInt> ws;
+            Botan::BN_Pool pool;
 
             while(mult_timer->under(runtime) &&
                   blinded_mult_timer->under(runtime) &&
@@ -1200,10 +1200,10 @@ class Speed final : public Command
                const Botan::PointGFp r1 = mult_timer->run([&]() { return base_point * scalar; });
 
                const Botan::PointGFp r2 = blinded_mult_timer->run(
-                  [&]() { return ec_group.blinded_base_point_multiply(scalar, rng(), ws); });
+                  [&]() { return ec_group.blinded_base_point_multiply(scalar, rng(), pool); });
 
                const Botan::PointGFp r3 = blinded_var_mult_timer->run(
-                  [&]() { return ec_group.blinded_var_point_multiply(base_point, scalar, rng(), ws); });
+                  [&]() { return ec_group.blinded_var_point_multiply(base_point, scalar, rng(), pool); });
 
                BOTAN_ASSERT_EQUAL(r1, r2, "Same point computed by Montgomery and comb");
                BOTAN_ASSERT_EQUAL(r1, r3, "Same point computed by Montgomery and window");
@@ -1618,19 +1618,20 @@ class Speed final : public Command
             auto lucas_timer = make_timer("Lucas-" + std::to_string(bits));
 
             Botan::BigInt n = Botan::random_prime(rng(), bits);
+            Botan::BN_Pool pool;
 
             while(lucas_timer->under(runtime))
                {
                Botan::Modular_Reducer mod_n(n);
 
                mr_timer->run([&]() {
-                  return Botan::is_miller_rabin_probable_prime(n, mod_n, rng(), 2); });
+                  return Botan::is_miller_rabin_probable_prime(n, mod_n, rng(), 2, pool); });
 
                bpsw_timer->run([&]() {
-                  return Botan::is_bailie_psw_probable_prime(n, mod_n); });
+                  return Botan::is_bailie_psw_probable_prime(n, mod_n, pool); });
 
                lucas_timer->run([&]() {
-                  return Botan::is_lucas_probable_prime(n, mod_n); });
+                  return Botan::is_lucas_probable_prime(n, mod_n, pool); });
 
                n += 2;
                }

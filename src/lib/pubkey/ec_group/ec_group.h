@@ -265,7 +265,7 @@ class BOTAN_PUBLIC_API(2,0) EC_Group final
       */
       PointGFp blinded_base_point_multiply(const BigInt& k,
                                            RandomNumberGenerator& rng,
-                                           std::vector<BigInt>& ws) const;
+                                           BN_Pool& pool) const;
 
       /**
       * Blinded point multiplication, attempts resistance to side channels
@@ -278,7 +278,7 @@ class BOTAN_PUBLIC_API(2,0) EC_Group final
       */
       BigInt blinded_base_point_multiply_x(const BigInt& k,
                                            RandomNumberGenerator& rng,
-                                           std::vector<BigInt>& ws) const;
+                                           BN_Pool& pool) const;
 
       /**
       * Blinded point multiplication, attempts resistance to side channels
@@ -291,7 +291,7 @@ class BOTAN_PUBLIC_API(2,0) EC_Group final
       PointGFp blinded_var_point_multiply(const PointGFp& point,
                                           const BigInt& k,
                                           RandomNumberGenerator& rng,
-                                          std::vector<BigInt>& ws) const;
+                                          BN_Pool& pool) const;
 
       /**
       * Return a random scalar ie an integer in [1,order)

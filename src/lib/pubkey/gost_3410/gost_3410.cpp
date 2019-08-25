@@ -18,8 +18,9 @@ namespace Botan {
 
 std::vector<uint8_t> GOST_3410_PublicKey::public_key_bits() const
    {
-   const BigInt x = public_point().get_affine_x();
-   const BigInt y = public_point().get_affine_y();
+   BN_Pool pool;
+   const BigInt x = public_point().get_affine_x(pool);
+   const BigInt y = public_point().get_affine_y(pool);
 
    size_t part_size = std::max(x.bytes(), y.bytes());
 
@@ -152,7 +153,7 @@ class GOST_3410_Signature_Operation final : public PK_Ops::Signature_with_EMSA
    private:
       const EC_Group m_group;
       const BigInt& m_x;
-      std::vector<BigInt> m_ws;
+      BN_Pool m_pool;
    };
 
 secure_vector<uint8_t>
@@ -168,7 +169,7 @@ GOST_3410_Signature_Operation::raw_sign(const uint8_t msg[], size_t msg_len,
       e = BigInt::one();
 
    const BigInt r = m_group.mod_order(
-      m_group.blinded_base_point_multiply_x(k, rng, m_ws));
+      m_group.blinded_base_point_multiply_x(k, rng, m_pool));
 
    const BigInt s = m_group.mod_order(
       m_group.multiply_mod_order(r, m_x) +
@@ -203,6 +204,7 @@ class GOST_3410_Verification_Operation final : public PK_Ops::Verification_with_
    private:
       const EC_Group m_group;
       const PointGFp_Multi_Point_Precompute m_gy_mul;
+      BN_Pool m_pool;
    };
 
 bool GOST_3410_Verification_Operation::verify(const uint8_t msg[], size_t msg_len,
@@ -229,12 +231,12 @@ bool GOST_3410_Verification_Operation::verify(const uint8_t msg[], size_t msg_le
    const BigInt z1 = m_group.multiply_mod_order(s, v);
    const BigInt z2 = m_group.multiply_mod_order(-r, v);
 
-   const PointGFp R = m_gy_mul.multi_exp(z1, z2);
+   const PointGFp R = m_gy_mul.multi_exp(z1, z2, m_pool);
 
    if(R.is_zero())
      return false;
 
-   return (R.get_affine_x() == r);
+   return (R.get_affine_x(m_pool) == r);
    }
 
 }

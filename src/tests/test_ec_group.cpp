@@ -122,7 +122,7 @@ std::vector<Test::Result> ECC_Randomized_Tests::run()
       const Botan::PointGFp pt = create_random_point(Test::rng(), group);
       const Botan::BigInt& group_order = group.get_order();
 
-      std::vector<Botan::BigInt> blind_ws;
+      Botan::BN_Pool pool;
 
       try
          {
@@ -137,9 +137,9 @@ std::vector<Test::Result> ECC_Randomized_Tests::run()
             const Botan::PointGFp Q = pt * b;
             const Botan::PointGFp R = pt * c;
 
-            Botan::PointGFp P1 = group.blinded_var_point_multiply(pt, a, Test::rng(), blind_ws);
-            Botan::PointGFp Q1 = group.blinded_var_point_multiply(pt, b, Test::rng(), blind_ws);
-            Botan::PointGFp R1 = group.blinded_var_point_multiply(pt, c, Test::rng(), blind_ws);
+            Botan::PointGFp P1 = group.blinded_var_point_multiply(pt, a, Test::rng(), pool);
+            Botan::PointGFp Q1 = group.blinded_var_point_multiply(pt, b, Test::rng(), pool);
+            Botan::PointGFp R1 = group.blinded_var_point_multiply(pt, c, Test::rng(), pool);
 
             Botan::PointGFp A1 = P + Q;
             Botan::PointGFp A2 = Q + P;
@@ -147,8 +147,8 @@ std::vector<Test::Result> ECC_Randomized_Tests::run()
             result.test_eq("p + q", A1, R);
             result.test_eq("q + p", A2, R);
 
-            A1.force_affine();
-            A2.force_affine();
+            A1.force_affine(pool);
+            A2.force_affine(pool);
             result.test_eq("p + q", A1, R);
             result.test_eq("q + p", A2, R);
 
@@ -160,9 +160,9 @@ std::vector<Test::Result> ECC_Randomized_Tests::run()
             result.test_eq("Q1", Q1, Q);
             result.test_eq("R1", R1, R);
 
-            P1.force_affine();
-            Q1.force_affine();
-            R1.force_affine();
+            P1.force_affine(pool);
+            Q1.force_affine(pool);
+            R1.force_affine(pool);
             result.test_eq("P1", P1, P);
             result.test_eq("Q1", Q1, Q);
             result.test_eq("R1", R1, R);
@@ -268,6 +268,7 @@ class EC_Group_Tests : public Test
       std::vector<Test::Result> run() override
          {
          std::vector<Test::Result> results;
+         Botan::BN_Pool pool;
 
          for(const std::string& group_name : Botan::EC_Group::known_named_groups())
             {
@@ -318,13 +319,13 @@ class EC_Group_Tests : public Test
             p.randomize_repr(Test::rng());
             q.randomize_repr(Test::rng());
 
-            result.test_eq("affine x after copy", p.get_affine_x(), q.get_affine_x());
-            result.test_eq("affine y after copy", p.get_affine_y(), q.get_affine_y());
+            result.test_eq("affine x after copy", p.get_affine_x(pool), q.get_affine_x(pool));
+            result.test_eq("affine y after copy", p.get_affine_y(pool), q.get_affine_y(pool));
 
-            q.force_affine();
+            q.force_affine(pool);
 
-            result.test_eq("affine x after copy", p.get_affine_x(), q.get_affine_x());
-            result.test_eq("affine y after copy", p.get_affine_y(), q.get_affine_y());
+            result.test_eq("affine x after copy", p.get_affine_x(pool), q.get_affine_x(pool));
+            result.test_eq("affine y after copy", p.get_affine_y(pool), q.get_affine_y(pool));
 
             test_ser_der(result, group);
             test_basic_math(result, group);

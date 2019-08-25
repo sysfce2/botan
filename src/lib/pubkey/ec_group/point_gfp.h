@@ -2,7 +2,7 @@
 * Point arithmetic on elliptic curves over GF(p)
 *
 * (C) 2007 Martin Doering, Christoph Ludwig, Falko Strenzke
-*     2008-2011,2014,2015 Jack Lloyd
+*     2008-2011,2014,2015,2019 Jack Lloyd
 *
 * Botan is released under the Simplified BSD License (see license.txt)
 */
@@ -17,7 +17,7 @@
 namespace Botan {
 
 /**
-* This class represents one point on a curve of GF(p)
+* This class represents one point on a curve of GF(p) using Jacobian coordinates
 */
 class BOTAN_PUBLIC_API(2,0) PointGFp final
    {
@@ -70,6 +70,15 @@ class BOTAN_PUBLIC_API(2,0) PointGFp final
          }
 
       /**
+      * Return the zero (aka infinite) point associated with this curve
+      */
+      PointGFp zero() const { return PointGFp(m_curve); }
+
+      const BigInt& get_x() const { return m_coord_x; }
+      const BigInt& get_y() const { return m_coord_y; }
+      const BigInt& get_z() const { return m_coord_z; }
+
+      /**
       * Construct a point from its affine coordinates
       * Prefer EC_Group::point(x,y) for this operation.
       * @param curve the base curve
@@ -101,6 +110,7 @@ class BOTAN_PUBLIC_API(2,0) PointGFp final
       /**
       * *= Operator
       * @param scalar the PointGFp to multiply with *this
+      * @warning this leaks the bitlength of the scalar
       * @result resulting PointGFp
       */
       PointGFp& operator*=(const BigInt& scalar);
@@ -117,40 +127,36 @@ class BOTAN_PUBLIC_API(2,0) PointGFp final
          }
 
       /**
+      * Return true if this point is in affine coordinates, ie Z=1
+      */
+      bool is_affine() const;
+
+      /**
+      * Equality operator
+      */
+      bool operator==(const PointGFp& other) const;
+
+      /**
       * get affine x coordinate
       * @result affine x coordinate
       */
-      BigInt get_affine_x() const;
+      BigInt get_affine_x(BN_Pool& pool) const;
 
       /**
       * get affine y coordinate
       * @result affine y coordinate
       */
-      BigInt get_affine_y() const;
-
-      const BigInt& get_x() const { return m_coord_x; }
-      const BigInt& get_y() const { return m_coord_y; }
-      const BigInt& get_z() const { return m_coord_z; }
-
-      void swap_coords(BigInt& new_x, BigInt& new_y, BigInt& new_z)
-         {
-         m_coord_x.swap(new_x);
-         m_coord_y.swap(new_y);
-         m_coord_z.swap(new_z);
-         }
+      BigInt get_affine_y(BN_Pool& pool) const;
 
       /**
       * Force this point to affine coordinates
       */
-      void force_affine();
+      void force_affine(BN_Pool& pool);
 
       /**
       * Force all points on the list to affine coordinates
       */
-      static void force_all_affine(std::vector<PointGFp>& points,
-                                   secure_vector<word>& ws);
-
-      bool is_affine() const;
+      static void force_all_affine(std::vector<PointGFp>& points, BN_Pool& pool);
 
       /**
       * Is this the point at infinity?
@@ -163,7 +169,7 @@ class BOTAN_PUBLIC_API(2,0) PointGFp final
       * curve; used to prevent fault attacks.
       * @return if the point is on the curve
       */
-      bool on_the_curve() const;
+      bool on_the_curve(BN_Pool& pool) const;
 
       /**
       * swaps the states of *this and other, does not throw!
@@ -184,16 +190,11 @@ class BOTAN_PUBLIC_API(2,0) PointGFp final
       void randomize_repr(RandomNumberGenerator& rng, secure_vector<word>& ws);
 
       /**
-      * Equality operator
-      */
-      bool operator==(const PointGFp& other) const;
-
-      /**
       * Point addition
       * @param other the point to add to *this
-      * @param workspace temp space, at least WORKSPACE_SIZE elements
+      * @param pool a BN_Pool
       */
-      void add(const PointGFp& other, std::vector<BigInt>& workspace)
+      void add(const PointGFp& other, BN_Pool& pool)
          {
          BOTAN_ARG_CHECK(m_curve == other.m_curve, "cannot add points on different curves");
 
@@ -202,7 +203,7 @@ class BOTAN_PUBLIC_API(2,0) PointGFp final
          add(other.m_coord_x.data(), std::min(p_words, other.m_coord_x.size()),
              other.m_coord_y.data(), std::min(p_words, other.m_coord_y.size()),
              other.m_coord_z.data(), std::min(p_words, other.m_coord_z.size()),
-             workspace);
+             pool);
          }
 
       /**
@@ -214,19 +215,19 @@ class BOTAN_PUBLIC_API(2,0) PointGFp final
       * @param y_size size of y_words
       * @param z_words the words of the z coordinate of the other point
       * @param z_size size of z_words
-      * @param workspace temp space, at least WORKSPACE_SIZE elements
+      * @param pool a BN_Pool
       */
       void add(const word x_words[], size_t x_size,
                const word y_words[], size_t y_size,
                const word z_words[], size_t z_size,
-               std::vector<BigInt>& workspace);
+               BN_Pool& pool);
 
       /**
       * Point addition - mixed J+A
       * @param other affine point to add - assumed to be affine!
-      * @param workspace temp space, at least WORKSPACE_SIZE elements
+      * @param pool a BN_Pool
       */
-      void add_affine(const PointGFp& other, std::vector<BigInt>& workspace)
+      void add_affine(const PointGFp& other, BN_Pool& pool)
          {
          BOTAN_ASSERT_NOMSG(m_curve == other.m_curve);
          BOTAN_DEBUG_ASSERT(other.is_affine());
@@ -234,7 +235,7 @@ class BOTAN_PUBLIC_API(2,0) PointGFp final
          const size_t p_words = m_curve.get_p_words();
          add_affine(other.m_coord_x.data(), std::min(p_words, other.m_coord_x.size()),
                     other.m_coord_y.data(), std::min(p_words, other.m_coord_y.size()),
-                    workspace);
+                    pool);
          }
 
       /**
@@ -244,54 +245,83 @@ class BOTAN_PUBLIC_API(2,0) PointGFp final
       * @param x_size size of x_words
       * @param y_words the words of the y coordinate of the other point
       * @param y_size size of y_words
-      * @param workspace temp space, at least WORKSPACE_SIZE elements
+      * @param pool a BN_pool
       */
       void add_affine(const word x_words[], size_t x_size,
                       const word y_words[], size_t y_size,
-                      std::vector<BigInt>& workspace);
+                      BN_Pool& pool);
 
       /**
       * Point doubling
-      * @param workspace temp space, at least WORKSPACE_SIZE elements
+      * @param pool a BN_Pool
       */
-      void mult2(std::vector<BigInt>& workspace);
+      void mult2(BN_Pool& pool);
 
       /**
       * Repeated point doubling
       * @param i number of doublings to perform
-      * @param workspace temp space, at least WORKSPACE_SIZE elements
+      * @param pool a BN_pool
       */
-      void mult2i(size_t i, std::vector<BigInt>& workspace);
+      void mult2i(size_t i, BN_Pool& pool);
 
       /**
       * Point addition
       * @param other the point to add to *this
-      * @param workspace temp space, at least WORKSPACE_SIZE elements
+      * @param pool a BN_pool
       * @return other plus *this
       */
-      PointGFp plus(const PointGFp& other, std::vector<BigInt>& workspace) const
+      PointGFp plus(const PointGFp& other, BN_Pool& pool) const
          {
          PointGFp x = (*this);
-         x.add(other, workspace);
+         x.add(other, pool);
          return x;
          }
 
       /**
       * Point doubling
-      * @param workspace temp space, at least WORKSPACE_SIZE elements
+      * @param pool a BN_Pool
       * @return *this doubled
       */
-      PointGFp double_of(std::vector<BigInt>& workspace) const
+      PointGFp double_of(BN_Pool& pool) const
          {
          PointGFp x = (*this);
-         x.mult2(workspace);
+         x.mult2(pool);
          return x;
          }
 
-      /**
-      * Return the zero (aka infinite) point associated with this curve
-      */
-      PointGFp zero() const { return PointGFp(m_curve); }
+      BigInt BOTAN_DEPRECATED("Use version taking a BN_Pool") get_affine_x() const
+         {
+         BN_Pool pool;
+         return get_affine_x(pool);
+         }
+
+      BigInt BOTAN_DEPRECATED("Use version taking a BN_Pool") get_affine_y() const
+         {
+         BN_Pool pool;
+         return get_affine_y(pool);
+         }
+
+      bool BOTAN_DEPRECATED("Use version taking a BN_Pool") on_the_curve() const
+         {
+         BN_Pool pool;
+         return on_the_curve(pool);
+         }
+
+      static void BOTAN_DEPRECATED("Use version taking a BN_Pool")
+         force_all_affine(std::vector<PointGFp>& points,
+                          secure_vector<word>& ws)
+         {
+         BOTAN_UNUSED(ws);
+         BN_Pool pool;
+         force_all_affine(points, pool);
+         }
+
+      void swap_coords(BigInt& new_x, BigInt& new_y, BigInt& new_z)
+         {
+         m_coord_x.swap(new_x);
+         m_coord_y.swap(new_y);
+         m_coord_z.swap(new_z);
+         }
 
       /**
       * Return base curve of this point
@@ -380,8 +410,6 @@ std::pair<BigInt, BigInt> BOTAN_UNSTABLE_API OS2ECP(const uint8_t data[], size_t
 template<typename Alloc>
 PointGFp OS2ECP(const std::vector<uint8_t, Alloc>& data, const CurveGFp& curve)
    { return OS2ECP(data.data(), data.size(), curve); }
-
-class PointGFp_Var_Point_Precompute;
 
 }
 

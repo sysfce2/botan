@@ -2,7 +2,7 @@
 * Point arithmetic on elliptic curves over GF(p)
 *
 * (C) 2007 Martin Doering, Christoph Ludwig, Falko Strenzke
-*     2008-2011,2012,2014,2015,2018 Jack Lloyd
+*     2008-2011,2012,2014,2015,2018,2019 Jack Lloyd
 *
 * Botan is released under the Simplified BSD License (see license.txt)
 */
@@ -66,6 +66,7 @@ void PointGFp::randomize_repr(RandomNumberGenerator& rng, secure_vector<word>& w
 
 namespace {
 
+<<<<<<< HEAD
 inline void resize_ws(std::vector<BigInt>& ws_bn, size_t cap_size)
    {
    BOTAN_ASSERT(ws_bn.size() >= PointGFp::WORKSPACE_SIZE,
@@ -76,6 +77,19 @@ inline void resize_ws(std::vector<BigInt>& ws_bn, size_t cap_size)
          ws.get_word_vector().resize(cap_size);
    }
 
+||||||| parent of 21fa3468b (wtf that worked?)
+inline void resize_ws(std::vector<BigInt>& ws_bn, size_t cap_size)
+   {
+   BOTAN_ASSERT(ws_bn.size() >= PointGFp::WORKSPACE_SIZE,
+                "Expected size for PointGFp workspace");
+
+   for(size_t i = 0; i != ws_bn.size(); ++i)
+      if(ws_bn[i].size() < cap_size)
+         ws_bn[i].get_word_vector().resize(cap_size);
+   }
+
+=======
+>>>>>>> 21fa3468b (wtf that worked?)
 inline word all_zeros(const word x[], size_t len)
    {
    word z = 0;
@@ -88,7 +102,7 @@ inline word all_zeros(const word x[], size_t len)
 
 void PointGFp::add_affine(const word x_words[], size_t x_size,
                           const word y_words[], size_t y_size,
-                          std::vector<BigInt>& ws_bn)
+                          BN_Pool& pool)
    {
    if(all_zeros(x_words, x_size) & all_zeros(y_words, y_size))
       {
@@ -103,16 +117,15 @@ void PointGFp::add_affine(const word x_words[], size_t x_size,
       return;
       }
 
-   resize_ws(ws_bn, m_curve.get_ws_size());
+   auto scope = pool.scope();
+   secure_vector<word>& ws = scope.get_vec();
+   secure_vector<word>& sub_ws = scope.get_vec();
 
-   secure_vector<word>& ws = ws_bn[0].get_word_vector();
-   secure_vector<word>& sub_ws = ws_bn[1].get_word_vector();
-
-   BigInt& T0 = ws_bn[2];
-   BigInt& T1 = ws_bn[3];
-   BigInt& T2 = ws_bn[4];
-   BigInt& T3 = ws_bn[5];
-   BigInt& T4 = ws_bn[6];
+   BigInt& T0 = scope.get();
+   BigInt& T1 = scope.get();
+   BigInt& T2 = scope.get();
+   BigInt& T3 = scope.get();
+   BigInt& T4 = scope.get();
 
    /*
    https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-add-1998-cmo-2
@@ -135,7 +148,7 @@ void PointGFp::add_affine(const word x_words[], size_t x_size,
       {
       if(T0.is_zero())
          {
-         mult2(ws_bn);
+         mult2(pool);
          return;
          }
 
@@ -172,7 +185,7 @@ void PointGFp::add_affine(const word x_words[], size_t x_size,
 void PointGFp::add(const word x_words[], size_t x_size,
                    const word y_words[], size_t y_size,
                    const word z_words[], size_t z_size,
-                   std::vector<BigInt>& ws_bn)
+                   BN_Pool& pool)
    {
    if(all_zeros(x_words, x_size) & all_zeros(z_words, z_size))
       return;
@@ -185,17 +198,16 @@ void PointGFp::add(const word x_words[], size_t x_size,
       return;
       }
 
-   resize_ws(ws_bn, m_curve.get_ws_size());
+   auto scope = pool.scope();
+   secure_vector<word>& ws = scope.get_vec();
+   secure_vector<word>& sub_ws = scope.get_vec();
 
-   secure_vector<word>& ws = ws_bn[0].get_word_vector();
-   secure_vector<word>& sub_ws = ws_bn[1].get_word_vector();
-
-   BigInt& T0 = ws_bn[2];
-   BigInt& T1 = ws_bn[3];
-   BigInt& T2 = ws_bn[4];
-   BigInt& T3 = ws_bn[5];
-   BigInt& T4 = ws_bn[6];
-   BigInt& T5 = ws_bn[7];
+   BigInt& T0 = scope.get();
+   BigInt& T1 = scope.get();
+   BigInt& T2 = scope.get();
+   BigInt& T3 = scope.get();
+   BigInt& T4 = scope.get();
+   BigInt& T5 = scope.get();
 
    /*
    https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-add-1998-cmo-2
@@ -222,7 +234,7 @@ void PointGFp::add(const word x_words[], size_t x_size,
       {
       if(T0.is_zero())
          {
-         mult2(ws_bn);
+         mult2(pool);
          return;
          }
 
@@ -255,7 +267,7 @@ void PointGFp::add(const word x_words[], size_t x_size,
    m_curve.mul(m_coord_z, T3, T4, ws);
    }
 
-void PointGFp::mult2i(size_t iterations, std::vector<BigInt>& ws_bn)
+void PointGFp::mult2i(size_t iterations, BN_Pool& pool)
    {
    if(iterations == 0)
       return;
@@ -271,11 +283,11 @@ void PointGFp::mult2i(size_t iterations, std::vector<BigInt>& ws_bn)
    a*Z^4 using values cached from previous iteration
    */
    for(size_t i = 0; i != iterations; ++i)
-      mult2(ws_bn);
+      mult2(pool);
    }
 
 // *this *= 2
-void PointGFp::mult2(std::vector<BigInt>& ws_bn)
+void PointGFp::mult2(BN_Pool& pool)
    {
    if(is_zero())
       return;
@@ -286,16 +298,15 @@ void PointGFp::mult2(std::vector<BigInt>& ws_bn)
       return;
       }
 
-   resize_ws(ws_bn, m_curve.get_ws_size());
+   auto scope = pool.scope();
+   secure_vector<word>& ws = scope.get_vec();
+   secure_vector<word>& sub_ws = scope.get_vec();
 
-   secure_vector<word>& ws = ws_bn[0].get_word_vector();
-   secure_vector<word>& sub_ws = ws_bn[1].get_word_vector();
-
-   BigInt& T0 = ws_bn[2];
-   BigInt& T1 = ws_bn[3];
-   BigInt& T2 = ws_bn[4];
-   BigInt& T3 = ws_bn[5];
-   BigInt& T4 = ws_bn[6];
+   BigInt& T0 = scope.get();
+   BigInt& T1 = scope.get();
+   BigInt& T2 = scope.get();
+   BigInt& T3 = scope.get();
+   BigInt& T4 = scope.get();
 
    /*
    https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-1986-cc
@@ -367,8 +378,8 @@ void PointGFp::mult2(std::vector<BigInt>& ws_bn)
 // arithmetic operators
 PointGFp& PointGFp::operator+=(const PointGFp& rhs)
    {
-   std::vector<BigInt> ws(PointGFp::WORKSPACE_SIZE);
-   add(rhs, ws);
+   BN_Pool pool;
+   add(rhs, pool);
    return *this;
    }
 
@@ -392,37 +403,43 @@ PointGFp& PointGFp::operator*=(const BigInt& scalar)
 
 PointGFp operator*(const BigInt& scalar, const PointGFp& point)
    {
-   BOTAN_DEBUG_ASSERT(point.on_the_curve());
+   BN_Pool pool;
+   BOTAN_DEBUG_ASSERT(point.on_the_curve(pool));
 
    const size_t scalar_bits = scalar.bits();
-
-   std::vector<BigInt> ws(PointGFp::WORKSPACE_SIZE);
 
    PointGFp R[2] = { point.zero(), point };
 
    for(size_t i = scalar_bits; i > 0; i--)
       {
       const size_t b = scalar.get_bit(i - 1);
-      R[b ^ 1].add(R[b], ws);
-      R[b].mult2(ws);
+      R[b ^ 1].add(R[b], pool);
+      R[b].mult2(pool);
       }
 
    if(scalar.is_negative())
       R[0].negate();
 
-   BOTAN_DEBUG_ASSERT(R[0].on_the_curve());
+   BOTAN_DEBUG_ASSERT(R[0].on_the_curve(pool));
 
    return R[0];
    }
 
 //static
-void PointGFp::force_all_affine(std::vector<PointGFp>& points,
-                                secure_vector<word>& ws)
+void PointGFp::force_all_affine(std::vector<PointGFp>& points, BN_Pool& pool)
    {
    if(points.size() <= 1)
       {
+<<<<<<< HEAD
       for(auto& point : points)
-         point.force_affine();
+         point.force_affine(); // fixme take a pool
+||||||| parent of 21fa3468b (wtf that worked?)
+      for(size_t i = 0; i != points.size(); ++i)
+         points[i].force_affine(); // fixme take a pool
+=======
+      for(size_t i = 0; i != points.size(); ++i)
+         points[i].force_affine(pool);
+>>>>>>> 21fa3468b (wtf that worked?)
       return;
       }
 
@@ -444,8 +461,8 @@ void PointGFp::force_all_affine(std::vector<PointGFp>& points,
    const CurveGFp& curve = points[0].m_curve;
    const BigInt& rep_1 = curve.get_1_rep();
 
-   if(ws.size() < curve.get_ws_size())
-      ws.resize(curve.get_ws_size());
+   auto scope = pool.scope();
+   secure_vector<word>& ws = scope.get_vec(curve.get_ws_size());
 
    std::vector<BigInt> c(points.size());
    c[0] = points[0].m_coord_z;
@@ -455,17 +472,22 @@ void PointGFp::force_all_affine(std::vector<PointGFp>& points,
       curve.mul(c[i], c[i-1], points[i].m_coord_z, ws);
       }
 
-   BigInt s_inv = curve.invert_element(c[c.size()-1], ws);
+   BigInt& s_inv = scope.get();
+   s_inv = curve.invert_element(c[c.size()-1], pool);
 
-   BigInt z_inv, z2_inv, z3_inv;
+   BigInt& z_inv = scope.get();
+   BigInt& z2_inv = scope.get();
+   BigInt& z3_inv = scope.get();
+
+   BigInt& s2_inv = scope.get();
 
    for(size_t i = points.size() - 1; i != 0; i--)
       {
       PointGFp& point = points[i];
 
       curve.mul(z_inv, s_inv, c[i-1], ws);
-
-      s_inv = curve.mul_to_tmp(s_inv, point.m_coord_z, ws);
+      curve.mul(s2_inv, s_inv, point.m_coord_z, ws);
+      s2_inv.swap(s_inv);
 
       curve.sqr(z2_inv, z_inv, ws);
       curve.mul(z3_inv, z2_inv, z_inv, ws);
@@ -481,14 +503,15 @@ void PointGFp::force_all_affine(std::vector<PointGFp>& points,
    points[0].m_coord_z = rep_1;
    }
 
-void PointGFp::force_affine()
+void PointGFp::force_affine(BN_Pool& pool)
    {
    if(is_zero())
       throw Invalid_State("Cannot convert zero ECC point to affine");
 
-   secure_vector<word> ws;
+   auto scope = pool.scope();
+   secure_vector<word>& ws = scope.get_vec();
 
-   const BigInt z_inv = m_curve.invert_element(m_coord_z, ws);
+   const BigInt z_inv = m_curve.invert_element(m_coord_z, pool);
    const BigInt z2_inv = m_curve.sqr_to_tmp(z_inv, ws);
    const BigInt z3_inv = m_curve.mul_to_tmp(z_inv, z2_inv, ws);
    m_coord_x = m_curve.mul_to_tmp(m_coord_x, z2_inv, ws);
@@ -501,18 +524,19 @@ bool PointGFp::is_affine() const
    return m_curve.is_one(m_coord_z);
    }
 
-BigInt PointGFp::get_affine_x() const
+BigInt PointGFp::get_affine_x(BN_Pool& pool) const
    {
    if(is_zero())
       throw Invalid_State("Cannot convert zero point to affine");
 
-   secure_vector<word> monty_ws;
+   auto scope = pool.scope();
+   secure_vector<word>& monty_ws = scope.get_vec();
 
    if(is_affine())
       return m_curve.from_rep_to_tmp(m_coord_x, monty_ws);
 
    BigInt z2 = m_curve.sqr_to_tmp(m_coord_z, monty_ws);
-   z2 = m_curve.invert_element(z2, monty_ws);
+   z2 = m_curve.invert_element(z2, pool);
 
    BigInt r;
    m_curve.mul(r, m_coord_x, z2, monty_ws);
@@ -520,19 +544,20 @@ BigInt PointGFp::get_affine_x() const
    return r;
    }
 
-BigInt PointGFp::get_affine_y() const
+BigInt PointGFp::get_affine_y(BN_Pool& pool) const
    {
    if(is_zero())
       throw Invalid_State("Cannot convert zero point to affine");
 
-   secure_vector<word> monty_ws;
+   auto scope = pool.scope();
+   secure_vector<word>& monty_ws = scope.get_vec();
 
    if(is_affine())
       return m_curve.from_rep_to_tmp(m_coord_y, monty_ws);
 
    const BigInt z2 = m_curve.sqr_to_tmp(m_coord_z, monty_ws);
    const BigInt z3 = m_curve.mul_to_tmp(m_coord_z, z2, monty_ws);
-   const BigInt z3_inv = m_curve.invert_element(z3, monty_ws);
+   const BigInt z3_inv = m_curve.invert_element(z3, pool);
 
    BigInt r;
    m_curve.mul(r, m_coord_y, z3_inv, monty_ws);
@@ -540,7 +565,7 @@ BigInt PointGFp::get_affine_y() const
    return r;
    }
 
-bool PointGFp::on_the_curve() const
+bool PointGFp::on_the_curve(BN_Pool& pool) const
    {
    /*
    Is the point still on the curve?? (If everything is correct, the
@@ -551,7 +576,21 @@ bool PointGFp::on_the_curve() const
    if(is_zero())
       return true;
 
-   secure_vector<word> monty_ws;
+   auto scope = pool.scope();
+   secure_vector<word>& monty_ws = scope.get_vec();
+   /*
+   BigInt& y2 = pool.get();
+   BigInt& x2 = pool.get();
+   BigInt& x3 = pool.get();
+   BigInt& ax = pool.get();
+   BigInt& z2 = pool.get();
+
+   m_curve.sqr(y2, m_coord_y, monty_ws);
+   m_curve.from_rep(y2, monty_ws);
+
+   m_curve.sqr(x2, m_coord_x, monty_ws);
+   m_curve.mul(x3, x2, m_coord_x, monty_ws);
+   */
 
    const BigInt y2 = m_curve.from_rep_to_tmp(m_curve.sqr_to_tmp(m_coord_y, monty_ws), monty_ws);
    const BigInt x3 = m_curve.mul_to_tmp(m_coord_x, m_curve.sqr_to_tmp(m_coord_x, monty_ws), monty_ws);
@@ -592,8 +631,9 @@ bool PointGFp::operator==(const PointGFp& other) const
    if(is_zero())
       return other.is_zero();
 
-   return (get_affine_x() == other.get_affine_x() &&
-           get_affine_y() == other.get_affine_y());
+   BN_Pool pool;
+   return (get_affine_x(pool) == other.get_affine_x(pool) &&
+           get_affine_y(pool) == other.get_affine_y(pool));
    }
 
 // encoding and decoding
@@ -604,8 +644,9 @@ std::vector<uint8_t> PointGFp::encode(PointGFp::Compression_Type format) const
 
    const size_t p_bytes = m_curve.get_p().bytes();
 
-   const BigInt x = get_affine_x();
-   const BigInt y = get_affine_y();
+   BN_Pool pool;
+   const BigInt x = get_affine_x(pool);
+   const BigInt y = get_affine_y(pool);
 
    std::vector<uint8_t> result;
 
@@ -674,7 +715,8 @@ PointGFp OS2ECP(const uint8_t data[], size_t data_len,
 
    PointGFp point(curve, xy.first, xy.second);
 
-   if(!point.on_the_curve())
+   BN_Pool pool;
+   if(!point.on_the_curve(pool))
       throw Decoding_Error("OS2ECP: Decoded point was not on the curve");
 
    return point;
