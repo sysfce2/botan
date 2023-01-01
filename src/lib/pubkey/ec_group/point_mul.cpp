@@ -365,7 +365,7 @@ PointGFp_Multi_Point_Precompute::PointGFp_Multi_Point_Precompute(const PointGFp&
 
    if(no_infinity)
       {
-      PointGFp::force_all_affine(m_M, ws[0].get_word_vector(), pool);
+      PointGFp::force_all_affine(m_M, pool);
       }
 
    m_no_infinity = no_infinity;
@@ -377,8 +377,6 @@ PointGFp PointGFp_Multi_Point_Precompute::multi_exp(const BigInt& z1,
    {
    if(m_M.size() == 1)
       return m_M[0];
-
-   BN_Pool pool;
 
    const size_t z_bits = round_up(std::max(z1.bits(), z2.bits()), 2);
 

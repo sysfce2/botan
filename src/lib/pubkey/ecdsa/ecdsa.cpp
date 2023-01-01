@@ -176,8 +176,6 @@ secure_vector<uint8_t>
 ECDSA_Signature_Operation::raw_sign(const uint8_t msg[], size_t msg_len,
                                     RandomNumberGenerator& rng)
    {
-   BigInt m = BigInt::from_bytes_with_max_bits(msg, msg_len, m_group.get_order_bits());
-
    auto scope = m_pool.scope();
    BigInt& k = scope.get();
    BigInt& k_inv = scope.get();
@@ -185,7 +183,7 @@ ECDSA_Signature_Operation::raw_sign(const uint8_t msg[], size_t msg_len,
    BigInt& s = scope.get();
    BigInt& xr_m = scope.get();
 
-   BigInt m(msg, msg_len, m_group.get_order_bits());
+   BigInt m = BigInt::from_bytes_with_max_bits(msg, msg_len, m_group.get_order_bits());
 
 #if defined(BOTAN_HAS_RFC6979_GENERATOR)
    k = m_rfc6979->nonce_for(m);

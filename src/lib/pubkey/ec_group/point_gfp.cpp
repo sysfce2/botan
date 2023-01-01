@@ -66,7 +66,6 @@ void PointGFp::randomize_repr(RandomNumberGenerator& rng, secure_vector<word>& w
 
 namespace {
 
-<<<<<<< HEAD
 inline void resize_ws(std::vector<BigInt>& ws_bn, size_t cap_size)
    {
    BOTAN_ASSERT(ws_bn.size() >= PointGFp::WORKSPACE_SIZE,
@@ -77,19 +76,6 @@ inline void resize_ws(std::vector<BigInt>& ws_bn, size_t cap_size)
          ws.get_word_vector().resize(cap_size);
    }
 
-||||||| parent of 21fa3468b (wtf that worked?)
-inline void resize_ws(std::vector<BigInt>& ws_bn, size_t cap_size)
-   {
-   BOTAN_ASSERT(ws_bn.size() >= PointGFp::WORKSPACE_SIZE,
-                "Expected size for PointGFp workspace");
-
-   for(size_t i = 0; i != ws_bn.size(); ++i)
-      if(ws_bn[i].size() < cap_size)
-         ws_bn[i].get_word_vector().resize(cap_size);
-   }
-
-=======
->>>>>>> 21fa3468b (wtf that worked?)
 inline word all_zeros(const word x[], size_t len)
    {
    word z = 0;
@@ -430,16 +416,8 @@ void PointGFp::force_all_affine(std::vector<PointGFp>& points, BN_Pool& pool)
    {
    if(points.size() <= 1)
       {
-<<<<<<< HEAD
       for(auto& point : points)
-         point.force_affine(); // fixme take a pool
-||||||| parent of 21fa3468b (wtf that worked?)
-      for(size_t i = 0; i != points.size(); ++i)
-         points[i].force_affine(); // fixme take a pool
-=======
-      for(size_t i = 0; i != points.size(); ++i)
-         points[i].force_affine(pool);
->>>>>>> 21fa3468b (wtf that worked?)
+         point.force_affine(pool); // fixme take a pool
       return;
       }
 
