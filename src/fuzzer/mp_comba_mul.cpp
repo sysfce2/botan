@@ -5,6 +5,7 @@
 */
 
 #include "mp_fuzzers.h"
+#include <botan/internal/mp_comba.h>
 
 void fuzz(const uint8_t in[], size_t in_len) {
    const size_t words = (in_len + sizeof(word) - 1) / sizeof(word);

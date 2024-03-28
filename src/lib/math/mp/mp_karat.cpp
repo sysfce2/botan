@@ -11,6 +11,7 @@
 #include <botan/exceptn.h>
 #include <botan/mem_ops.h>
 #include <botan/internal/ct_utils.h>
+#include <botan/internal/mp_comba.h>
 
 namespace Botan {
 

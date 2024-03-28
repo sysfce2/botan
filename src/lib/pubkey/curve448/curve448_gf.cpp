@@ -11,6 +11,7 @@
 #include <botan/internal/loadstor.h>
 #include <botan/internal/mp_asmi.h>
 #include <botan/internal/mp_core.h>
+#include <botan/internal/mp_comba.h>
 
 #include <algorithm>
 
@@ -156,10 +157,7 @@ void gf_mul(std::span<uint64_t, WORDS_448> out,
             std::span<const uint64_t, WORDS_448> b) {
    std::array<uint64_t, 14> ws;
    if constexpr(std::same_as<uint64_t, word>) {
-      // Reinterpret cast to itself to prevent compiler errors on non 64-bit systems
-      bigint_comba_mul7(reinterpret_cast<word*>(ws.data()),
-                        reinterpret_cast<const word*>(a.data()),
-                        reinterpret_cast<const word*>(b.data()));
+      bigint_comba_mul7(ws.data(), a.data(), b.data());
    } else {
       const auto a_arr = load_le<std::array<word, words_per_uint64 * WORDS_448>>(store_le(a));
       const auto b_arr = load_le<std::array<word, words_per_uint64 * WORDS_448>>(store_le(b));
@@ -185,8 +183,7 @@ void gf_square(std::span<uint64_t, WORDS_448> out, std::span<const uint64_t, WOR
    std::array<uint64_t, 14> ws;
 
    if constexpr(std::same_as<uint64_t, word>) {
-      // Reinterpret cast to itself to prevent compiler errors on non 64-bit systems
-      bigint_comba_sqr7(reinterpret_cast<word*>(ws.data()), reinterpret_cast<const word*>(a.data()));
+      bigint_comba_sqr7(ws.data(), a.data());
    } else {
       const auto a_arr = load_le<std::array<word, words_per_uint64 * WORDS_448>>(store_le(a));
       auto ws_arr = std::array<word, words_per_uint64 * 14>{};

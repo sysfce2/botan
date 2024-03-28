@@ -8,6 +8,7 @@ brief -> "Low level big integer math algorithms"
 </module_info>
 
 <header:internal>
+mp_comba.h
 mp_core.h
 mp_asmi.h
 </header:internal>

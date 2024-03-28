@@ -3,10 +3,10 @@
 import sys
 import datetime
 
-# (C) 2011,2014,2015,2016 Jack Lloyd
+# (C) 2011,2014,2015,2016,2024 Jack Lloyd
 # Botan is released under the Simplified BSD License (see license.txt)
 
-# Used to generate src/lib/math/mp/mp_comba.cpp
+# Used to generate src/lib/math/mp/mp_comba.h
 
 def comba_indexes(N):
 
@@ -92,23 +92,25 @@ def main(args = None):
 * Botan is released under the Simplified BSD License (see license.txt)
 */
 
-#include <botan/internal/mp_core.h>
+#include <botan/internal/mp_asmi.h>
 
 namespace Botan {
 """ % (sys.argv[0], datetime.date.today().strftime("%Y-%m-%d")))
 
     for n in sizes:
         print("/*\n* Comba %dx%d Squaring\n*/" % (n, n))
-        print("void bigint_comba_sqr%d(word z[%d], const word x[%d]) {" % (n, 2*n, n))
-        print("   word w2 = 0, w1 = 0, w0 = 0;\n")
+        print("template <WordType W>")
+        print("inline constexpr void bigint_comba_sqr%d(W z[%d], const W x[%d]) {" % (n, 2*n, n))
+        print("   W w2 = 0, w1 = 0, w0 = 0;\n")
 
         comba_square_code(n)
 
         print("}\n")
 
         print("/*\n* Comba %dx%d Multiplication\n*/" % (n, n))
-        print("void bigint_comba_mul%d(word z[%d], const word x[%d], const word y[%d]) {" % (n, 2*n, n, n))
-        print("   word w2 = 0, w1 = 0, w0 = 0;\n")
+        print("template <WordType W>")
+        print("inline constexpr void bigint_comba_mul%d(W z[%d], const W x[%d], const W y[%d]) {" % (n, 2*n, n, n))
+        print("   W w2 = 0, w1 = 0, w0 = 0;\n")
 
         comba_multiply_code(n)
 
