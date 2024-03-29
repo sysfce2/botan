@@ -93,6 +93,7 @@ def main(args = None):
 */
 
 #include <botan/internal/mp_core.h>
+#include <botan/internal/mp_comba.h>
 
 namespace Botan {
 """ % (sys.argv[0], datetime.date.today().strftime("%Y-%m-%d")))
@@ -108,9 +109,10 @@ namespace Botan {
 
         print("/*\n* Comba %dx%d Multiplication\n*/" % (n, n))
         print("void bigint_comba_mul%d(word z[%d], const word x[%d], const word y[%d]) {" % (n, 2*n, n, n))
-        print("   word w2 = 0, w1 = 0, w0 = 0;\n")
+        print("   return comba_mul<%d>(z, x, y);" % (n))
+        #print("   word w2 = 0, w1 = 0, w0 = 0;\n")
 
-        comba_multiply_code(n)
+        #comba_multiply_code(n)
 
         print("}\n")
 
