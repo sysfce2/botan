@@ -1,6 +1,6 @@
 /*
 * MPI Algorithms
-* (C) 1999-2010,2018 Jack Lloyd
+* (C) 1999-2010,2018,2024 Jack Lloyd
 *     2006 Luca Piccarreta
 *     2016 Matthias Gierlings
 *
@@ -742,6 +742,45 @@ inline constexpr auto bigint_modop_vartime(W n1, W n0, W d) -> W {
    W carry = 0;
    z = word_madd2(z, d, &carry);
    return (n0 - z);
+}
+
+/*
+* Comba Fixed Length Multiplication
+*/
+template <size_t N, WordType W>
+constexpr inline void comba_mul(W z[2*N], const W x[N], const W y[N]) {
+   word w2 = 0, w1 = 0, w0 = 0;
+
+   for(size_t i = 0; i != 2*N; ++i) {
+      const size_t start = i + 1 < N ? 0 : i - N + 1;
+      const size_t end = std::min(N, i + 1);
+
+      for(size_t j = start; j != end; ++j) {
+         word3_muladd(&w2, &w1, &w0, x[j], y[i-j]);
+      }
+      z[i] = w0;
+      w0 = w1;
+      w1 = w2;
+      w2 = 0;
+   }
+}
+
+template <size_t N, WordType W>
+constexpr inline void comba_sqr(W z[2*N], const W x[N]) {
+   word w2 = 0, w1 = 0, w0 = 0;
+
+   for(size_t i = 0; i != 2*N; ++i) {
+      const size_t start = i + 1 < N ? 0 : i - N + 1;
+      const size_t end = std::min(N, i + 1);
+
+      for(size_t j = start; j != end; ++j) {
+         word3_muladd(&w2, &w1, &w0, x[j], x[i-j]);
+      }
+      z[i] = w0;
+      w0 = w1;
+      w1 = w2;
+      w2 = 0;
+   }
 }
 
 /*
