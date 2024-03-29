@@ -78,14 +78,8 @@ const size_t KARATSUBA_SQUARE_THRESHOLD = 32;
 * Karatsuba Multiplication Operation
 */
 void karatsuba_mul(word z[], const word x[], const word y[], size_t N, word workspace[]) {
-   if(N < KARATSUBA_MULTIPLY_THRESHOLD || N % 2) {
+   if(N < KARATSUBA_MULTIPLY_THRESHOLD || N % 2 != 0) {
       switch(N) {
-         case 6:
-            return bigint_comba_mul6(z, x, y);
-         case 8:
-            return bigint_comba_mul8(z, x, y);
-         case 9:
-            return bigint_comba_mul9(z, x, y);
          case 16:
             return bigint_comba_mul16(z, x, y);
          case 24:
@@ -146,14 +140,8 @@ void karatsuba_mul(word z[], const word x[], const word y[], size_t N, word work
 * Karatsuba Squaring Operation
 */
 void karatsuba_sqr(word z[], const word x[], size_t N, word workspace[]) {
-   if(N < KARATSUBA_SQUARE_THRESHOLD || N % 2) {
+   if(N < KARATSUBA_SQUARE_THRESHOLD || N % 2 != 0) {
       switch(N) {
-         case 6:
-            return bigint_comba_sqr6(z, x);
-         case 8:
-            return bigint_comba_sqr8(z, x);
-         case 9:
-            return bigint_comba_sqr9(z, x);
          case 16:
             return bigint_comba_sqr16(z, x);
          case 24:
@@ -299,12 +287,8 @@ void bigint_mul(word z[],
       bigint_comba_mul4(z, x, y);
    } else if(sized_for_comba_mul<6>(x_sw, x_size, y_sw, y_size, z_size)) {
       bigint_comba_mul6(z, x, y);
-   } else if(sized_for_comba_mul<7>(x_sw, x_size, y_sw, y_size, z_size)) {
-      bigint_comba_mul7(z, x, y);
    } else if(sized_for_comba_mul<8>(x_sw, x_size, y_sw, y_size, z_size)) {
       bigint_comba_mul8(z, x, y);
-   } else if(sized_for_comba_mul<9>(x_sw, x_size, y_sw, y_size, z_size)) {
-      bigint_comba_mul9(z, x, y);
    } else if(sized_for_comba_mul<16>(x_sw, x_size, y_sw, y_size, z_size)) {
       bigint_comba_mul16(z, x, y);
    } else if(sized_for_comba_mul<24>(x_sw, x_size, y_sw, y_size, z_size)) {
@@ -336,12 +320,8 @@ void bigint_sqr(word z[], size_t z_size, const word x[], size_t x_size, size_t x
       bigint_comba_sqr4(z, x);
    } else if(sized_for_comba_sqr<6>(x_sw, x_size, z_size)) {
       bigint_comba_sqr6(z, x);
-   } else if(sized_for_comba_sqr<7>(x_sw, x_size, z_size)) {
-      bigint_comba_sqr7(z, x);
    } else if(sized_for_comba_sqr<8>(x_sw, x_size, z_size)) {
       bigint_comba_sqr8(z, x);
-   } else if(sized_for_comba_sqr<9>(x_sw, x_size, z_size)) {
-      bigint_comba_sqr9(z, x);
    } else if(sized_for_comba_sqr<16>(x_sw, x_size, z_size)) {
       bigint_comba_sqr16(z, x);
    } else if(sized_for_comba_sqr<24>(x_sw, x_size, z_size)) {

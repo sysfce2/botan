@@ -788,17 +788,13 @@ constexpr inline void comba_sqr(W z[2*N], const W x[N]) {
 */
 BOTAN_FUZZER_API void bigint_comba_mul4(word z[8], const word x[4], const word y[4]);
 BOTAN_FUZZER_API void bigint_comba_mul6(word z[12], const word x[6], const word y[6]);
-BOTAN_FUZZER_API void bigint_comba_mul7(word z[14], const word x[7], const word y[7]);
 BOTAN_FUZZER_API void bigint_comba_mul8(word z[16], const word x[8], const word y[8]);
-BOTAN_FUZZER_API void bigint_comba_mul9(word z[18], const word x[9], const word y[9]);
 BOTAN_FUZZER_API void bigint_comba_mul16(word z[32], const word x[16], const word y[16]);
 BOTAN_FUZZER_API void bigint_comba_mul24(word z[48], const word x[24], const word y[24]);
 
 BOTAN_FUZZER_API void bigint_comba_sqr4(word out[8], const word in[4]);
 BOTAN_FUZZER_API void bigint_comba_sqr6(word out[12], const word in[6]);
-BOTAN_FUZZER_API void bigint_comba_sqr7(word out[14], const word in[7]);
 BOTAN_FUZZER_API void bigint_comba_sqr8(word out[16], const word in[8]);
-BOTAN_FUZZER_API void bigint_comba_sqr9(word out[18], const word in[9]);
 BOTAN_FUZZER_API void bigint_comba_sqr16(word out[32], const word in[16]);
 BOTAN_FUZZER_API void bigint_comba_sqr24(word out[48], const word in[24]);
 

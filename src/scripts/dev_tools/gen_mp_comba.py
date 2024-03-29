@@ -80,7 +80,7 @@ def main(args = None):
         args = sys.argv
 
     if len(args) <= 1:
-        sizes = [4, 7, 6, 8, 9, 16, 24]
+        sizes = [4, 6, 8, 16, 24]
     else:
         sizes = map(int, args[1:])
 
@@ -93,7 +93,6 @@ def main(args = None):
 */
 
 #include <botan/internal/mp_core.h>
-#include <botan/internal/mp_comba.h>
 
 namespace Botan {
 """ % (sys.argv[0], datetime.date.today().strftime("%Y-%m-%d")))
