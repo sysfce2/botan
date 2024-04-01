@@ -13,6 +13,7 @@
 #include <botan/internal/curve_nistp.h>
 #include <botan/internal/monty.h>
 #include <botan/internal/mp_core.h>
+#include <botan/internal/mp_monty.h>
 
 namespace Botan {
 

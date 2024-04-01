@@ -10,4 +10,5 @@ brief -> "Low level big integer math algorithms"
 <header:internal>
 mp_core.h
 mp_asmi.h
+mp_monty.h
 </header:internal>

@@ -770,56 +770,6 @@ BOTAN_FUZZER_API void bigint_comba_sqr9(word out[18], const word in[9]);
 BOTAN_FUZZER_API void bigint_comba_sqr16(word out[32], const word in[16]);
 BOTAN_FUZZER_API void bigint_comba_sqr24(word out[48], const word in[24]);
 
-/*
-* Montgomery reduction
-*
-* Each of these functions makes the following assumptions:
-*
-* z_size == 2*p_size
-* ws_size >= p_size + 1
-*/
-BOTAN_FUZZER_API void bigint_monty_redc_4(word z[8], const word p[4], word p_dash, word ws[]);
-BOTAN_FUZZER_API void bigint_monty_redc_6(word z[12], const word p[6], word p_dash, word ws[]);
-BOTAN_FUZZER_API void bigint_monty_redc_8(word z[16], const word p[8], word p_dash, word ws[]);
-BOTAN_FUZZER_API void bigint_monty_redc_16(word z[32], const word p[16], word p_dash, word ws[]);
-BOTAN_FUZZER_API void bigint_monty_redc_24(word z[48], const word p[24], word p_dash, word ws[]);
-BOTAN_FUZZER_API void bigint_monty_redc_32(word z[64], const word p[32], word p_dash, word ws[]);
-
-BOTAN_FUZZER_API
-void bigint_monty_redc_generic(word z[], size_t z_size, const word p[], size_t p_size, word p_dash, word ws[]);
-
-/**
-* Montgomery Reduction
-* @param z integer to reduce, of size exactly 2*p_size. Output is in
-* the first p_size+1 words, higher words are set to zero.
-* @param p modulus
-* @param p_size size of p
-* @param p_dash Montgomery value
-* @param ws array of at least p_size+1 words
-* @param ws_size size of ws in words
-*/
-inline void bigint_monty_redc(word z[], const word p[], size_t p_size, word p_dash, word ws[], size_t ws_size) {
-   const size_t z_size = 2 * p_size;
-
-   BOTAN_ARG_CHECK(ws_size >= p_size + 1, "Montgomery workspace too small");
-
-   if(p_size == 4) {
-      bigint_monty_redc_4(z, p, p_dash, ws);
-   } else if(p_size == 6) {
-      bigint_monty_redc_6(z, p, p_dash, ws);
-   } else if(p_size == 8) {
-      bigint_monty_redc_8(z, p, p_dash, ws);
-   } else if(p_size == 16) {
-      bigint_monty_redc_16(z, p, p_dash, ws);
-   } else if(p_size == 24) {
-      bigint_monty_redc_24(z, p, p_dash, ws);
-   } else if(p_size == 32) {
-      bigint_monty_redc_32(z, p, p_dash, ws);
-   } else {
-      bigint_monty_redc_generic(z, z_size, p, p_size, p_dash, ws);
-   }
-}
-
 /**
 * Basecase O(N^2) multiplication
 */
