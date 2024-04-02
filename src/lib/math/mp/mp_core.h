@@ -354,6 +354,52 @@ inline constexpr auto bigint_sub3(W z[], const W x[], size_t x_size, const W y[]
 }
 
 /**
+* Subtraction
+*
+* Computes z[0:N+1] = (x0 || x[0:N]) - y[0:N] and returns borrow
+*/
+template <WordType W>
+inline constexpr auto bigint_maybe_sub(size_t N, word z[], W x0, const word x[], const word y[]) -> W {
+   W borrow = 0;
+
+   const size_t blocks = N - (N % 8);
+
+   for(size_t i = 0; i != blocks; i += 8) {
+      borrow = word8_sub3(z + i, x + i, y + i, borrow);
+   }
+
+   for(size_t i = blocks; i != N; ++i) {
+      z[i] = word_sub(x[i], y[i], &borrow);
+   }
+
+   z[N] = word_sub(x0, static_cast<W>(0), &borrow);
+   return borrow;
+}
+
+/**
+* Subtraction
+*
+* Computes z[0:N+1] = (x0 || x[0:N]) - y[0:N] and returns borrow
+*/
+template <size_t N, WordType W>
+inline constexpr auto bigint_maybe_sub(word z[N+1], W x0, const word x[N], const word y[N]) -> W {
+   const constexpr size_t blocks = N - (N % 8);
+
+   W borrow = 0;
+
+   for(size_t i = 0; i != blocks; i += 8) {
+      borrow = word8_sub3(z + i, x + i, y + i, borrow);
+   }
+
+   for(size_t i = blocks; i != N; ++i) {
+      z[i] = word_sub(x[i], y[i], &borrow);
+   }
+
+   z[N] = word_sub(x0, static_cast<W>(0), &borrow);
+   return borrow;
+}
+
+/**
 * Return abs(x-y), ie if x >= y, then compute z = x - y
 * Otherwise compute z = y - x
 * No borrow is possible since the result is always >= 0
@@ -776,7 +822,7 @@ BOTAN_FUZZER_API void bigint_comba_sqr24(word out[48], const word in[24]);
 * Each of these functions makes the following assumptions:
 *
 * z_size == 2*p_size
-* ws_size >= p_size + 1
+* ws_size >= p_size
 */
 BOTAN_FUZZER_API void bigint_monty_redc_4(word z[8], const word p[4], word p_dash, word ws[]);
 BOTAN_FUZZER_API void bigint_monty_redc_6(word z[12], const word p[6], word p_dash, word ws[]);
@@ -791,17 +837,17 @@ void bigint_monty_redc_generic(word z[], size_t z_size, const word p[], size_t p
 /**
 * Montgomery Reduction
 * @param z integer to reduce, of size exactly 2*p_size. Output is in
-* the first p_size+1 words, higher words are set to zero.
+* the first p_size words, higher words are set to zero.
 * @param p modulus
 * @param p_size size of p
 * @param p_dash Montgomery value
-* @param ws array of at least p_size+1 words
+* @param ws array of at least p_size words
 * @param ws_size size of ws in words
 */
 inline void bigint_monty_redc(word z[], const word p[], size_t p_size, word p_dash, word ws[], size_t ws_size) {
    const size_t z_size = 2 * p_size;
 
-   BOTAN_ARG_CHECK(ws_size >= p_size + 1, "Montgomery workspace too small");
+   BOTAN_ARG_CHECK(ws_size >= p_size, "Montgomery reduction workspace too small");
 
    if(p_size == 4) {
       bigint_monty_redc_4(z, p, p_dash, ws);
