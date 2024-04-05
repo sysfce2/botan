@@ -643,10 +643,13 @@ class ProjectiveCurvePoint {
       constexpr Self negate() const { return Self(m_x, m_y.negate(), m_z); }
 
       constexpr AffinePoint to_affine() const {
+         // Not strictly required right? - default should work as long
+         // as (0,0) is identity and invert returns 0 on 0
          if(this->is_identity()) {
             return AffinePoint::identity();
          }
 
+         // Maybe also worth skipping ...
          if(m_z.is_one()) {
             return AffinePoint(m_x, m_y);
          }
