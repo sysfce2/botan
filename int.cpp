@@ -347,6 +347,13 @@ class MontgomeryInteger {
       static constexpr Self from_wide_bytes(std::span<const uint8_t, L> bytes) {
          static_assert(L <= 2*Self::BYTES);
 
+         const auto w = bytes_to_words<W, 2*N, BYTES>(bytes);
+
+         Self lo(x);
+         Self hi(x);
+
+         // return (hi * R + lo) * R2; ??
+         return hi * R3 + lo * R2;
       }
 
       /*
