@@ -27,35 +27,6 @@ class StringLiteral {
       char value[N];
 };
 
-template <WordType W>
-inline constexpr auto monty_inverse(W a) -> W {
-   if(a % 2 == 0) {
-      throw Invalid_Argument("monty_inverse only valid for odd integers");
-   }
-
-   /*
-   * From "A New Algorithm for Inversion mod p^k" by Çetin Kaya Koç
-   * https://eprint.iacr.org/2017/411.pdf sections 5 and 7.
-   */
-
-   W b = 1;
-   W r = 0;
-
-   for(size_t i = 0; i != WordInfo<word>::bits; ++i) {
-      const W bi = b % 2;
-      r >>= 1;
-      r += bi << (WordInfo<word>::bits - 1);
-
-      b -= a * bi;
-      b >>= 1;
-   }
-
-   // Now invert in addition space
-   r = (WordInfo<word>::max - r) + 1;
-
-   return r;
-}
-
 template <WordType W, size_t N, size_t XN>
 inline consteval std::array<W, N> reduce_mod(const std::array<W, XN>& x, const std::array<W, N>& p) {
    std::array<W, N + 1> r = {0};
