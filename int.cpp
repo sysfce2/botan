@@ -170,16 +170,10 @@ inline constexpr auto bytes_to_words(std::span<const uint8_t, L> n) {
    static_assert(L <= WordInfo<W>::bytes * N);
 
    std::array<W, N> r = {};
-
    for(size_t i = 0; i != L; ++i) {
       shift_left<8>(r);
       r[0] += n[i];
-      #if 0
-      printf("%016llX %016llX %016llX %016llX\n",
-             r[0], r[1], r[2], r[3]);
-      #endif
    }
-
    return r;
 }
 
@@ -343,6 +337,9 @@ class MontgomeryInteger {
       // Returns nullopt if the input is an encoding greater than or equal P
       constexpr static std::optional<Self> deserialize(std::span<const uint8_t, Self::BYTES> bytes) {
          const auto words = bytes_to_words<W, N, BYTES>(bytes);
+
+         // TODO range check!!
+
          return Self(words) * Self::R2;
       }
 
