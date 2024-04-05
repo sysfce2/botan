@@ -165,6 +165,24 @@ inline consteval size_t count_bits(const std::array<W, N>& p) {
    return b;
 }
 
+template <WordType W, size_t N, size_t L>
+inline constexpr auto bytes_to_words(std::span<const uint8_t, L> n) {
+   static_assert(L <= WordInfo<W>::bytes * N);
+
+   std::array<W, N> r = {};
+
+   for(size_t i = 0; i != L; ++i) {
+      shift_left<8>(r);
+      r[0] += n[i];
+      #if 0
+      printf("%016llX %016llX %016llX %016llX\n",
+             r[0], r[1], r[2], r[3]);
+      #endif
+   }
+
+   return r;
+}
+
 template <StringLiteral PS>
 class MontgomeryInteger {
    private:
@@ -323,10 +341,9 @@ class MontgomeryInteger {
       // TODO:
 
       // Returns nullopt if the input is an encoding greater than or equal P
-      constexpr static std::optional<Self> deserialize(std::array<uint8_t, Self::BYTES> bytes) {
+      constexpr static std::optional<Self> deserialize(std::span<const uint8_t, Self::BYTES> bytes) {
          const auto words = bytes_to_words<W, N, BYTES>(bytes);
-
-         return {};
+         return Self(words) * Self::R2;
       }
 
       template <size_t L>
@@ -805,15 +822,26 @@ int main() {
 
    typedef MontgomeryInteger<"FFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF"> fe;
 
-   auto s = fe::zero();
-   for(size_t i = 0; i != 5; ++i) {
+   static_assert(fe::BITS == 256);
+   static_assert(fe::BYTES == 32);
+
+   #if 1
+   auto s = fe::one();
+   for(size_t i = 1; i != 30; ++i) {
       auto bytes = s.serialize();
       std::cout << hex_encode(bytes) << "\n";
-      if(fe::deserialize(bytes) != s) {
-         printf("%d\n", i);
+
+      auto r = fe::deserialize(bytes);
+      if(s != r) {
+         if(r) {
+            std::cout << hex_encode(r.value().serialize()) << "\n";
+         } else {
+            std::cout << "(none)\n";
+         }
       }
-      s += fe::one();
+      s = s - fe::one();
    }
+   #endif
 
 #if 0
    typedef EllipticCurve<"FFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF",
