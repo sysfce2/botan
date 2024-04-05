@@ -2,8 +2,10 @@
 #include <botan/internal/loadstor.h>
 #include <botan/internal/mp_core.h>
 #include <botan/internal/stl_util.h>
+#include <botan/internal/ec_h2c.h>
 #include <botan/rng.h>
 #include <array>
+#include <optional>
 #include <iostream>
 
 namespace Botan {
@@ -242,10 +244,10 @@ class MontgomeryInteger {
 
       friend constexpr Self operator+(const Self& a, const Self& b) {
          std::array<W, N> s;
-         W carry = bigint_add3_nc(s.data(), x.data(), N, y.data(), N);
+         W carry = bigint_add3_nc(s.data(), a.data(), N, b.data(), N);
 
          std::array<W, N> r;
-         bigint_monty_maybe_sub<N>(r.data(), carry, s.data(), p.data());
+         bigint_monty_maybe_sub<N>(r.data(), carry, s.data(), Self::P.data());
          return Self(r);
       }
 
@@ -275,7 +277,7 @@ class MontgomeryInteger {
 
       friend constexpr Self operator*(const Self& a, const Self& b) {
          std::array<W, 2 * N> z;
-         comba_mul<N>(z.data(), a.ptr(), b.ptr());
+         comba_mul<N>(z.data(), a.data(), b.data());
          return Self(bigint_monty_redc(z, Self::P, Self::P_dash));
       }
 
@@ -286,7 +288,7 @@ class MontgomeryInteger {
       constexpr void conditional_sub(bool cond, const Self& other) { conditional_add(cond, other.negate()); }
 
       constexpr void conditional_assign(bool cond, const Self& other) {
-         CT::conditional_assign_mem(static_cast<W>(cond), m_val.data(), other.ptr(), N);
+         CT::conditional_assign_mem(static_cast<W>(cond), m_val.data(), other.data(), N);
       }
 
       // fixme be faster
@@ -294,16 +296,16 @@ class MontgomeryInteger {
 
       constexpr Self square() const {
          std::array<W, 2 * N> z;
-         comba_sqr<N>(z.data(), this->ptr());
+         comba_sqr<N>(z.data(), this->data());
          return bigint_monty_redc(z, Self::P, Self::P_dash);
       }
 
       // Negation modulo p
       constexpr Self negate() const {
-         auto x_is_zero = CT::all_zeros(this->ptr(), N);
+         auto x_is_zero = CT::all_zeros(this->data(), N);
 
          std::array<W, N> r;
-         bigint_sub3(r.data(), Self::P.data(), N, this->ptr(), N);
+         bigint_sub3(r.data(), Self::P.data(), N, this->data(), N);
          x_is_zero.if_set_zero_out(r.data(), N);
          return Self(r);
       }
@@ -328,10 +330,10 @@ class MontgomeryInteger {
          return y;
       }
 
-      constexpr bool operator==(const Self& other) const { return CT::is_equal(this->ptr(), other.ptr(), N).as_bool(); }
+      constexpr bool operator==(const Self& other) const { return CT::is_equal(this->data(), other.data(), N).as_bool(); }
 
       constexpr bool operator!=(const Self& other) const {
-         return CT::is_not_equal(this->ptr(), other.ptr(), N).as_bool();
+         return CT::is_not_equal(this->data(), other.data(), N).as_bool();
       }
 
       constexpr std::array<uint8_t, Self::BYTES> serialize() const {
@@ -342,15 +344,18 @@ class MontgomeryInteger {
 
       // TODO:
 
+      // Returns nullopt if the input is an encoding greater than or equal P
+      constexpr static std::optional<Self> deserialize(std::array<uint8_t, Self::BYTES> bytes) {
+
+      }
+
+      template <size_t L>
+      static constexpr Self from_wide_bytes(std::span<const uint8_t, L> bytes) {
+         static_assert(L <= 2*Self::BYTES);
+
+      }
+
       /*
-      constexpr static Self deserialize(std::array<uint8_t, Self::BYTES> b) {
-
-      }
-
-      static constexpr Self from_wide_bytes(std::array<uint8_t, 2*Self::BYTES> b) {
-
-      }
-
       static Self from_bigint(const BigInt& bn) {
 
       }
@@ -362,12 +367,18 @@ class MontgomeryInteger {
       static constexpr Self ct_select(std::span<const Self> several, size_t idx) {
 
       }
+      */
 
       static constexpr Self random(RandomNumberGenerator& rng) {
-
+         std::array<uint8_t, Self::BYTES> buf;
+         for(;;) {
+            rng.randomize(buf.data(), buf.size());
+            if(auto v = Self::deserialize(buf)) {
+               return v;
+            }
+         }
       }
 
-      */
 
       template <size_t N>
       static consteval Self constant(StringLiteral<N> S) {
@@ -390,7 +401,7 @@ class MontgomeryInteger {
    private:
       constexpr const std::array<W, N>& value() const { return m_val; }
 
-      constexpr const W* ptr() const { return m_val.data(); }
+      constexpr const W* data() const { return m_val.data(); }
 
       template<size_t S>
       constexpr MontgomeryInteger(std::array<W, S> w) : m_val({}) {
@@ -773,6 +784,7 @@ class EllipticCurve {
       typedef PrecomputedMulTable<AffinePoint, ProjectivePoint, Scalar> MulTable;
 };
 
+
 template <typename C>
 C::AffinePoint scalar_mul(const typename C::AffinePoint& p,
                           const typename C::Scalar& s) {
@@ -812,6 +824,8 @@ int main() {
                          "4FE342E2FE1A7F9B8EE7EB4A7C0F9E162BCE33576B315ECECBB6406837BF51F5">
       P256;
 
+
+   #if 1
    typedef EllipticCurve<"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F",
       "0",
       "7",
@@ -830,5 +844,6 @@ int main() {
       std::cout << i << " -> " << hex_encode(p.serialize()) << "\n";
       s = s + K256::Scalar::one();
    }
+   #endif
    #endif
 }
