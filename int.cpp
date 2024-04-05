@@ -243,12 +243,19 @@ class MontgomeryInteger {
       constexpr bool is_even() const { return (m_val[0] & 0x01) == 0x00; }
 
       friend constexpr Self operator+(const Self& a, const Self& b) {
-         std::array<W, N> s;
-         W carry = bigint_add3_nc(s.data(), a.data(), N, b.data(), N);
+         std::array<W, N> t;
+         W carry = bigint_add3_nc(t.data(), a.data(), N, b.data(), N);
 
          std::array<W, N> r;
-         bigint_monty_maybe_sub<N>(r.data(), carry, s.data(), Self::P.data());
+         bigint_monty_maybe_sub<N>(r.data(), carry, t.data(), Self::P.data());
          return Self(r);
+      }
+
+      constexpr Self& operator+=(const Self& other) {
+         std::array<W, N> t;
+         W carry = bigint_add3_nc(t.data(), this->data(), N, other.data(), N);
+         bigint_monty_maybe_sub<N>(m_val.data(), carry, t.data(), Self::P.data());
+         return (*this);
       }
 
       friend constexpr Self operator-(const Self& a, const Self& b) { return a + b.negate(); }
@@ -346,7 +353,9 @@ class MontgomeryInteger {
 
       // Returns nullopt if the input is an encoding greater than or equal P
       constexpr static std::optional<Self> deserialize(std::array<uint8_t, Self::BYTES> bytes) {
+         const auto words = bytes_to_words<W, N, BYTES>(bytes);
 
+         return {};
       }
 
       template <size_t L>
@@ -471,7 +480,7 @@ class AffineCurvePoint {
          return r;
       }
 
-      //static constexpr Self deserialize(std::span<const uint8_t> bytes) {}
+      //static constexpr std::optional<Self> deserialize(std::span<const uint8_t> bytes) {}
 
       constexpr const FieldElement& x() const { return m_x; }
 
@@ -521,6 +530,16 @@ class ProjectiveCurvePoint {
       friend constexpr Self operator+(const Self& a, const AffinePoint& b) { return Self::add_mixed(a, b); }
 
       friend constexpr Self operator+(const AffinePoint& a, const Self& b) { return Self::add_mixed(b, a); }
+
+      constexpr Self& operator+=(const Self& other) {
+         (*this) = (*this) + other;
+         return (*this);
+      }
+
+      constexpr Self& operator+=(const AffinePoint& other) {
+         (*this) = (*this) + other;
+         return (*this);
+      }
 
       friend constexpr Self operator-(const Self& a, const Self& b) { return a + b.negate(); }
 
@@ -813,9 +832,19 @@ C::AffinePoint scalar_mul(const typename C::AffinePoint& p,
 int main() {
    using namespace Botan;
 
-   //typedef MontgomeryInteger<"FFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF"> fe;
+   typedef MontgomeryInteger<"FFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF"> fe;
 
-#if 1
+   auto s = fe::zero();
+   for(size_t i = 0; i != 5; ++i) {
+      auto bytes = s.serialize();
+      std::cout << hex_encode(bytes) << "\n";
+      if(fe::deserialize(bytes) != s) {
+         printf("%d\n", i);
+      }
+      s += fe::one();
+   }
+
+#if 0
    typedef EllipticCurve<"FFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF",
                          "FFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFC",
                          "5AC635D8AA3A93E7B3EBBD55769886BC651D06B0CC53B0F63BCE3C3E27D2604B",
