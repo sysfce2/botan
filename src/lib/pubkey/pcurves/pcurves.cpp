@@ -52,6 +52,51 @@ typedef EllipticCurve<
 
 // clang-format on
 
+namespace {
+
+template<PrimeOrderCurveId::Id ID, typename C>
+class PrimeOrderCurveImpl final : public PrimeOrderCurve {
+   public:
+      static_assert(C::ScalarBits <= PrimeOrderCurve::MaximumBitLength);
+      static_assert(C::PrimeFieldBits <= PrimeOrderCurve::MaximumBitLength);
+
+      std::optional<PrimeOrderCurveId> curve_id() const override { return ID; }
+
+      ProjectivePoint mul_by_g(const Scalar& wscalar) const override {
+         const auto scalar = C::Scalar::unsafe_restore_from_stash(wscalar.m_value);
+         return ProjectivePointC::MulByG(*scalar);
+      }
+
+      AffinePoint to_affine(const ProjectivePoint& pt) const override {
+
+      }
+
+      std::vector<uint8_t> serialize_point(const AffinePoint& pt) const override {
+
+      }
+
+      std::optional<Scalar> deserialize_scalar(std::span<const uint8_t> bytes) const {
+
+      }
+
+      static std::unique_ptr<const PrimeOrderCurve> instance() {
+         static auto g_curve = std::make_shared<PrimeOrderCurveImpl<ID, C>>();
+         return g_curve;
+      }
+};
+
+
+}
+
+std::shared_ptr<PrimeOrderCurve> PrimeOrderCurve::from_id(PrimeOrderCurveId id) {
+   switch(id.code()) {
+      case PrimeOrderCurveId::secp256r1:
+         return PrimeOrderCurveImpl<PrimeOrderCurveId::secp256r1, secp256r1>::instance();
+   }
+
+   return std::shared_ptr{};
+}
+
 std::vector<uint8_t> hash_to_curve(PrimeOrderCurveId curve,
                                    std::string_view hash,
                                    bool random_oracle,

@@ -225,6 +225,17 @@ class MontgomeryInteger {
          }
       }
 
+      template <size_t L>
+      std::array<W, L> stash_value() const {
+         static_assert(L >= N);
+         std::array<W, L> val = {};
+      }
+
+      template <size_t L>
+      Self unsafe_restore_from_stash(std::span<W, L> val) {
+
+      }
+
       // Returns nullopt if the input is an encoding greater than or equal P
       constexpr static std::optional<Self> deserialize(std::span<const uint8_t> bytes) {
          // We could allow either short inputs or longer zero padded
