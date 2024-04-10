@@ -96,32 +96,41 @@ class PrimeOrderCurve {
       */
 
       class Scalar final {
+         public:
+            static const size_t Storage = MaximumWords;
          private:
+            Scalar(std::array<word, Storage> v) : m_value(v) {}
+
             std::shared_ptr<const PrimeOrderCurveId> m_curve;
             std::array<word, MaximumWords> m_value;
       };
 
       class AffinePoint final {
          public:
+            static const size_t Storage = 2 * MaximumWords;
+
             std::vector<uint8_t> serialize() const {
                return m_curve->serialize_point(*this);
             }
          private:
+            AffinePoint(std::array<word, Storage> v) : m_value(v) {}
+
             std::shared_ptr<const PrimeOrderCurve> m_curve;
-            std::array<word, MaximumWords> m_x;
-            std::array<word, MaximumWords> m_y;
+            std::array<word, Storage> m_value;
       };
 
       class ProjectivePoint final {
          public:
+            static const size_t Storage = 3 * MaximumWords;
+
             AffinePoint to_affine() const {
                return m_curve->to_affine(*this);
             }
          private:
+            ProjectivePoint(std::array<word, Storage> v) : m_value(v) {}
+
             std::shared_ptr<const PrimeOrderCurve> m_curve;
-            std::array<word, MaximumWords> m_x;
-            std::array<word, MaximumWords> m_y;
-            std::array<word, MaximumWords> m_z;
+            std::array<word, 3*MaximumWords> m_value;
       };
 
       virtual ~PrimeOrderCurve() = default;

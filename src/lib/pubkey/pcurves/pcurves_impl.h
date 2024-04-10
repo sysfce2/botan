@@ -226,14 +226,23 @@ class MontgomeryInteger {
       }
 
       template <size_t L>
-      std::array<W, L> stash_value() const {
+      std::array<W, L> to_stash() const {
          static_assert(L >= N);
-         std::array<W, L> val = {};
+         std::array<W, L> stash = {};
+         for(size_t i = 0; i != N; ++i) {
+            stash[i] = m_val[i];
+         }
+         return stash;
       }
 
       template <size_t L>
-      Self unsafe_restore_from_stash(std::span<W, L> val) {
-
+      Self unstash_value(std::span<W, L> stash) {
+         static_assert(L >= N);
+         std::array<W, N> val = {};
+         for(size_t i = 0; i != N; ++i) {
+            val[i] = stash[i];
+         }
+         return Self(val);
       }
 
       // Returns nullopt if the input is an encoding greater than or equal P

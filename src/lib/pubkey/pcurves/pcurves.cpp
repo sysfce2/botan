@@ -63,23 +63,24 @@ class PrimeOrderCurveImpl final : public PrimeOrderCurve {
       std::optional<PrimeOrderCurveId> curve_id() const override { return ID; }
 
       ProjectivePoint mul_by_g(const Scalar& wscalar) const override {
-         const auto scalar = C::Scalar::unsafe_restore_from_stash(wscalar.m_value);
-         return ProjectivePointC::MulByG(*scalar);
+         const auto scalar = C::Scalar::from_stash(wscalar.m_value);
+         return ProjectivePoint(C::MulByG(*scalar).to_stash());
       }
 
       AffinePoint to_affine(const ProjectivePoint& pt) const override {
-
+         const auto pp = C::ProjectivePoint::from_stash(pt);
+         return AffinePoint(pp.to_affine().to_stash());
       }
 
       std::vector<uint8_t> serialize_point(const AffinePoint& pt) const override {
-
+         return std::vector<uint8_t>();
       }
 
       std::optional<Scalar> deserialize_scalar(std::span<const uint8_t> bytes) const {
-
+         return {};
       }
 
-      static std::unique_ptr<const PrimeOrderCurve> instance() {
+      static std::shared_ptr<const PrimeOrderCurve> instance() {
          static auto g_curve = std::make_shared<PrimeOrderCurveImpl<ID, C>>();
          return g_curve;
       }
@@ -91,7 +92,7 @@ class PrimeOrderCurveImpl final : public PrimeOrderCurve {
 std::shared_ptr<PrimeOrderCurve> PrimeOrderCurve::from_id(PrimeOrderCurveId id) {
    switch(id.code()) {
       case PrimeOrderCurveId::secp256r1:
-         return PrimeOrderCurveImpl<PrimeOrderCurveId::secp256r1, secp256r1>::instance();
+         return PrimeOrderCurveImpl<PrimeOrderCurveId::secp256r1, P256>::instance();
    }
 
    return std::shared_ptr{};
