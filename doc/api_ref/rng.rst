@@ -223,15 +223,24 @@ on POWER ``darn``. If the relevant instruction is not available, the
 constructor of the class will throw at runtime. You can test
 beforehand by checking the result of ``Processor_RNG::available()``.
 
-TPM_RNG
-^^^^^^^^^^^^^^^^^
+TPM_RNG & TPM2_RNG
+^^^^^^^^^^^^^^^^^^
 
-This RNG type allows using the RNG exported from a TPM chip.
+These RNG types allow using the RNG exported from a TPM chip.
 
 PKCS11_RNG
 ^^^^^^^^^^^^^^^^^
 
 This RNG type allows using the RNG exported from a hardware token accessed via PKCS11.
+
+Jitter_RNG
+^^^^^^^^^^^^^^^^^
+
+This is an RNG based on low-level CPU timing jitter, using the
+`jitterentropy library <https://github.com/smuellerDD/jitterentropy-library>`_.
+
+Can be enabled with ``configure.py`` via ``--enable-module="jitter_rng"``, provided
+you have the library installed and made available to the build, including headers.
 
 Entropy Sources
 ---------------------------------
