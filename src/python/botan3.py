@@ -325,6 +325,26 @@ def _set_prototypes(dll):
     ffi_api(dll.botan_ec_group_get_order, [c_void_p, c_void_p])
     ffi_api(dll.botan_ec_group_equal, [c_void_p, c_void_p])
 
+    # EC Points and Scalars
+    ffi_api(dll.botan_ec_scalar_destroy, [c_void_p])
+    ffi_api(dll.botan_ec_scalar_random, [c_void_p, c_void_p, c_void_p])
+    ffi_api(dll.botan_ec_scalar_from_mp, [c_void_p, c_void_p, c_void_p])
+    ffi_api(dll.botan_ec_point_destroy, [c_void_p])
+    ffi_api(dll.botan_ec_point_identity, [c_void_p, c_void_p])
+    ffi_api(dll.botan_ec_point_generator, [c_void_p, c_void_p])
+    ffi_api(dll.botan_ec_point_from_xy, [c_void_p, c_void_p, c_void_p, c_void_p])
+    ffi_api(dll.botan_ec_point_from_bytes, [c_void_p, c_void_p, c_char_p, c_size_t])
+    ffi_api(dll.botan_ec_point_view_x_bytes, [c_void_p, c_void_p, VIEW_BIN_CALLBACK])
+    ffi_api(dll.botan_ec_point_view_y_bytes, [c_void_p, c_void_p, VIEW_BIN_CALLBACK])
+    ffi_api(dll.botan_ec_point_view_xy_bytes, [c_void_p, c_void_p, VIEW_BIN_CALLBACK])
+    ffi_api(dll.botan_ec_point_view_uncompressed, [c_void_p, c_void_p, VIEW_BIN_CALLBACK])
+    ffi_api(dll.botan_ec_point_view_compressed, [c_void_p, c_void_p, VIEW_BIN_CALLBACK])
+    ffi_api(dll.botan_ec_point_is_identity, [c_void_p])
+    ffi_api(dll.botan_ec_point_equal, [c_void_p, c_void_p])
+    ffi_api(dll.botan_ec_point_negate, [c_void_p, c_void_p])
+    ffi_api(dll.botan_ec_point_add, [c_void_p, c_void_p, c_void_p])
+    ffi_api(dll.botan_ec_point_mul, [c_void_p, c_void_p, c_void_p, c_void_p])
+
     #  PUBKEY
     ffi_api(dll.botan_privkey_create, [c_void_p, c_char_p, c_char_p, c_void_p])
     ffi_api(dll.botan_ec_privkey_create, [c_void_p, c_char_p, c_void_p, c_void_p])
@@ -406,6 +426,9 @@ def _set_prototypes(dll):
     ffi_api(dll.botan_pubkey_load_dh, [c_void_p, c_void_p, c_void_p, c_void_p])
     ffi_api(dll.botan_pubkey_load_elgamal, [c_void_p, c_void_p, c_void_p, c_void_p])
     ffi_api(dll.botan_privkey_load_elgamal, [c_void_p, c_void_p, c_void_p, c_void_p])
+    ffi_api(dll.botan_ec_privkey_get_private_key, [c_void_p, c_void_p])
+    ffi_api(dll.botan_ec_privkey_get_group, [c_void_p, c_void_p])
+    ffi_api(dll.botan_ec_pubkey_get_group, [c_void_p, c_void_p])
     ffi_api(dll.botan_privkey_load_ed25519, [c_void_p, c_char_p])
     ffi_api(dll.botan_pubkey_load_ed25519, [c_void_p, c_char_p])
     ffi_api(dll.botan_privkey_ed25519_get_privkey, [c_void_p, c_char_p])
@@ -1701,6 +1724,14 @@ class PublicKey: # pylint: disable=invalid-name
             raise BotanException("Only ECC keys have a notion of explicit encoding")
         return rc == 1
 
+    def get_group(self) -> ECGroup:
+        """Return the group associated with the key if the key is an EC key.
+        Raises an exception if the key is not an EC key."""
+        group = ECGroup()
+        _DLL.botan_ec_pubkey_get_group(self.__obj, byref(group.handle_()))
+        return group
+
+
 #
 # Private Key
 #
@@ -1975,6 +2006,20 @@ class PrivateKey:
         r = c_uint64(0)
         _DLL.botan_privkey_remaining_operations(self.__obj, byref(r))
         return r.value
+
+    def get_private_key(self) -> ECScalar:
+        """Return the private value if the key is an EC key."""
+        scalar = ECScalar()
+        _DLL.botan_ec_privkey_get_private_key(self.__obj, byref(scalar.handle_()))
+        return scalar
+
+    def get_group(self) -> ECGroup:
+        """Return the group associated with the key if the key is an EC key.
+        Raises an exception if the key is not an EC key."""
+        group = ECGroup()
+        _DLL.botan_ec_privkey_get_group(self.__obj, byref(group.handle_()))
+        return group
+
 
 class PKEncrypt:
     """Previously ``pk_op_encrypt``"""
@@ -2985,6 +3030,12 @@ class ECGroup:
         _DLL.botan_ec_group_get_order(byref(order), self.__obj)
         return MPI(order)
 
+    def get_identity(self) -> ECPoint:
+        return ECPoint.identity(self)
+
+    def get_generator(self) -> ECPoint:
+        return ECPoint.generator(self)
+
     def __eq__(self, other: ECGroup | object) -> bool:
         if isinstance(other, ECGroup):
             return _DLL.botan_ec_group_equal(self.__obj, other.handle_()) == 1
@@ -2993,6 +3044,122 @@ class ECGroup:
 
     def __ne__(self, other: ECGroup | object) -> bool:
         return not self == other
+
+
+class ECScalar:
+    def __init__(self, obj: c_void_p | None = None):
+        if not obj:
+            obj = c_void_p(0)
+        self.__obj = obj
+
+    def handle_(self):
+        return self.__obj
+
+    def __del__(self):
+        _DLL.botan_ec_scalar_destroy(self.__obj)
+
+    @classmethod
+    def random(cls, group: ECGroup, rng: RandomNumberGenerator) -> ECScalar:
+        """Create a new scalar with a random value"""
+        scalar = ECScalar()
+        _DLL.botan_ec_scalar_random(byref(scalar.handle_()), group.handle_(), rng.handle_())
+        return scalar
+
+    @classmethod
+    def from_mpi(cls, group: ECGroup, mpi: MPI) -> ECScalar:
+        """Convert from an MPI to a scalar. Raises an exception if the MPI is negative or too large."""
+        scalar = ECScalar()
+        _DLL.botan_ec_scalar_from_mp(byref(scalar.handle_()), group.handle_(), mpi.handle_())
+        return scalar
+
+
+class ECPoint:
+    def __init__(self, obj: c_void_p | None = None):
+        if not obj:
+            obj = c_void_p(0)
+        self.__obj = obj
+
+    def handle_(self):
+        return self.__obj
+
+    def __del__(self):
+        _DLL.botan_ec_point_destroy(self.__obj)
+
+    @classmethod
+    def identity(cls, group: ECGroup) -> ECPoint:
+        """Create a point set to the group identity"""
+        ec_point = ECPoint()
+        _DLL.botan_ec_point_identity(byref(ec_point.handle_()), group.handle_())
+        return ec_point
+
+    @classmethod
+    def generator(cls, group: ECGroup) -> ECPoint:
+        """Create a point set to the group generator"""
+        ec_point = ECPoint()
+        _DLL.botan_ec_point_generator(byref(ec_point.handle_()), group.handle_())
+        return ec_point
+
+    @classmethod
+    def from_xy(cls, group: ECGroup, x: MPI, y: MPI) -> ECPoint:
+        """Create a point from a set of (x,y) integers.
+        The integers must be within the field and must satisfy the curve equation."""
+        ec_point = ECPoint()
+        _DLL.botan_ec_point_from_xy(byref(ec_point.handle_()), group.handle_(), x.handle_(), y.handle_())
+        return ec_point
+
+    @classmethod
+    def from_bytes(cls, group: ECGroup, buf: bytes) -> ECPoint:
+        """Create a point from a SEC1 compressed or uncompressed format."""
+        ec_point = ECPoint()
+        _DLL.botan_ec_point_from_bytes(byref(ec_point.handle_()), group.handle_(), buf, len(buf))
+        return ec_point
+
+    def __eq__(self, other: ECPoint | object) -> bool:
+        if isinstance(other, ECPoint):
+            return _DLL.botan_ec_point_equal(self.__obj, other.handle_()) == 1
+        else:
+            return False
+
+    def __ne__(self, other: ECPoint | object) -> bool:
+        return not self == other
+
+    def __add__(self, other: ECPoint):
+        r = ECPoint()
+        _DLL.botan_ec_point_add(byref(r.handle_()), self.__obj, other.handle_())
+        return r
+
+    def is_identity(self):
+        return _DLL.botan_ec_point_is_identity(self.__obj) == 1
+
+    def negate(self) -> ECPoint:
+        r = ECPoint()
+        _DLL.botan_ec_point_negate(byref(r.handle_()), self.__obj)
+        return r
+
+    def mul(self, scalar: ECScalar, rng: RandomNumberGenerator) -> ECPoint:
+        r = ECPoint()
+        _DLL.botan_ec_point_mul(byref(r.handle_()), self.__obj, scalar.handle_(), rng.handle_())
+        return r
+
+    def to_x_bytes(self) -> bytes:
+        """Get the fixed length encoding of the affine x coordinate"""
+        return _call_fn_viewing_vec(lambda vc, vfn: _DLL.botan_ec_point_view_x_bytes(self.__obj, vc, vfn))
+
+    def to_y_bytes(self) -> bytes:
+        """Get the fixed length encoding of the affine y coordinate"""
+        return _call_fn_viewing_vec(lambda vc, vfn: _DLL.botan_ec_point_view_y_bytes(self.__obj, vc, vfn))
+
+    def to_xy_bytes(self) -> bytes:
+        """Get the fixed length encoding of the affine x and y coordinates"""
+        return _call_fn_viewing_vec(lambda vc, vfn: _DLL.botan_ec_point_view_xy_bytes(self.__obj, vc, vfn))
+
+    def to_uncompressed(self) -> bytes:
+        """Get the fixed length SEC1 uncompressed encoding"""
+        return _call_fn_viewing_vec(lambda vc, vfn: _DLL.botan_ec_point_view_uncompressed(self.__obj, vc, vfn))
+
+    def to_compressed(self) -> bytes:
+        """Get the fixed length SEC1 compressed encoding"""
+        return _call_fn_viewing_vec(lambda vc, vfn: _DLL.botan_ec_point_view_compressed(self.__obj, vc, vfn))
 
 
 class FormatPreservingEncryptionFE1:

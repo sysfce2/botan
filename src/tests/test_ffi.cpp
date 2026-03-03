@@ -5460,6 +5460,14 @@ class FFI_EC_Group_Test final : public FFI_Test {
             TEST_FFI_OK(botan_privkey_algo_name, (priv, namebuf.data(), &name_len));
             result.test_str_eq("Key name is expected value", namebuf.data(), "ECDSA");
 
+            botan_ec_group_t group_from_key;
+            TEST_FFI_OK(botan_ec_privkey_get_group, (priv, &group_from_key));
+            TEST_FFI_RC(1, botan_ec_group_equal, (group_from_key, secp384r1));
+
+            botan_ec_scalar_t private_value;
+            TEST_FFI_OK(botan_ec_privkey_get_private_key, (priv, &private_value));
+
+            botan_ec_scalar_destroy(private_value);
             botan_privkey_destroy(priv);
 
             TEST_FFI_OK(botan_ec_group_destroy, (group_from_name));
@@ -5468,6 +5476,7 @@ class FFI_EC_Group_Test final : public FFI_Test {
             TEST_FFI_OK(botan_ec_group_destroy, (secp384r1_with_seed));
             TEST_FFI_OK(botan_ec_group_destroy, (group_from_ber));
             TEST_FFI_OK(botan_ec_group_destroy, (group_from_pem));
+            TEST_FFI_OK(botan_ec_group_destroy, (group_from_key));
          }
       }
 
@@ -5488,6 +5497,96 @@ class FFI_EC_Group_Test final : public FFI_Test {
          TEST_FFI_OK(botan_ec_group_get_g_x, (g_x, ec_group));
          TEST_FFI_OK(botan_ec_group_get_g_y, (g_y, ec_group));
          TEST_FFI_OK(botan_ec_group_get_order, (order, ec_group));
+      }
+};
+
+class FFI_EC_Point_Test final : public FFI_Test {
+   public:
+      std::string name() const override { return "FFI Points and Scalars"; }
+
+      void ffi_test(Test::Result& result, botan_rng_t rng) override {
+         botan_ec_group_t group;
+
+         botan_ec_scalar_t random;
+         botan_mp_t to_scalar;
+         botan_ec_scalar_t from_mp;
+
+         if(!Botan::EC_Group::supports_named_group("secp256r1")) {
+            result.test_note("Group needed for test not supported by this build configuration.");
+            return;
+         }
+
+         TEST_FFI_OK(botan_mp_init, (&to_scalar));
+         TEST_FFI_OK(botan_mp_set_from_str, (to_scalar, "12345"));
+
+         TEST_FFI_OK(botan_ec_group_from_name, (&group, "secp256r1"));
+         TEST_FFI_OK(botan_ec_scalar_random, (&random, group, rng));
+         TEST_FFI_OK(botan_ec_scalar_from_mp, (&from_mp, group, to_scalar));
+
+         TEST_FFI_OK(botan_ec_scalar_destroy, (random));
+         TEST_FFI_OK(botan_ec_scalar_destroy, (from_mp));
+         TEST_FFI_OK(botan_mp_destroy, (to_scalar));
+
+         botan_ec_point_t identity;
+         botan_ec_point_t generator;
+         botan_ec_point_t generator_neg;
+         botan_ec_point_t out_add_ident;
+         botan_ec_point_t out_add_inverse;
+
+         TEST_FFI_OK(botan_ec_point_identity, (&identity, group));
+         TEST_FFI_OK(botan_ec_point_generator, (&generator, group));
+         TEST_FFI_OK(botan_ec_point_negate, (&generator_neg, generator));
+
+         TEST_FFI_OK(botan_ec_point_add, (&out_add_ident, generator, identity));
+         TEST_FFI_OK(botan_ec_point_add, (&out_add_inverse, generator, generator_neg));
+
+         ViewBytesSink generator_bytes;
+         TEST_FFI_OK(botan_ec_point_view_xy_bytes, (generator, generator_bytes.delegate(), generator_bytes.callback()));
+
+         ViewBytesSink gen_plus_ident_bytes;
+         TEST_FFI_OK(botan_ec_point_view_xy_bytes,
+                     (out_add_ident, gen_plus_ident_bytes.delegate(), gen_plus_ident_bytes.callback()));
+
+         result.test_bin_eq("generator == out_add_ident", generator_bytes.get(), gen_plus_ident_bytes.get());
+
+         TEST_FFI_RC(1, botan_ec_point_equal, (generator, out_add_ident));
+         TEST_FFI_RC(1, botan_ec_point_equal, (identity, out_add_inverse));
+         TEST_FFI_RC(1, botan_ec_point_is_identity, (out_add_inverse));
+
+         ViewBytesSink identity_bytes;
+         TEST_FFI_RC(BOTAN_FFI_ERROR_INVALID_OBJECT_STATE,
+                     botan_ec_point_view_xy_bytes,
+                     (identity, identity_bytes.delegate(), identity_bytes.callback()));
+
+         botan_mp_t group_order;
+         TEST_FFI_OK(botan_ec_group_get_order, (&group_order, group));
+         botan_mp_t group_order_minus_1;
+         TEST_FFI_OK(botan_mp_init, (&group_order_minus_1));
+
+         TEST_FFI_OK(botan_mp_sub_u32, (group_order_minus_1, group_order, 1));
+         botan_ec_scalar_t order;
+         TEST_FFI_OK(botan_ec_scalar_from_mp, (&order, group, group_order_minus_1));
+
+         botan_ec_point_t out_mul_order_minus_one;
+         TEST_FFI_OK(botan_ec_point_mul, (&out_mul_order_minus_one, generator, order, rng));
+
+         botan_ec_point_t out_add_gen_to_order;
+         TEST_FFI_OK(botan_ec_point_add, (&out_add_gen_to_order, out_mul_order_minus_one, generator));
+
+         TEST_FFI_RC(1, botan_ec_point_is_identity, (out_add_gen_to_order));
+
+         TEST_FFI_OK(botan_mp_destroy, (group_order));
+         TEST_FFI_OK(botan_mp_destroy, (group_order_minus_1));
+         TEST_FFI_OK(botan_ec_scalar_destroy, (order));
+
+         TEST_FFI_OK(botan_ec_point_destroy, (identity));
+         TEST_FFI_OK(botan_ec_point_destroy, (generator));
+         TEST_FFI_OK(botan_ec_point_destroy, (generator_neg));
+         TEST_FFI_OK(botan_ec_point_destroy, (out_add_ident));
+         TEST_FFI_OK(botan_ec_point_destroy, (out_add_inverse));
+         TEST_FFI_OK(botan_ec_point_destroy, (out_mul_order_minus_one));
+         TEST_FFI_OK(botan_ec_point_destroy, (out_add_gen_to_order));
+         TEST_FFI_OK(botan_ec_group_destroy, (group));
       }
 };
 
@@ -5658,6 +5757,7 @@ BOTAN_REGISTER_TEST("ffi", "ffi_elgamal", FFI_ElGamal_Test);
 BOTAN_REGISTER_TEST("ffi", "ffi_dh", FFI_DH_Test);
 BOTAN_REGISTER_TEST("ffi", "ffi_oid", FFI_OID_Test);
 BOTAN_REGISTER_TEST("ffi", "ffi_ec_group", FFI_EC_Group_Test);
+BOTAN_REGISTER_TEST("ffi", "ffi_ec_points", FFI_EC_Point_Test);
 BOTAN_REGISTER_TEST("ffi", "ffi_srp6", FFI_SRP6_Test);
 
    #if defined(BOTAN_HAS_X509)

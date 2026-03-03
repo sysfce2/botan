@@ -1020,6 +1020,98 @@ EC Groups
    Return 1 if ``curve1`` is equal to ``curve2``, 0 if ``curve1`` is not equal to ``curve2``
 
 
+EC Points and Scalars
+----------------------------------------
+
+.. versionadded:: 3.12.0
+
+.. cpp:type:: opaque* botan_ec_scalar_t
+
+   An opaque data type for an EC Scalar. Don't mess with it.
+
+.. cpp:type:: opaque* botan_ec_point_t
+
+   An opaque data type for an EC Point. Don't mess with it.
+
+.. cpp:function:: int botan_ec_scalar_destroy(botan_ec_scalar_t ec_scalar)
+
+   Destroy an object.
+
+.. cpp:function:: int botan_ec_scalar_random(botan_ec_scalar_t* ec_scalar, botan_ec_group_t ec_group, botan_rng_t rng);
+
+   Create a scalar with a random value.
+
+.. cpp:function:: int botan_ec_scalar_from_mp(botan_ec_scalar_t* ec_scalar, botan_ec_group_t ec_group, botan_mp_t mp);
+
+   Convert from an MPI to a scalar.
+
+.. cpp:function:: int botan_ec_point_destroy(botan_ec_point_t ec_point)
+
+   Destroy an object.
+
+.. cpp:function:: int botan_ec_point_identity(botan_ec_point_t* ec_point, botan_ec_group_t ec_group);
+
+   Create a point set to the identity element of the group.
+
+.. cpp:function:: int botan_ec_point_generator(botan_ec_point_t* ec_point, botan_ec_group_t ec_group);
+
+   Create a point set to the standard group generator.
+
+.. cpp:function:: int botan_ec_point_from_xy(botan_ec_point_t* ec_point, botan_ec_group_t ec_group, botan_mp_t x, botan_mp_t y);
+
+   Create a point from a pair (x,y) of integers.
+   The integers must be within the field and must satisfy the curve equation.
+
+.. cpp:function:: int botan_ec_point_from_bytes(botan_ec_point_t* ec_point, \
+                              botan_ec_group_t ec_group, \
+                              const uint8_t* bytes, \
+                              size_t bytes_len);
+
+   Create a point from a SEC1 compressed or uncompressed format.
+
+.. cpp:function:: int botan_ec_point_view_x_bytes(botan_ec_point_t ec_point, botan_view_ctx ctx, botan_view_bin_fn view);
+
+   View the fixed length encoding of the affine x coordinate.
+
+.. cpp:function:: int botan_ec_point_view_y_bytes(botan_ec_point_t ec_point, botan_view_ctx ctx, botan_view_bin_fn view);
+
+   View the fixed length encoding of the affine y coordinate.
+
+.. cpp:function:: int botan_ec_point_view_xy_bytes(botan_ec_point_t ec_point, botan_view_ctx ctx, botan_view_bin_fn view);
+
+   View the fixed length encoding of the affine x and y coordinates.
+
+.. cpp:function:: int botan_ec_point_view_uncompressed(botan_ec_point_t ec_point, botan_view_ctx ctx, botan_view_bin_fn view);
+
+   View the fixed length SEC1 uncompressed encoding.
+
+.. cpp:function:: int botan_ec_point_view_compressed(botan_ec_point_t ec_point, botan_view_ctx ctx, botan_view_bin_fn view);
+
+   View the fixed length SEC1 compressed encoding.
+
+.. cpp:function:: int botan_ec_point_is_identity(botan_ec_point_t ec_point);
+
+   Returns 1 if ``ec_point`` is equal to the group's identity element, otherwise 0.
+
+.. cpp:function:: int botan_ec_point_equal(botan_ec_point_t x, botan_ec_point_t y);
+
+   Returns 1 if ``x`` == ``y``, otherwise 0.
+
+.. cpp:function:: int botan_ec_point_negate(botan_ec_point_t* result, botan_ec_point_t ec_point);
+
+   Negates the provided point.
+
+.. cpp:function:: int botan_ec_point_add(botan_ec_point_t* result, botan_ec_point_t x, botan_ec_point_t y);
+
+   Computes ``x`` + ``y``.
+
+.. cpp:function:: int botan_ec_point_mul(botan_ec_point_t* result, \
+                       botan_ec_point_t ec_point, \
+                       botan_ec_scalar_t ec_scalar, \
+                       botan_rng_t rng);
+
+   Multiplies ``ec_point`` by the given ``ec_scalar``.
+
 Public Key Creation, Import and Export
 ----------------------------------------
 
@@ -1295,6 +1387,21 @@ RSA specific functions
                                     botan_mp_t n, botan_mp_t e)
 
    Initialize a public RSA key using parameters n and e.
+
+EC specific functions
+----------------------------------------
+
+.. cpp:function:: int botan_ec_privkey_get_private_key(botan_privkey_t key, botan_ec_scalar_t* value)
+
+   Get the private value of the EC key.
+
+.. cpp:function:: int botan_ec_privkey_get_group(botan_privkey_t key, botan_ec_group_t* ec_group)
+
+   Get the group of this EC private key.
+
+.. cpp:function:: int botan_ec_pubkey_get_group(botan_pubkey_t key, botan_ec_group_t* ec_group)
+
+   Get the group of this EC public key.
 
 DSA specific functions
 ----------------------------------------

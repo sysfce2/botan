@@ -1441,6 +1441,117 @@ BOTAN_FFI_EXPORT(3, 8) int botan_ec_group_get_order(botan_mp_t* order, botan_ec_
 BOTAN_FFI_EXPORT(3, 8) int botan_ec_group_equal(botan_ec_group_t curve1, botan_ec_group_t curve2);
 
 /*
+* EC Points and Scalars
+*/
+typedef struct botan_ec_scalar_struct* botan_ec_scalar_t;
+typedef struct botan_ec_point_struct* botan_ec_point_t;
+
+BOTAN_FFI_EXPORT(3, 12) int botan_ec_scalar_destroy(botan_ec_scalar_t ec_scalar);
+
+/**
+* Create a new random scalar value
+*/
+BOTAN_FFI_EXPORT(3, 12)
+int botan_ec_scalar_random(botan_ec_scalar_t* ec_scalar, botan_ec_group_t ec_group, botan_rng_t rng);
+
+/**
+* Convert from an MPI to a scalar
+* @returns a negative number if the provided MPI is negative or too large, 0 on success
+*/
+BOTAN_FFI_EXPORT(3, 12)
+int botan_ec_scalar_from_mp(botan_ec_scalar_t* ec_scalar, botan_ec_group_t ec_group, botan_mp_t mp);
+
+BOTAN_FFI_EXPORT(3, 12) int botan_ec_point_destroy(botan_ec_point_t ec_point);
+
+/**
+* Create a point set to the identity element of the group
+*/
+BOTAN_FFI_EXPORT(3, 12) int botan_ec_point_identity(botan_ec_point_t* ec_point, botan_ec_group_t ec_group);
+
+/**
+* Create a point set to the standard group generator
+*/
+BOTAN_FFI_EXPORT(3, 12) int botan_ec_point_generator(botan_ec_point_t* ec_point, botan_ec_group_t ec_group);
+
+/**
+* Create a point from a pair (x,y) of integers
+* The integers must be within the field and must satisfy the curve equation
+*/
+BOTAN_FFI_EXPORT(3, 12)
+int botan_ec_point_from_xy(botan_ec_point_t* ec_point, botan_ec_group_t ec_group, botan_mp_t x, botan_mp_t y);
+
+/**
+* Create a point from a SEC1 compressed or uncompressed format.
+* @returns negative number on error
+*/
+BOTAN_FFI_EXPORT(3, 12)
+int botan_ec_point_from_bytes(botan_ec_point_t* ec_point,
+                              botan_ec_group_t ec_group,
+                              const uint8_t* bytes,
+                              size_t bytes_len);
+
+/**
+* View the fixed length encoding of the affine x coordinate
+* @returns negative number on error
+*/
+BOTAN_FFI_EXPORT(3, 12)
+int botan_ec_point_view_x_bytes(botan_ec_point_t ec_point, botan_view_ctx ctx, botan_view_bin_fn view);
+
+/**
+* View the fixed length encoding of the affine y coordinate
+* @returns negative number on error
+*/
+BOTAN_FFI_EXPORT(3, 12)
+int botan_ec_point_view_y_bytes(botan_ec_point_t ec_point, botan_view_ctx ctx, botan_view_bin_fn view);
+
+/**
+* View the fixed length encoding of the affine x and y coordinates
+* @returns negative number on error
+*/
+BOTAN_FFI_EXPORT(3, 12)
+int botan_ec_point_view_xy_bytes(botan_ec_point_t ec_point, botan_view_ctx ctx, botan_view_bin_fn view);
+
+/**
+* View the fixed length SEC1 uncompressed encoding
+* @returns negative number on error
+*/
+BOTAN_FFI_EXPORT(3, 12)
+int botan_ec_point_view_uncompressed(botan_ec_point_t ec_point, botan_view_ctx ctx, botan_view_bin_fn view);
+
+/**
+* View the fixed length SEC1 compressed encoding
+* @returns negative number on error
+*/
+BOTAN_FFI_EXPORT(3, 12)
+int botan_ec_point_view_compressed(botan_ec_point_t ec_point, botan_view_ctx ctx, botan_view_bin_fn view);
+
+/**
+* @returns 1 if @param ec_point is the identity element, else 0
+* @returns negative number on error
+*/
+BOTAN_FFI_EXPORT(3, 12) int botan_ec_point_is_identity(botan_ec_point_t ec_point);
+
+/**
+* @returns 1 if @param x == @param y else 0 otherwise
+* @returns negative number on error
+*/
+BOTAN_FFI_EXPORT(3, 12) int botan_ec_point_equal(botan_ec_point_t x, botan_ec_point_t y);
+
+/**
+* @param ec_point point to negate
+* @param result contains the result
+*/
+BOTAN_FFI_EXPORT(3, 12) int botan_ec_point_negate(botan_ec_point_t* result, botan_ec_point_t ec_point);
+
+BOTAN_FFI_EXPORT(3, 12) int botan_ec_point_add(botan_ec_point_t* result, botan_ec_point_t x, botan_ec_point_t y);
+
+BOTAN_FFI_EXPORT(3, 12)
+int botan_ec_point_mul(botan_ec_point_t* result,
+                       botan_ec_point_t ec_point,
+                       botan_ec_scalar_t ec_scalar,
+                       botan_rng_t rng);
+
+/*
 * Public/private key creation, import, ...
 */
 typedef struct botan_privkey_struct* botan_privkey_t;
@@ -1860,6 +1971,15 @@ BOTAN_FFI_EXPORT(2, 0) int botan_pubkey_load_elgamal(botan_pubkey_t* key, botan_
 */
 BOTAN_FFI_EXPORT(2, 0) int botan_privkey_load_elgamal(botan_privkey_t* key, botan_mp_t p, botan_mp_t g, botan_mp_t x);
 
+/*
+* Algorithm specific key operations: EC keys
+*/
+
+BOTAN_FFI_EXPORT(3, 12) int botan_ec_privkey_get_private_key(botan_privkey_t key, botan_ec_scalar_t* value);
+
+BOTAN_FFI_EXPORT(3, 12) int botan_ec_privkey_get_group(botan_privkey_t key, botan_ec_group_t* ec_group);
+
+BOTAN_FFI_EXPORT(3, 12) int botan_ec_pubkey_get_group(botan_pubkey_t key, botan_ec_group_t* ec_group);
 /*
 * Algorithm specific key operations: Ed25519
 */
