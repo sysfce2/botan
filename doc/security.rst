@@ -15,6 +15,44 @@ mail please use::
 This key can be found in the file ``doc/pgpkey.txt`` or online at
 https://keybase.io/jacklloyd and on most PGP keyservers.
 
+2026
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* 2026-03-15: OCSP Response Forgery
+
+  During verification of X.509 paths involving OCSP responses, Botan omitted checking
+  that the response signature was itself valid. This would allow a MitM attacker to
+  insert forged responses. It would also allow a malicious TLS server to staple
+  forged OCSP responses.
+
+  Introduced in 3.0.0, fixed in 3.11.0
+
+  Found by Haruto Kimura
+
+* 2026-03-15: Heap Overread During SM2 Decryption
+
+  Decryption of SM2 ciphertexts failed to account for the possibility that the enclosed
+  MAC was of an invalid length. An invalid ciphertext with a MAC of the wrong length would
+  cause a heap over-read when the computed MAC value was compared with the insufficiently
+  sized buffer. This could result in denial of service.
+
+  Introduced in 2.3.0, fixed in 3.11.0
+
+  Found by Haruto Kimura
+
+* 2026-03-15: Bypass of Name Constraint Exclusion in CN Fallback Case
+
+  If DNS name constraints apply to a certificate, and the certificate does not
+  contain any Subject Alternative Name extension, Botan checks that the certificates
+  commonName field (CN) would not be prohibited by the name constraint. However it
+  failed to account for the possibility that the CN might be mixed case; a certificate
+  with a mixed case CN and omitted SAN would be accepted even if the DNS name in the
+  CN violated a name constraint imposed by the issuing chain.
+
+  Introduced in 2.0.0, fixed in 3.11.0
+
+  Found by Haruto Kimura
+
 2024
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
