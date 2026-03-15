@@ -1,8 +1,8 @@
 Botan
 ========================================
 
-Botan (Japanese for peony flower) is a cryptography library released under the
-permissive `Simplified BSD <https://botan.randombit.net/license.txt>`_ license.
+Botan is a C++ cryptography library released under the permissive
+`Simplified BSD <https://botan.randombit.net/license.txt>`_ license.
 
 Botan's `goal <https://botan.randombit.net/handbook/goals.html>`_
 is to be the best option for production cryptography by offering the tools
