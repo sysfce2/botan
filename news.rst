@@ -1,7 +1,7 @@
 Release Notes
 ========================================
 
-Version 3.11.0, Not Yet Released
+Version 3.11.0, 2026-03-15
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * Fix a heap over-read during SM2 decryption (GH #5450)
