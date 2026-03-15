@@ -4,6 +4,12 @@ Release Notes
 Version 3.11.0, Not Yet Released
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+* Fix a heap over-read during SM2 decryption (GH #5450)
+
+* Fix an OCSP response forgery vulnerability (GH #5449)
+
+* Fix a name constraints bypass for DNS names (GH #5448)
+
 * Upgrade PKCS #11 wrapper to support v3.2 of the standard (GH #4540)
 
 * Add support for verifying X509 certificate chains when the trust anchor is
@@ -22,9 +28,16 @@ Version 3.11.0, Not Yet Released
 
 * Add optimized Keccak permutation implementation using AVX-512 (GH #5191)
 
-* Add optimized SM3 implementations using AVX2/BMI2 (GH #5178) and SM3-NI (GH #5183)
+* Add optimized SM3 implementations using AVX2/BMI2 (GH #5178), SM3-NI (GH #5183),
+  and ARMv8 instructions (GH #5444)
 
 * Add optimized SM4 implementation using AVX-512/GFNI (GH #5192 #5333)
+
+* Add optimized Camellia implementations using AVX2/GFNI and AVX-512/GFNI (GH #5442)
+
+* Add optimized ARIA implementation using AVX-512/GFNI (GH #5440)
+
+* Add AVX2 implementation of IDEA (GH #5447)
 
 * Ed448 and X448 optimizations (GH #5383)
 
