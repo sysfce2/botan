@@ -13,6 +13,10 @@
 #include <botan/internal/rotate.h>
 #include <array>
 
+#if defined(BOTAN_HAS_CPUID)
+   #include <botan/internal/cpuid.h>
+#endif
+
 namespace Botan {
 
 namespace {
@@ -78,10 +82,26 @@ uint64_t whirl(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3, uint64_t x4, 
 
 }  // namespace
 
+std::string Whirlpool::provider() const {
+#if defined(BOTAN_HAS_WHIRLPOOL_AVX512)
+   if(auto feat = CPUID::check(CPUID::Feature::AVX512)) {
+      return *feat;
+   }
+#endif
+
+   return "base";
+}
+
 /*
 * Whirlpool Compression Function
 */
 void Whirlpool::compress_n(digest_type& digest, std::span<const uint8_t> input, size_t blocks) {
+#if defined(BOTAN_HAS_WHIRLPOOL_AVX512)
+   if(CPUID::has(CPUID::Feature::AVX512)) {
+      return compress_n_avx512(digest, input, blocks);
+   }
+#endif
+
    BufferSlicer in(input);
 
    for(size_t i = 0; i != blocks; ++i) {
