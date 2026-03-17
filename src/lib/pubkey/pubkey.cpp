@@ -423,27 +423,38 @@ void PK_Verifier::update(const uint8_t in[], size_t length) {
 
 namespace {
 
-std::vector<uint8_t> decode_der_signature(const uint8_t sig[], size_t length, size_t sig_parts, size_t sig_part_size) {
+std::vector<uint8_t> decode_der_signature_pair(const uint8_t sig[], size_t length, size_t sig_part_size) {
+   BOTAN_ASSERT_NOMSG(sig_part_size > 0);
+
    std::vector<uint8_t> real_sig;
+   real_sig.reserve(2 * sig_part_size);
+
    BER_Decoder decoder(sig, length);
    BER_Decoder ber_sig = decoder.start_sequence();
-
-   BOTAN_ASSERT_NOMSG(sig_parts != 0 && sig_part_size != 0);
 
    size_t count = 0;
 
    while(ber_sig.more_items()) {
+      if(count >= 2) {
+         throw Decoding_Error("PK_Verifier: signature size invalid");
+      }
+
+      // TODO should be able to just get the integer bytes directly
+      // from BER_Decoder without using BigInt here
       BigInt sig_part;
       ber_sig.decode(sig_part);
+      if(sig_part.bytes() > sig_part_size) {
+         throw Decoding_Error("PK_Verifier: signature size invalid");
+      }
       real_sig += sig_part.serialize(sig_part_size);
       ++count;
    }
 
-   if(count != sig_parts) {
+   if(count != 2) {
       throw Decoding_Error("PK_Verifier: signature size invalid");
    }
 
-   const std::vector<uint8_t> reencoded = der_encode_signature(real_sig, sig_parts, sig_part_size);
+   const std::vector<uint8_t> reencoded = der_encode_signature(real_sig, 2, sig_part_size);
 
    if(!CT::is_equal<uint8_t>(reencoded, std::span{sig, length}).as_bool()) {
       throw Decoding_Error("PK_Verifier: signature is not the canonical DER encoding");
@@ -464,10 +475,12 @@ bool PK_Verifier::check_signature(const uint8_t sig[], size_t length) {
          BOTAN_ASSERT_NOMSG(m_sig_element_size.has_value());
 
          try {
-            real_sig = decode_der_signature(sig, length, 2, m_sig_element_size.value());
+            real_sig = decode_der_signature_pair(sig, length, m_sig_element_size.value());
             decoding_success = true;
-         } catch(Decoding_Error&) {}
+         } catch(...) {}
 
+         // It is critical that is_valid_signature is called even if DER decoding failed, since
+         // that is what resets the internal state (message hashes, etc)
          const bool accept = m_op->is_valid_signature(real_sig);
 
          return accept && decoding_success;
