@@ -4,11 +4,11 @@ Release Notes
 Version 3.11.0, 2026-03-15
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* Fix a heap over-read during SM2 decryption (GH #5450)
+* CVE-2026-32877: Fix a heap over-read during SM2 decryption (GH #5450)
 
-* Fix an OCSP response forgery vulnerability (GH #5449)
+* CVE-2026-32883: Fix an OCSP response forgery vulnerability (GH #5449)
 
-* Fix a name constraints bypass for DNS names (GH #5448)
+* CVE-2026-32884: Fix a name constraints bypass for DNS names (GH #5448)
 
 * Upgrade PKCS #11 wrapper to support v3.2 of the standard (GH #4540)
 

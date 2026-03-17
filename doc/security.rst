@@ -18,7 +18,7 @@ https://keybase.io/jacklloyd and on most PGP keyservers.
 2026
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* 2026-03-15: OCSP Response Forgery
+* 2026-03-15 (CVE-2026-32883): OCSP Response Forgery
 
   During verification of X.509 paths involving OCSP responses, Botan omitted checking
   that the response signature was itself valid. This would allow a MitM attacker to
@@ -29,7 +29,7 @@ https://keybase.io/jacklloyd and on most PGP keyservers.
 
   Found by Haruto Kimura
 
-* 2026-03-15: Heap Overread During SM2 Decryption
+* 2026-03-15 (CVE-2026-32877): Heap Overread During SM2 Decryption
 
   Decryption of SM2 ciphertexts failed to account for the possibility that the enclosed
   MAC was of an invalid length. An invalid ciphertext with a MAC of the wrong length would
@@ -40,7 +40,7 @@ https://keybase.io/jacklloyd and on most PGP keyservers.
 
   Found by Haruto Kimura
 
-* 2026-03-15: Bypass of Name Constraint Exclusion in CN Fallback Case
+* 2026-03-15 (CVE-2026-32884): Bypass of Name Constraint Exclusion in CN Fallback Case
 
   If DNS name constraints apply to a certificate, and the certificate does not
   contain any Subject Alternative Name extension, Botan checks that the certificates
