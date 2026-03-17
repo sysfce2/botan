@@ -112,6 +112,10 @@ void check_invalid_ciphertexts(Test::Result& result,
 
    result.test_note(
       Botan::fmt("Accepted {} invalid ciphertexts, rejected {}", ciphertext_accepted, ciphertext_rejected));
+
+   result.test_bin_eq("After decrypting corrupted messages, PK_Decryptor can decrypt original message",
+                      decryptor.decrypt(ciphertext),
+                      plaintext);
 }
 
 std::string PK_Test::choose_padding(const VarMap& vars, const std::string& pad_hdr) {
