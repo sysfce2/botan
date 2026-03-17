@@ -39,6 +39,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 class PerfTest_Hex final : public PerfTest {
    public:
       void go(const PerfConfig& config) override {
@@ -304,5 +306,7 @@ class PerfTest_Zfec final : public PerfTest {
 BOTAN_REGISTER_PERF_TEST("zfec", PerfTest_Zfec);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_CLI

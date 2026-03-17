@@ -14,6 +14,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 #if defined(BOTAN_HAS_X509_CERTIFICATES)
 class X509_Alt_Name_Tests final : public Test {
    public:
@@ -97,5 +99,7 @@ class X509_Alt_Name_Tests final : public Test {
 BOTAN_REGISTER_TEST("x509", "x509_alt_name", X509_Alt_Name_Tests);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests

@@ -41,8 +41,9 @@
 
 namespace Botan_Tests {
 
-#if defined(BOTAN_HAS_TPM2)
 namespace {
+
+#if defined(BOTAN_HAS_TPM2)
 
    #if defined(BOTAN_HAS_TPM2_CRYPTO_BACKEND) && defined(BOTAN_TSS2_SUPPORTS_CRYPTO_CALLBACKS)
 constexpr bool crypto_backend_should_be_available = true;
@@ -1365,8 +1366,6 @@ std::vector<Test::Result> test_tpm2_hash() {
    };
 }
 
-}  // namespace
-
 BOTAN_REGISTER_TEST_FN("tpm2", "tpm2_props", test_tpm2_properties);
 BOTAN_REGISTER_TEST_FN("tpm2", "tpm2_ctx", test_tpm2_context);
 BOTAN_REGISTER_TEST_FN("tpm2", "tpm2_external_ctx", test_external_tpm2_context);
@@ -1381,5 +1380,7 @@ BOTAN_REGISTER_TEST_FN("tpm2", "tpm2_ecc", test_tpm2_ecc);
 BOTAN_REGISTER_TEST_FN("tpm2", "tpm2_hash", test_tpm2_hash);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests

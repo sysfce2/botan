@@ -270,9 +270,8 @@ Client_Key_Exchange::Client_Key_Exchange(const std::vector<uint8_t>& contents,
             }
          } catch(Invalid_Argument& e) {
             throw TLS_Exception(Alert::IllegalParameter, e.what());
-         } catch(TLS_Exception& e) {
-            // NOLINTNEXTLINE(cert-err60-cpp)
-            throw e;
+         } catch(TLS_Exception&) {
+            throw;  // rethrow
          } catch(std::exception&) {
             /*
             * Something failed in the DH/ECDH computation. To avoid possible

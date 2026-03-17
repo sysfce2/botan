@@ -12,6 +12,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 class PEM_Tests : public Test {
    public:
       std::vector<Test::Result> run() override {
@@ -47,6 +49,8 @@ class PEM_Tests : public Test {
 };
 
 BOTAN_REGISTER_TEST("pubkey", "pem", PEM_Tests);
+
+}  // namespace
 
 }  // namespace Botan_Tests
 

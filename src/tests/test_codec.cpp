@@ -22,6 +22,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 #if defined(BOTAN_HAS_BASE32_CODEC)
 
 class Base32_Tests final : public Text_Based_Test {
@@ -213,5 +215,7 @@ class Base64_Tests final : public Text_Based_Test {
 BOTAN_REGISTER_TEST("codec", "base64", Base64_Tests);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests

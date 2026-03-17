@@ -43,9 +43,11 @@
 // where `Botan::TLS::Protocol_Version::TLS_V12` would lead to an "Internal
 // Compiler Error" when used in the affected context.
 //
-// TODO: remove the workaround once GCC 11 is not supported anymore.
+// TODO(Botan4): remove the workaround once GCC 11 is not supported anymore.
 
 namespace Botan_Tests {
+
+namespace {
 
 class Test_Credentials_Manager : public Botan::Credentials_Manager {
    public:
@@ -103,8 +105,6 @@ class Session_Manager_Policy : public Botan::TLS::Policy {
       size_t m_session_limit = 1000;  // basically 'no limit'
       bool m_allow_session_reuse = true;
 };
-
-namespace {
 
 decltype(auto) random_id(Botan::RandomNumberGenerator& rng) {
    return rng.random_vec<Botan::TLS::Session_ID>(32);
@@ -771,8 +771,6 @@ std::vector<Test::Result> test_session_manager_hybrid() {
    });
 }
 
-namespace {
-
 class Temporary_Database_File {
    private:
       std::string m_temp_file;
@@ -800,8 +798,6 @@ class Temporary_Database_File {
       Temporary_Database_File(Temporary_Database_File&&) = delete;
       Temporary_Database_File& operator=(Temporary_Database_File&&) = delete;
 };
-
-}  // namespace
 
 std::vector<Test::Result> test_session_manager_sqlite() {
    #if defined(BOTAN_HAS_TLS_SQLITE3_SESSION_MANAGER)
@@ -1169,8 +1165,6 @@ std::vector<Test::Result> tls_session_manager_expiry() {
    });
 }
 
-}  // namespace
-
 BOTAN_REGISTER_TEST_FN("tls",
                        "tls_session_manager",
                        test_session_manager_in_memory,
@@ -1179,6 +1173,8 @@ BOTAN_REGISTER_TEST_FN("tls",
                        test_session_manager_hybrid,
                        test_session_manager_sqlite,
                        tls_session_manager_expiry);
+
+}  // namespace
 
 }  // namespace Botan_Tests
 

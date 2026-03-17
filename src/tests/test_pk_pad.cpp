@@ -18,6 +18,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 #if defined(BOTAN_HAS_EME_PKCS1)
 class EME_PKCS1v15_Decoding_Tests final : public Text_Based_Test {
    public:
@@ -148,5 +150,7 @@ class SignaturePaddingSchemeNameTests final : public Test {
 BOTAN_REGISTER_TEST("pubkey", "sig_padding_name", SignaturePaddingSchemeNameTests);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests

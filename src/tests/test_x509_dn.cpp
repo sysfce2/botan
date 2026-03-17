@@ -13,6 +13,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 #if defined(BOTAN_HAS_X509_CERTIFICATES)
 class X509_DN_Comparisons_Tests final : public Text_Based_Test {
    public:
@@ -57,5 +59,7 @@ class X509_DN_Comparisons_Tests final : public Text_Based_Test {
 
 BOTAN_REGISTER_TEST("x509", "x509_dn_cmp", X509_DN_Comparisons_Tests);
 #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests

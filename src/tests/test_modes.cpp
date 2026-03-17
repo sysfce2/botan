@@ -17,6 +17,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 #if defined(BOTAN_HAS_CIPHER_MODES)
 
 class Cipher_Mode_Tests final : public Text_Based_Test {
@@ -409,5 +411,7 @@ class Cipher_Mode_IV_Carry_Tests final : public Test {
 BOTAN_REGISTER_TEST("modes", "iv_carryover", Cipher_Mode_IV_Carry_Tests);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests

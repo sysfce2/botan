@@ -59,8 +59,6 @@ void update_stateful_private_key(const Botan::Private_Key& key,
    }
 }
 
-}  // namespace
-
    #if defined(BOTAN_HAS_CERTSTOR_SYSTEM)
 
 class Trust_Root_Info final : public Command {
@@ -382,6 +380,8 @@ class Generate_PKCS10 final : public Command {
 };
 
 BOTAN_REGISTER_COMMAND("gen_pkcs10", Generate_PKCS10);
+
+}  // namespace
 
 }  // namespace Botan_CLI
 

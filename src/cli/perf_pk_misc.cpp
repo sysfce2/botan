@@ -23,6 +23,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 #if defined(BOTAN_HAS_PUBLIC_KEY_CRYPTO)
 
 class PerfTest_PKKeyParsing final : public PerfTest {
@@ -144,5 +146,7 @@ class PerfTest_ECDSAKeyRec final : public PerfTest {
 BOTAN_REGISTER_PERF_TEST("ecdsa_recovery", PerfTest_ECDSAKeyRec);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_CLI

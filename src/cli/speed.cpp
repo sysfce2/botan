@@ -308,8 +308,6 @@ std::vector<std::string> interpret_ecc_groups(const std::string& arg) {
    return Command::split_on(arg, ',');
 }
 
-}  // namespace
-
 class Speed final : public Command {
    public:
       Speed() :
@@ -550,5 +548,7 @@ class Speed final : public Command {
 };
 
 BOTAN_REGISTER_COMMAND("speed", Speed);
+
+}  // namespace
 
 }  // namespace Botan_CLI

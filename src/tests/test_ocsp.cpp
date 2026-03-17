@@ -17,6 +17,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 #if defined(BOTAN_HAS_OCSP) && defined(BOTAN_HAS_RSA) && defined(BOTAN_HAS_EMSA_PKCS1) && \
    defined(BOTAN_TARGET_OS_HAS_FILESYSTEM)
 
@@ -497,5 +499,7 @@ class OCSP_Tests final : public Test {
 BOTAN_REGISTER_TEST("x509", "ocsp", OCSP_Tests);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests

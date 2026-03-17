@@ -14,6 +14,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 #if defined(BOTAN_HAS_HASH_ID) && defined(BOTAN_HAS_ASN1)
 
 class PKCS_HashID_Test final : public Test {
@@ -80,5 +82,7 @@ class PKCS_HashID_Test final : public Test {
 
 BOTAN_REGISTER_TEST("pubkey", "pkcs_hash_id", PKCS_HashID_Test);
 #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests

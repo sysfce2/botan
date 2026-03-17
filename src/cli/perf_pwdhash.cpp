@@ -25,6 +25,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 #if defined(BOTAN_HAS_BCRYPT)
 
 class PerfTest_Bcrypt final : public PerfTest {
@@ -189,5 +191,7 @@ class PerfTest_Argon2 final : public PerfTest {
 BOTAN_REGISTER_PERF_TEST("argon2", PerfTest_Argon2);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_CLI

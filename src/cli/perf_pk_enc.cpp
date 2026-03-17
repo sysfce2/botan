@@ -15,6 +15,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 #if defined(BOTAN_HAS_PUBLIC_KEY_CRYPTO)
 
 class PerfTest_PKEnc : public PerfTest {
@@ -114,5 +116,7 @@ class PerfTest_ElGamal final : public PerfTest_PKEnc {
 BOTAN_REGISTER_PERF_TEST("ElGamal", PerfTest_ElGamal);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_CLI

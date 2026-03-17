@@ -15,6 +15,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 class Modular_Inverse final : public Command {
    public:
       Modular_Inverse() : Command("mod_inverse n mod") {}
@@ -228,6 +230,8 @@ class Factor final : public Command {
 };
 
 BOTAN_REGISTER_COMMAND("factor", Factor);
+
+}  // namespace
 
 }  // namespace Botan_CLI
 

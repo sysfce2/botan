@@ -17,6 +17,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 class ASN1_Printer final : public Command {
    public:
       ASN1_Printer() :
@@ -111,6 +113,8 @@ class OID_Info final : public Command {
 };
 
 BOTAN_REGISTER_COMMAND("oid_info", OID_Info);
+
+}  // namespace
 
 }  // namespace Botan_CLI
 

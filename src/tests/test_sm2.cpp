@@ -16,9 +16,9 @@
 
 namespace Botan_Tests {
 
-#if defined(BOTAN_HAS_SM2)
-
 namespace {
+
+#if defined(BOTAN_HAS_SM2)
 
 std::unique_ptr<Botan::Private_Key> load_sm2_private_key(const VarMap& vars) {
    // group params
@@ -87,8 +87,6 @@ class SM2_Encryption_KAT_Tests final : public PK_Encryption_Decryption_Test {
       }
 };
 
-}  // namespace
-
 BOTAN_REGISTER_TEST("pubkey", "sm2_enc", SM2_Encryption_KAT_Tests);
 
 class SM2_Keygen_Tests final : public PK_Key_Generation_Test {
@@ -107,8 +105,6 @@ class SM2_Keygen_Tests final : public PK_Key_Generation_Test {
 };
 
 BOTAN_REGISTER_TEST("pubkey", "sm2_keygen", SM2_Keygen_Tests);
-
-namespace {
 
 class SM2_Invalid_Ciphertexts : public Text_Based_Test {
    public:
@@ -136,8 +132,8 @@ class SM2_Invalid_Ciphertexts : public Text_Based_Test {
 
 BOTAN_REGISTER_TEST("pubkey", "sm2_invalid_ctext", SM2_Invalid_Ciphertexts);
 
-}  // namespace
-
 #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests

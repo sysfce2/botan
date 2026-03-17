@@ -12,6 +12,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 class Blowfish_Salted_Tests final : public Text_Based_Test {
    public:
       Blowfish_Salted_Tests() : Text_Based_Test("salted_blowfish.vec", "Key,Salt,Out") {}
@@ -37,6 +39,8 @@ class Blowfish_Salted_Tests final : public Text_Based_Test {
 };
 
 BOTAN_REGISTER_TEST("block", "blowfish_salted", Blowfish_Salted_Tests);
+
+}  // namespace
 
 }  // namespace Botan_Tests
 

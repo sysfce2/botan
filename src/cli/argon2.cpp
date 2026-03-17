@@ -12,6 +12,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 #if defined(BOTAN_HAS_ARGON2_FMT)
 
 class Generate_Argon2 final : public Command {
@@ -59,5 +61,7 @@ class Check_Argon2 final : public Command {
 BOTAN_REGISTER_COMMAND("check_argon2", Check_Argon2);
 
 #endif  // argon2
+
+}  // namespace
 
 }  // namespace Botan_CLI

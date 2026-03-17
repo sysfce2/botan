@@ -38,6 +38,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 #if defined(BOTAN_HAS_BLOCK_CIPHER)
 class PerfTest_BlockCipher final : public PerfTest {
    public:
@@ -384,6 +386,8 @@ class PerfTest_XOF final : public PerfTest {
       std::string m_alg;
 };
 #endif
+
+}  // namespace
 
 //static
 std::unique_ptr<PerfTest> PerfTest::get_sym(const std::string& alg) {

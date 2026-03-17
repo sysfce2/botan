@@ -14,6 +14,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 #if defined(BOTAN_HAS_ECC_GROUP)
 
 class PerfTest_EllipticCurve_Mul final : public PerfTest {
@@ -256,5 +258,7 @@ class PerfTest_EllipticCurve_Scalar final : public PerfTest {
 BOTAN_REGISTER_PERF_TEST("ecc_scalar", PerfTest_EllipticCurve_Scalar);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_CLI

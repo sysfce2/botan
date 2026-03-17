@@ -12,6 +12,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 #if defined(BOTAN_HAS_CIPHER_MODE_PADDING)
 
 class Cipher_Mode_Padding_Tests final : public Text_Based_Test {
@@ -84,5 +86,7 @@ class Cipher_Mode_Padding_Tests final : public Text_Based_Test {
 BOTAN_REGISTER_TEST("modes", "bc_pad", Cipher_Mode_Padding_Tests);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests

@@ -894,6 +894,8 @@ Test::Result PK_Key_Generation_Stability_Test::run_one_test(const std::string& /
    return result;
 }
 
+namespace {
+
 /**
  * @brief Some general tests for minimal API sanity for signing/verification.
  */
@@ -1028,6 +1030,8 @@ class PK_Key_Decoding_Test : public Text_Based_Test {
 };
 
 BOTAN_REGISTER_TEST("pubkey", "pk_key_decoding", PK_Key_Decoding_Test);
+
+}  // namespace
 
 }  // namespace Botan_Tests
 
