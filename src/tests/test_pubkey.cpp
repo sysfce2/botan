@@ -32,18 +32,40 @@ namespace Botan_Tests {
 
 namespace {
 
+std::vector<std::vector<uint8_t>> generate_specific_false_signatures(const std::span<const uint8_t> correct_signature) {
+   std::vector<std::vector<uint8_t>> result;
+   result.push_back(std::vector<uint8_t>());
+   result.push_back(std::vector<uint8_t>(1));
+   result.push_back(std::vector<uint8_t>(2));
+   if(correct_signature.size() > 1) {
+      result.push_back(std::vector<uint8_t>(correct_signature.size() - 1));
+      std::vector<uint8_t> flip_start(correct_signature.begin(), correct_signature.end());
+      flip_start[0] ^= 1;
+      result.push_back(flip_start);
+   }
+
+   return result;
+}
+
 void check_invalid_signatures(Test::Result& result,
                               Botan::PK_Verifier& verifier,
                               const std::vector<uint8_t>& message,
                               const std::vector<uint8_t>& signature,
                               Botan::RandomNumberGenerator& rng) {
-   const size_t tests_to_run = (Test::run_long_tests() ? 20 : 5);
+   const size_t tests_to_run = (Test::run_long_tests() ? 24 : 9);
 
    const std::vector<uint8_t> zero_sig(signature.size());
    result.test_is_false("all zero signature invalid", verifier.verify_message(message, zero_sig));
 
+   auto specific_false_sigs = generate_specific_false_signatures(signature);
+
    for(size_t i = 0; i < tests_to_run; ++i) {
-      const std::vector<uint8_t> bad_sig = Test::mutate_vec(signature, rng);
+      std::vector<uint8_t> bad_sig;
+      if(i < specific_false_sigs.size()) {
+         bad_sig = specific_false_sigs[i];
+      } else {
+         bad_sig = Test::mutate_vec(signature, rng);
+      }
 
       try {
          if(!result.test_is_false("incorrect signature invalid", verifier.verify_message(message, bad_sig))) {
@@ -52,6 +74,10 @@ void check_invalid_signatures(Test::Result& result,
       } catch(std::exception& e) {
          result.test_note("Modified signature", bad_sig);
          result.test_failure("Modified signature rejected with exception", e.what());
+      }
+      if(!result.test_is_true("correct signature valid after failed verification",
+                              verifier.verify_message(message, signature))) {
+         result.test_note("rejected valid signature after this invalid signature", bad_sig);
       }
    }
 }
