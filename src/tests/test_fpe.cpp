@@ -12,6 +12,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 #if defined(BOTAN_HAS_FPE_FE1)
 
 class FPE_FE1_Tests final : public Text_Based_Test {
@@ -42,5 +44,7 @@ class FPE_FE1_Tests final : public Text_Based_Test {
 BOTAN_REGISTER_TEST("misc", "fpe_fe1", FPE_FE1_Tests);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests

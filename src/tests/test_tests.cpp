@@ -14,6 +14,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 /*
 * Test the test framework :)
 */
@@ -237,5 +239,7 @@ class Test_Tests final : public Test {
 };
 
 BOTAN_REGISTER_TEST("utils", "testcode", Test_Tests);
+
+}  // namespace
 
 }  // namespace Botan_Tests

@@ -14,6 +14,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 #if defined(BOTAN_HAS_NUMBERTHEORY)
 
 class Montgomery_Integer_Tests : public Test {
@@ -56,5 +58,7 @@ class Montgomery_Integer_Tests : public Test {
 BOTAN_REGISTER_TEST("math", "monty_int", Montgomery_Integer_Tests);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests

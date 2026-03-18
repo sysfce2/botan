@@ -16,6 +16,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 #if defined(BOTAN_HAS_PASSWORD_HASHING)
 
 class PBKDF_Tune final : public Command {
@@ -85,5 +87,7 @@ class PBKDF_Tune final : public Command {
 BOTAN_REGISTER_COMMAND("pbkdf_tune", PBKDF_Tune);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_CLI

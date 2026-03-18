@@ -16,6 +16,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 #if defined(BOTAN_HAS_PUBLIC_KEY_CRYPTO)
 
 class PerfTest_PK_KEM : public PerfTest {
@@ -187,5 +189,7 @@ class PerfTest_Classic_McEliece final : public PerfTest_PK_KEM {
 BOTAN_REGISTER_PERF_TEST("ClassicMcEliece", PerfTest_Classic_McEliece);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_CLI

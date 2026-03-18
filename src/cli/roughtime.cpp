@@ -19,6 +19,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 class RoughtimeCheck final : public Command {
    public:
       RoughtimeCheck() : Command("roughtime_check --raw-time chain-file") {}
@@ -177,6 +179,8 @@ class Roughtime final : public Command {
 };
 
 BOTAN_REGISTER_COMMAND("roughtime", Roughtime);
+
+}  // namespace
 
 }  // namespace Botan_CLI
 

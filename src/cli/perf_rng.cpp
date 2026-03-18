@@ -35,6 +35,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 class PerfTest_Rng final : public PerfTest {
    public:
       void go(const PerfConfig& config) override {
@@ -95,5 +97,7 @@ class PerfTest_Rng final : public PerfTest {
 };
 
 BOTAN_REGISTER_PERF_TEST("RNG", PerfTest_Rng);
+
+}  // namespace
 
 }  // namespace Botan_CLI

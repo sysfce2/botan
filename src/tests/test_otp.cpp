@@ -15,6 +15,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 #if defined(BOTAN_HAS_HOTP) && defined(BOTAN_HAS_TOTP)
 
 class HOTP_KAT_Tests final : public Text_Based_Test {
@@ -122,5 +124,7 @@ class TOTP_KAT_Tests final : public Text_Based_Test {
 BOTAN_REGISTER_TEST("otp", "otp_totp", TOTP_KAT_Tests);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests

@@ -30,6 +30,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 #if defined(BOTAN_HAS_FILTERS)
 
 // NOLINTBEGIN(*-owning-memory)
@@ -753,5 +755,7 @@ class Filter_Tests final : public Test {
 BOTAN_REGISTER_TEST("filters", "filter", Filter_Tests);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests

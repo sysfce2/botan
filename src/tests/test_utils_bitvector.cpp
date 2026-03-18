@@ -19,9 +19,9 @@
 
 namespace Botan_Tests {
 
-#if defined(BOTAN_HAS_BITVECTOR)
-
 namespace {
+
+#if defined(BOTAN_HAS_BITVECTOR)
 
 /// Returns a random number in the range [min, max)
 size_t rand_in_range(Botan::RandomNumberGenerator& rng, size_t min, size_t max) {
@@ -1312,8 +1312,6 @@ std::vector<Test::Result> test_bitvector_strongtype_adapter(Botan::RandomNumberG
    return {result};
 }
 
-}  // namespace
-
 class BitVector_Tests final : public Test {
    public:
       std::vector<Test::Result> run() override {
@@ -1345,5 +1343,7 @@ class BitVector_Tests final : public Test {
 BOTAN_REGISTER_TEST("utils", "bitvector", BitVector_Tests);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests

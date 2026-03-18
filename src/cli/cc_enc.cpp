@@ -91,8 +91,6 @@ uint64_t decrypt_cc_number(uint64_t enc_cc, const Botan::SymmetricKey& key, cons
    return cc_derank(dec_cc);
 }
 
-}  // namespace
-
 class CC_Encrypt final : public Command {
    public:
       CC_Encrypt() : Command("cc_encrypt CC passphrase --tweak=") {}
@@ -148,6 +146,8 @@ class CC_Decrypt final : public Command {
 };
 
 BOTAN_REGISTER_COMMAND("cc_decrypt", CC_Decrypt);
+
+}  // namespace
 
 }  // namespace Botan_CLI
 

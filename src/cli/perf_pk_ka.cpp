@@ -14,6 +14,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 #if defined(BOTAN_HAS_PUBLIC_KEY_CRYPTO)
 
 class PerfTest_PKKa : public PerfTest {
@@ -142,5 +144,7 @@ class PerfTest_X448 final : public PerfTest_PKKa {
 BOTAN_REGISTER_PERF_TEST("X448", PerfTest_X448);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_CLI

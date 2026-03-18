@@ -17,6 +17,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 #if defined(BOTAN_HAS_THRESHOLD_SECRET_SHARING)
 
 class TSS_Split final : public Command {
@@ -116,5 +118,7 @@ class TSS_Recover final : public Command {
 BOTAN_REGISTER_COMMAND("tss_recover", TSS_Recover);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_CLI

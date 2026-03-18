@@ -16,6 +16,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 class URI_Tests final : public Test {
    private:
       static Test::Result test_uri_ctor() {
@@ -132,6 +134,8 @@ class URI_Tests final : public Test {
 };
 
 BOTAN_REGISTER_TEST("utils", "uri", URI_Tests);
+
+}  // namespace
 
 }  // namespace Botan_Tests
 

@@ -14,6 +14,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 #if defined(BOTAN_HAS_SODIUM_API)
 
 class Sodium_API_Tests : public Test {
@@ -779,5 +781,7 @@ class Sodium_API_Tests : public Test {
 BOTAN_REGISTER_TEST("compat", "sodium", Sodium_API_Tests);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests

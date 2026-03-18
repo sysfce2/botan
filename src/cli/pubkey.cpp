@@ -33,6 +33,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 class PK_Keygen final : public Command {
    public:
       PK_Keygen() :
@@ -491,6 +493,8 @@ class Gen_DL_Group final : public Command {
 BOTAN_REGISTER_COMMAND("gen_dl_group", Gen_DL_Group);
 
    #endif
+
+}  // namespace
 
 }  // namespace Botan_CLI
 

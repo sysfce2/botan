@@ -17,9 +17,11 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 #if defined(BOTAN_HAS_ZFEC) && defined(BOTAN_HAS_SHA2_64)
 
-static const uint32_t FEC_MAGIC = 0xFECC0DEC;
+constexpr uint32_t FEC_MAGIC = 0xFECC0DEC;
 const char* const FEC_SHARE_HASH = "SHA-512-256";
 
 class FEC_Share final {
@@ -296,5 +298,7 @@ class FEC_Info final : public Command {
 BOTAN_REGISTER_COMMAND("fec_info", FEC_Info);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_CLI

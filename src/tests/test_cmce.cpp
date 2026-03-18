@@ -86,7 +86,6 @@ bool skip_cmce_test(const std::string& params_str) {
    auto to_test = instances_to_test();
    return std::find(to_test.begin(), to_test.end(), params.parameter_set()) == to_test.end();
 }
-}  // namespace
 
 class CMCE_Utility_Tests final : public Test {
    public:
@@ -340,6 +339,8 @@ BOTAN_REGISTER_TEST("cmce", "cmce_generic_kat", Classic_McEliece_KAT_Tests);
    #if defined(BOTAN_HAS_AES)
 BOTAN_REGISTER_TEST("cmce", "cmce_invalid", CMCE_Invalid_Test);
    #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests
 

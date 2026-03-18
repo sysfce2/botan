@@ -19,6 +19,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 class SPHINCS_Plus_WOTS_Test final : public Text_Based_Test {
    private:
       static std::pair<Botan::Sphincs_Address, Botan::TreeNodeIndex> read_address_and_leaf_idx(
@@ -118,6 +120,8 @@ class SPHINCS_Plus_WOTS_Test final : public Text_Based_Test {
 };
 
 BOTAN_REGISTER_TEST("pubkey", "sphincsplus_wots", SPHINCS_Plus_WOTS_Test);
+
+}  // namespace
 
 }  // namespace Botan_Tests
 

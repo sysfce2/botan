@@ -33,6 +33,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 #if defined(BOTAN_HAS_KYBER) || defined(BOTAN_HAS_KYBER_90S) || defined(BOTAN_HAS_ML_KEM)
 
 class KYBER_Tests final : public Test {
@@ -419,5 +421,7 @@ std::vector<Test::Result> test_kyber_helpers() {
 BOTAN_REGISTER_TEST_FN("pubkey", "kyber_helpers", test_kyber_helpers);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests

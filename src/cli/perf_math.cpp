@@ -26,6 +26,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 #if defined(BOTAN_HAS_BIGINT)
 
 class PerfTest_MpMul final : public PerfTest {
@@ -336,5 +338,7 @@ class PerfTest_ModExp final : public PerfTest {
 BOTAN_REGISTER_PERF_TEST("modexp", PerfTest_ModExp);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_CLI

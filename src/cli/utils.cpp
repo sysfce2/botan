@@ -30,6 +30,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 class Print_Help final : public Command {
    public:
       Print_Help() : Command("help") {}
@@ -318,5 +320,7 @@ class HTTP_Get final : public Command {
 BOTAN_REGISTER_COMMAND("http_get", HTTP_Get);
 
 #endif  // http_util
+
+}  // namespace
 
 }  // namespace Botan_CLI

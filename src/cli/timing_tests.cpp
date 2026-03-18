@@ -103,8 +103,6 @@ class TimingTestTimer {
       uint64_t m_start;
 };
 
-}  // namespace
-
 class Timing_Test {
    public:
       Timing_Test() {
@@ -760,5 +758,7 @@ class MARVIN_Test_Command final : public Command {
 BOTAN_REGISTER_COMMAND("marvin_test", MARVIN_Test_Command);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_CLI

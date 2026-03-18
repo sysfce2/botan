@@ -27,6 +27,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 class TLS_Ciphersuites final : public Command {
    public:
       TLS_Ciphersuites() : Command("tls_ciphers --policy=default --version=tls1.2") {}
@@ -217,6 +219,8 @@ class TLS_Client_Hello_Reader final : public Command {
 BOTAN_REGISTER_COMMAND("tls_client_hello", TLS_Client_Hello_Reader);
 
    #endif
+
+}  // namespace
 
 }  // namespace Botan_CLI
 

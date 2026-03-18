@@ -24,6 +24,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 #if defined(BOTAN_HAS_HEX_CODEC)
 
 class Hex_Encode final : public Command {
@@ -190,5 +192,7 @@ class Base64_Decode final : public Command {
 BOTAN_REGISTER_COMMAND("base64_dec", Base64_Decode);
 
 #endif  // base64
+
+}  // namespace
 
 }  // namespace Botan_CLI

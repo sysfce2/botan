@@ -12,6 +12,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 #if defined(BOTAN_HAS_BCRYPT)
 
 class Generate_Bcrypt final : public Command {
@@ -66,5 +68,7 @@ class Check_Bcrypt final : public Command {
 BOTAN_REGISTER_COMMAND("check_bcrypt", Check_Bcrypt);
 
 #endif  // bcrypt
+
+}  // namespace
 
 }  // namespace Botan_CLI

@@ -19,9 +19,9 @@
 
 namespace Botan_Tests {
 
-#if defined(BOTAN_HAS_ASN1)
-
 namespace {
+
+#if defined(BOTAN_HAS_ASN1)
 
 Test::Result test_ber_stack_recursion() {
    Test::Result result("BER stack recursion");
@@ -260,8 +260,6 @@ Test::Result test_asn1_negative_int_encoding() {
    return result;
 }
 
-}  // namespace
-
 class ASN1_Tests final : public Test {
    public:
       std::vector<Test::Result> run() override {
@@ -346,5 +344,7 @@ class ASN1_Printer_Tests final : public Test {
 BOTAN_REGISTER_TEST("asn1", "asn1_printer", ASN1_Printer_Tests);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests

@@ -35,6 +35,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 #if defined(BOTAN_HAS_TLS)
 
 class TLS_Session_Tests final : public Test {
@@ -700,5 +702,7 @@ class Test_TLS_Algo_Strings : public Test {
 BOTAN_REGISTER_TEST("tls", "tls_algo_strings", Test_TLS_Algo_Strings);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests

@@ -20,6 +20,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 #if defined(BOTAN_HAS_ROUGHTIME)
 
 class Roughtime_Request_Tests final : public Text_Based_Test {
@@ -277,5 +279,7 @@ class Roughtime final : public Test {
 BOTAN_REGISTER_TEST("roughtime", "roughtime_tests", Roughtime);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_Tests

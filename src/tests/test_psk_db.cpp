@@ -68,8 +68,6 @@ class Test_Map_PSK_Db : public Botan::Encrypted_PSK_Database {
       std::map<std::string, std::string, std::less<>> m_vals;
 };
 
-}  // namespace
-
 class PSK_DB_Tests final : public Test {
    public:
       std::vector<Test::Result> run() override {
@@ -234,6 +232,8 @@ class PSK_DB_Tests final : public Test {
 };
 
 BOTAN_REGISTER_TEST("misc", "psk_db", PSK_DB_Tests);
+
+}  // namespace
 
 }  // namespace Botan_Tests
 

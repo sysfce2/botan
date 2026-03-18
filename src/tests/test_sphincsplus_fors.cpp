@@ -19,6 +19,8 @@
 
 namespace Botan_Tests {
 
+namespace {
+
 class SPHINCS_Plus_FORS_Test final : public Text_Based_Test {
    private:
       static Botan::Sphincs_Address read_address(std::span<const uint8_t> address_buffer) {
@@ -90,6 +92,8 @@ class SPHINCS_Plus_FORS_Test final : public Text_Based_Test {
 };
 
 BOTAN_REGISTER_TEST("pubkey", "sphincsplus_fors", SPHINCS_Plus_FORS_Test);
+
+}  // namespace
 
 }  // namespace Botan_Tests
 

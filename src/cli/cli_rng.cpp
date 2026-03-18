@@ -119,6 +119,8 @@ std::shared_ptr<Botan::RandomNumberGenerator> cli_make_rng(const std::string& rn
    }
 }
 
+namespace {
+
 class RNG final : public Command {
    public:
       RNG() :
@@ -162,5 +164,7 @@ class RNG final : public Command {
 };
 
 BOTAN_REGISTER_COMMAND("rng", RNG);
+
+}  // namespace
 
 }  // namespace Botan_CLI

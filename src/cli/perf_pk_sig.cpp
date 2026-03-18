@@ -15,6 +15,8 @@
 
 namespace Botan_CLI {
 
+namespace {
+
 #if defined(BOTAN_HAS_PUBLIC_KEY_CRYPTO)
 
 class PerfTest_PKSig : public PerfTest {
@@ -400,5 +402,7 @@ class PerfTest_ML_DSA final : public PerfTest_PKSig {
 BOTAN_REGISTER_PERF_TEST("ML-DSA", PerfTest_ML_DSA);
 
 #endif
+
+}  // namespace
 
 }  // namespace Botan_CLI
