@@ -251,8 +251,8 @@ def determine_flags(target, target_os, target_cpu, target_cc, cc_bin, ccache,
         flags += ['--amalgamation']
 
     if target.startswith('policy-'):
-        # tls is optional for bsi/fips140 but add it so verify tests work with these minimized configs
-        flags += ['--module-policy=%s' % (target.replace('policy-', '')), '--enable-modules=tls12,tls13', '--disable-deprecated-features']
+        # ffi and tls are optional for bsi/fips140 - add to build to verify these work with the minimized config
+        flags += ['--module-policy=%s' % (target.replace('policy-', '')), '--enable-modules=ffi,tls12,tls13', '--disable-deprecated-features']
 
     if target in ['docs']:
         flags += ['--with-doxygen', '--with-sphinx', '--with-rst2man']

@@ -6,6 +6,7 @@
 
 #include <botan/ffi.h>
 
+#include <botan/assert.h>
 #include <botan/kdf.h>
 #include <botan/pwdhash.h>
 #include <botan/internal/ffi_rng.h>
