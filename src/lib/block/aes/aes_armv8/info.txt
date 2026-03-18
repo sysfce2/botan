@@ -10,3 +10,7 @@ brief -> "AES using ARMv8 crypto instructions"
 <isa>
 armv8crypto
 </isa>
+
+<requires>
+cpuid
+</requires>
