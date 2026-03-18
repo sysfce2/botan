@@ -11,6 +11,10 @@
 #include <botan/internal/loadstor.h>
 #include <botan/internal/rotate.h>
 
+#if defined(BOTAN_HAS_CPUID)
+   #include <botan/internal/cpuid.h>
+#endif
+
 namespace Botan {
 
 namespace {
@@ -169,6 +173,17 @@ inline void TF_D(
 void Twofish::encrypt_n(const uint8_t in[], uint8_t out[], size_t blocks) const {
    assert_key_material_set();
 
+#if defined(BOTAN_HAS_TWOFISH_AVX512)
+   if(!m_QS.empty()) {
+      while(blocks >= 16) {
+         avx512_encrypt_16(in, out);
+         in += 16 * BLOCK_SIZE;
+         out += 16 * BLOCK_SIZE;
+         blocks -= 16;
+      }
+   }
+#endif
+
    while(blocks >= 2) {
       uint32_t A0 = 0;
       uint32_t B0 = 0;
@@ -245,6 +260,17 @@ void Twofish::encrypt_n(const uint8_t in[], uint8_t out[], size_t blocks) const 
 void Twofish::decrypt_n(const uint8_t in[], uint8_t out[], size_t blocks) const {
    assert_key_material_set();
 
+#if defined(BOTAN_HAS_TWOFISH_AVX512)
+   if(!m_QS.empty()) {
+      while(blocks >= 16) {
+         avx512_decrypt_16(in, out);
+         in += 16 * BLOCK_SIZE;
+         out += 16 * BLOCK_SIZE;
+         blocks -= 16;
+      }
+   }
+#endif
+
    while(blocks >= 2) {
       uint32_t A0 = 0;
       uint32_t B0 = 0;
@@ -319,6 +345,24 @@ bool Twofish::has_keying_material() const {
    return !m_SB.empty();
 }
 
+std::string Twofish::provider() const {
+#if defined(BOTAN_HAS_TWOFISH_AVX512)
+   if(CPUID::has(CPUID::Feature::AVX512, CPUID::Feature::GFNI)) {
+      return "avx512";
+   }
+#endif
+   return "base";
+}
+
+size_t Twofish::parallelism() const {
+#if defined(BOTAN_HAS_TWOFISH_AVX512)
+   if(CPUID::has(CPUID::Feature::AVX512, CPUID::Feature::GFNI)) {
+      return 16;
+   }
+#endif
+   return 1;
+}
+
 /*
 * Twofish Key Schedule
 */
@@ -341,7 +385,6 @@ void Twofish::key_schedule(std::span<const uint8_t> key) {
    };
    // clang-format on
 
-   m_SB.resize(1024);
    m_RK.resize(40);
 
    secure_vector<uint8_t> S(16);
@@ -358,12 +401,14 @@ void Twofish::key_schedule(std::span<const uint8_t> key) {
       S[s_off + 3] ^= get_byte<3>(p);
    }
 
+   secure_vector<uint8_t> QS(1024);
+
    if(key.size() == 16) {
       for(size_t i = 0; i != 256; ++i) {
-         m_SB[i] = mds0(Q1[Q0[Q0[i] ^ S[0]] ^ S[4]]);
-         m_SB[256 + i] = mds1(Q0[Q0[Q1[i] ^ S[1]] ^ S[5]]);
-         m_SB[512 + i] = mds2(Q1[Q1[Q0[i] ^ S[2]] ^ S[6]]);
-         m_SB[768 + i] = mds3(Q0[Q1[Q1[i] ^ S[3]] ^ S[7]]);
+         QS[i] = Q1[Q0[Q0[i] ^ S[0]] ^ S[4]];
+         QS[256 + i] = Q0[Q0[Q1[i] ^ S[1]] ^ S[5]];
+         QS[512 + i] = Q1[Q1[Q0[i] ^ S[2]] ^ S[6]];
+         QS[768 + i] = Q0[Q1[Q1[i] ^ S[3]] ^ S[7]];
       }
 
       for(size_t i = 0; i < 40; i += 2) {
@@ -380,10 +425,10 @@ void Twofish::key_schedule(std::span<const uint8_t> key) {
       }
    } else if(key.size() == 24) {
       for(size_t i = 0; i != 256; ++i) {
-         m_SB[i] = mds0(Q1[Q0[Q0[Q1[i] ^ S[0]] ^ S[4]] ^ S[8]]);
-         m_SB[256 + i] = mds1(Q0[Q0[Q1[Q1[i] ^ S[1]] ^ S[5]] ^ S[9]]);
-         m_SB[512 + i] = mds2(Q1[Q1[Q0[Q0[i] ^ S[2]] ^ S[6]] ^ S[10]]);
-         m_SB[768 + i] = mds3(Q0[Q1[Q1[Q0[i] ^ S[3]] ^ S[7]] ^ S[11]]);
+         QS[i] = Q1[Q0[Q0[Q1[i] ^ S[0]] ^ S[4]] ^ S[8]];
+         QS[256 + i] = Q0[Q0[Q1[Q1[i] ^ S[1]] ^ S[5]] ^ S[9]];
+         QS[512 + i] = Q1[Q1[Q0[Q0[i] ^ S[2]] ^ S[6]] ^ S[10]];
+         QS[768 + i] = Q0[Q1[Q1[Q0[i] ^ S[3]] ^ S[7]] ^ S[11]];
       }
 
       for(size_t i = 0; i < 40; i += 2) {
@@ -403,10 +448,10 @@ void Twofish::key_schedule(std::span<const uint8_t> key) {
       }
    } else if(key.size() == 32) {
       for(size_t i = 0; i != 256; ++i) {
-         m_SB[i] = mds0(Q1[Q0[Q0[Q1[Q1[i] ^ S[0]] ^ S[4]] ^ S[8]] ^ S[12]]);
-         m_SB[256 + i] = mds1(Q0[Q0[Q1[Q1[Q0[i] ^ S[1]] ^ S[5]] ^ S[9]] ^ S[13]]);
-         m_SB[512 + i] = mds2(Q1[Q1[Q0[Q0[Q0[i] ^ S[2]] ^ S[6]] ^ S[10]] ^ S[14]]);
-         m_SB[768 + i] = mds3(Q0[Q1[Q1[Q0[Q1[i] ^ S[3]] ^ S[7]] ^ S[11]] ^ S[15]]);
+         QS[i] = Q1[Q0[Q0[Q1[Q1[i] ^ S[0]] ^ S[4]] ^ S[8]] ^ S[12]];
+         QS[256 + i] = Q0[Q0[Q1[Q1[Q0[i] ^ S[1]] ^ S[5]] ^ S[9]] ^ S[13]];
+         QS[512 + i] = Q1[Q1[Q0[Q0[Q0[i] ^ S[2]] ^ S[6]] ^ S[10]] ^ S[14]];
+         QS[768 + i] = Q0[Q1[Q1[Q0[Q1[i] ^ S[3]] ^ S[7]] ^ S[11]] ^ S[15]];
       }
 
       for(size_t i = 0; i < 40; i += 2) {
@@ -426,6 +471,20 @@ void Twofish::key_schedule(std::span<const uint8_t> key) {
          m_RK[i + 1] = rotl<9>(Y);
       }
    }
+
+   m_SB.resize(1024);
+   for(size_t i = 0; i != 256; ++i) {
+      m_SB[i] = mds0(QS[i]);
+      m_SB[256 + i] = mds1(QS[256 + i]);
+      m_SB[512 + i] = mds2(QS[512 + i]);
+      m_SB[768 + i] = mds3(QS[768 + i]);
+   }
+
+#if defined(BOTAN_HAS_TWOFISH_AVX512)
+   if(CPUID::has(CPUID::Feature::AVX512, CPUID::Feature::GFNI)) {
+      m_QS = std::move(QS);
+   }
+#endif
 }
 
 /*
@@ -434,6 +493,7 @@ void Twofish::key_schedule(std::span<const uint8_t> key) {
 void Twofish::clear() {
    zap(m_SB);
    zap(m_RK);
+   zap(m_QS);
 }
 
 }  // namespace Botan

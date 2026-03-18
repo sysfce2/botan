@@ -317,7 +317,8 @@ Twofish
 
 This algorithm uses table lookups with secret sboxes. No cache-based side
 channel attack on Twofish has ever been published, but it is possible nobody
-sufficiently skilled has ever tried.
+sufficiently skilled has ever tried. There is also an AVX-512 implementation
+which avoids table lookups completely.
 
 ChaCha20, Serpent, Threefish, ...
 -----------------------------------
