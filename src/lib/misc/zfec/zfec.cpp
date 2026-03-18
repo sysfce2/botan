@@ -308,15 +308,6 @@ void ZFEC::addmul(uint8_t z[], const uint8_t x[], uint8_t y, size_t size) {
    }
 #endif
 
-#if defined(BOTAN_HAS_ZFEC_SSE2)
-   if(size >= 64 && CPUID::has(CPUID::Feature::SSE2)) {
-      const size_t consumed = addmul_sse2(z, x, y, size);
-      z += consumed;
-      x += consumed;
-      size -= consumed;
-   }
-#endif
-
    while(size >= 16) {
       z[0] ^= GF_MUL_Y[x[0]];
       z[1] ^= GF_MUL_Y[x[1]];
@@ -531,12 +522,6 @@ void ZFEC::decode_shares(const std::map<size_t, const uint8_t*>& shares,
 std::string ZFEC::provider() const {
 #if defined(BOTAN_HAS_ZFEC_VPERM)
    if(auto feat = CPUID::check(CPUID::Feature::SIMD_4X32)) {
-      return *feat;
-   }
-#endif
-
-#if defined(BOTAN_HAS_ZFEC_SSE2)
-   if(auto feat = CPUID::check(CPUID::Feature::SSE2)) {
       return *feat;
    }
 #endif
