@@ -54,7 +54,7 @@ class TLS_Policy_Unit_Tests final : public Test {
       }
 
    private:
-      static Test::Result test_peer_key_acceptable_rsa(Botan::RandomNumberGenerator& rng) {
+      static Test::Result test_peer_key_acceptable_rsa([[maybe_unused]] Botan::RandomNumberGenerator& rng) {
          Test::Result result("TLS Policy RSA key verification");
    #if defined(BOTAN_HAS_RSA)
          auto rsa_key_1024 = std::make_unique<Botan::RSA_PrivateKey>(rng, 1024);
@@ -74,7 +74,7 @@ class TLS_Policy_Unit_Tests final : public Test {
          return result;
       }
 
-      static Test::Result test_peer_key_acceptable_ecdh(Botan::RandomNumberGenerator& rng) {
+      static Test::Result test_peer_key_acceptable_ecdh([[maybe_unused]] Botan::RandomNumberGenerator& rng) {
          Test::Result result("TLS Policy ECDH key verification");
    #if defined(BOTAN_HAS_ECDH)
 
@@ -102,7 +102,7 @@ class TLS_Policy_Unit_Tests final : public Test {
          return result;
       }
 
-      static Test::Result test_peer_key_acceptable_ecdsa(Botan::RandomNumberGenerator& rng) {
+      static Test::Result test_peer_key_acceptable_ecdsa([[maybe_unused]] Botan::RandomNumberGenerator& rng) {
          Test::Result result("TLS Policy ECDSA key verification");
    #if defined(BOTAN_HAS_ECDSA)
          const Botan::TLS::Policy policy;

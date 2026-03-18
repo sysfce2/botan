@@ -13,7 +13,7 @@
 #include <memory>
 #include <vector>
 
-#if defined(BOTAN_HAS_TLS)
+#if defined(BOTAN_HAS_TLS) && defined(BOTAN_HAS_RSA)
 
    #include <botan/certstor.h>
    #include <botan/dl_group.h>
