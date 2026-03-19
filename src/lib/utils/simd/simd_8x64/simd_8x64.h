@@ -153,6 +153,31 @@ class SIMD_8x64 final {
       BOTAN_FN_ISA_SIMD_8X64
       static SIMD_8x64 splat(uint64_t v) { return SIMD_8x64(_mm512_set1_epi64(v)); }
 
+      // Argon2 specific operation
+      static BOTAN_FN_ISA_SIMD_8X64 SIMD_8x64 mul2_32(SIMD_8x64 x, SIMD_8x64 y) {
+         const __m512i m = _mm512_mul_epu32(x.m_simd, y.m_simd);
+         return SIMD_8x64(_mm512_add_epi64(m, m));
+      }
+
+      // Argon2 specific - twist/untwist permutes within two independent 4-lane groups
+      static void BOTAN_FN_ISA_SIMD_8X64 twist(SIMD_8x64& B, SIMD_8x64& C, SIMD_8x64& D) {
+         const auto b_perm = _mm512_set_epi64(4, 7, 6, 5, 0, 3, 2, 1);
+         const auto c_perm = _mm512_set_epi64(5, 4, 7, 6, 1, 0, 3, 2);
+         const auto d_perm = _mm512_set_epi64(6, 5, 4, 7, 2, 1, 0, 3);
+         B = SIMD_8x64(_mm512_permutexvar_epi64(b_perm, B.m_simd));
+         C = SIMD_8x64(_mm512_permutexvar_epi64(c_perm, C.m_simd));
+         D = SIMD_8x64(_mm512_permutexvar_epi64(d_perm, D.m_simd));
+      }
+
+      static void BOTAN_FN_ISA_SIMD_8X64 untwist(SIMD_8x64& B, SIMD_8x64& C, SIMD_8x64& D) {
+         const auto b_perm = _mm512_set_epi64(6, 5, 4, 7, 2, 1, 0, 3);
+         const auto c_perm = _mm512_set_epi64(5, 4, 7, 6, 1, 0, 3, 2);
+         const auto d_perm = _mm512_set_epi64(4, 7, 6, 5, 0, 3, 2, 1);
+         B = SIMD_8x64(_mm512_permutexvar_epi64(b_perm, B.m_simd));
+         C = SIMD_8x64(_mm512_permutexvar_epi64(c_perm, C.m_simd));
+         D = SIMD_8x64(_mm512_permutexvar_epi64(d_perm, D.m_simd));
+      }
+
       __m512i BOTAN_FN_ISA_SIMD_8X64 raw() const noexcept { return m_simd; }
 
       explicit BOTAN_FN_ISA_SIMD_8X64 SIMD_8x64(__m512i x) : m_simd(x) {}
