@@ -72,6 +72,10 @@ class BOTAN_PUBLIC_API(2, 11) Argon2 final : public PasswordHash {
       static void blamka(uint64_t N[128], uint64_t T[128]);
 
    private:
+#if defined(BOTAN_HAS_ARGON2_AVX512)
+      static void blamka_avx512(uint64_t N[128], uint64_t T[128]);
+#endif
+
 #if defined(BOTAN_HAS_ARGON2_AVX2)
       static void blamka_avx2(uint64_t N[128], uint64_t T[128]);
 #endif
