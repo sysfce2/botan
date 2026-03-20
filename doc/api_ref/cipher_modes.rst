@@ -158,6 +158,11 @@ with PKCS#7 padding.
 Available Unauthenticated Cipher Modes
 -----------------------------------------
 
+.. warning::
+
+   As noted above these modes are insecure if used without an authentication code.
+   Prefer using an AEAD.
+
 .. note::
    CTR and OFB modes are also implemented, but these are treated as
    :cpp:class:`Stream_Cipher`\s instead.
@@ -166,6 +171,12 @@ CBC
 ~~~~~~~~~~~~
 
 Available if ``BOTAN_HAS_MODE_CBC`` is defined.
+
+CBC mode has a significant drawback, namely that due to its structure, when
+encrypting a message it is not possible to process multiple blocks simultaneously.
+This effectively prevents any use of optimizations based on SIMD or interleaving,
+resulting in relatively poor performance compared to the same cipher in another
+mode.
 
 CBC requires the plaintext be padded using a reversible rule. The following
 padding schemes are implemented
