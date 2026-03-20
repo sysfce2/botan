@@ -10,6 +10,10 @@
 #include <botan/internal/loadstor.h>
 #include <botan/internal/prefetch.h>
 
+#if defined(BOTAN_HAS_CPUID)
+   #include <botan/internal/cpuid.h>
+#endif
+
 namespace Botan {
 
 namespace {
@@ -73,6 +77,12 @@ BOTAN_FORCE_INLINE uint32_t SEED_G(uint32_t X) {
 */
 void SEED::encrypt_n(const uint8_t in[], uint8_t out[], size_t blocks) const {
    assert_key_material_set();
+
+#if defined(BOTAN_HAS_SEED_AVX512_GFNI)
+   if(CPUID::has(CPUID::Feature::AVX512, CPUID::Feature::GFNI)) {
+      return avx512_gfni_encrypt(in, out, blocks);
+   }
+#endif
 
    prefetch_arrays(SEED_S0, SEED_S1);
 
@@ -156,6 +166,12 @@ void SEED::encrypt_n(const uint8_t in[], uint8_t out[], size_t blocks) const {
 */
 void SEED::decrypt_n(const uint8_t in[], uint8_t out[], size_t blocks) const {
    assert_key_material_set();
+
+#if defined(BOTAN_HAS_SEED_AVX512_GFNI)
+   if(CPUID::has(CPUID::Feature::AVX512, CPUID::Feature::GFNI)) {
+      return avx512_gfni_decrypt(in, out, blocks);
+   }
+#endif
 
    prefetch_arrays(SEED_S0, SEED_S1);
 
@@ -285,6 +301,26 @@ void SEED::key_schedule(std::span<const uint8_t> key) {
 
 void SEED::clear() {
    zap(m_K);
+}
+
+size_t SEED::parallelism() const {
+#if defined(BOTAN_HAS_SEED_AVX512_GFNI)
+   if(CPUID::has(CPUID::Feature::AVX512, CPUID::Feature::GFNI)) {
+      return 16;
+   }
+#endif
+
+   return 1;
+}
+
+std::string SEED::provider() const {
+#if defined(BOTAN_HAS_SEED_AVX512_GFNI)
+   if(auto feat = CPUID::check(CPUID::Feature::AVX512, CPUID::Feature::GFNI)) {
+      return *feat;
+   }
+#endif
+
+   return "base";
 }
 
 }  // namespace Botan
