@@ -1,6 +1,32 @@
 Release Notes
 ========================================
 
+Version 3.12.0, Not Yet Released
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* Add optimized Argon2 implementation using AVX512 (GH #5471)
+
+* Add optimized Twofish implementation using AVX512/GFNI (GH #5465)
+
+* Add optimized SEED implementation using AVX512/GFNI (GH #5472)
+
+* Add optimized Whirlpool implementation using AVX512 (GH #5453)
+
+* Fix bug in Ed25519 where an invalid signature checked with PK_Verifier might
+  cause a later valid signature to be rejected. (GH #5454)
+
+* Fix a bug in handling of ECDSA DER-encode signatures where an invalid signature
+  checked with PK_Verifier might cause a later valid signature to be rejected.
+  (GH #5455)
+
+* Fix a problem introduced in 3.11.0 which could cause crashes on processors
+  without SSSE3 support, particularly when compiled by GCC. (GH #5460 #5463 #5469)
+
+* Fix various new warnings from ``clang-tidy`` 22 (GH #5456)
+
+* Fix a compilation error introduced in 3.11.0 which prevented using ``ffi`` unless
+  ``bcrypt`` was also enabled. (GH #5462)
+
 Version 3.11.0, 2026-03-15
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
