@@ -39,6 +39,7 @@ filesystem.h
 fmt.h
 isa_extn.h
 int_utils.h
+gfni_utils.h
 loadstor.h
 mul128.h
 mem_utils.h

@@ -13,4 +13,5 @@ avx512
 
 <header:internal>
 simd_avx512.h
+simd_avx512_gfni.h
 </header:internal>
