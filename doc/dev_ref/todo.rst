@@ -23,12 +23,12 @@ Hardware Specific Optimizations
 ----------------------------------------
 * AVX512 IFMA optimized field arithmetic for P-256 and/or P-384
 * Stitched AES/GCM implementation
-* GFNI implementations of SEED, others?
+* GFNI implementations of ZFEC, others?
 * NEON/VMX/LSX support for the SIMD based GHASH
 * SIMD evaluation of SHA-2 and SHA-3 compression functions
-* Improved Salsa implementations (SIMD_4x32 and/or AVX2)
+* Improved Salsa implementations (SIMD_4x32, AVX2, AVX512, ...)
 * Add CLMUL/PMULL implementations for CRC24
-* Add support for ARMv8.4-A SHA-3 and SM3 instructions
+* Add support for ARMv8.4-A SHA-3 instructions
 * Support POWER8 SHA-2 extensions (GH #1486 + #1487)
 * Add support for RISC-V vector and crypto extensions
 * Add support for using Loongarch64 LASX (256-bit SIMD)
