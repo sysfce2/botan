@@ -1,5 +1,5 @@
 
-#test cpuid avx512 gfni
+#test cpuid avx512 gfni aesni armv8aes
 
 [Camellia-128]
 Key = 0123456789ABCDEFFEDCBA9876543210
