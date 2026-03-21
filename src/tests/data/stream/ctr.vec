@@ -1,3 +1,6 @@
+
+#test cpuid avx2
+
 [CTR-BE(DES)]
 Key = 0123456789ABCDEF
 Nonce = 1234567890ABCDEF
