@@ -12,6 +12,10 @@
 #include <botan/internal/fmt.h>
 #include <botan/internal/loadstor.h>
 
+#if defined(BOTAN_HAS_CTR_BE_AVX2)
+   #include <botan/internal/cpuid.h>
+#endif
+
 namespace Botan {
 
 CTR_BE::CTR_BE(std::unique_ptr<BlockCipher> cipher) :
@@ -87,6 +91,8 @@ void CTR_BE::cipher_bytes(const uint8_t in[], uint8_t out[], size_t length) {
    const uint8_t* pad_bits = m_pad.data();
    const size_t pad_size = m_pad.size();
 
+   /* Consume any already computed keystream in m_pad */
+
    if(m_pad_pos > 0) {
       const size_t avail = pad_size - m_pad_pos;
       const size_t take = std::min(length, avail);
@@ -103,6 +109,18 @@ void CTR_BE::cipher_bytes(const uint8_t in[], uint8_t out[], size_t length) {
       }
    }
 
+   /* Bulk processing */
+
+#if defined(BOTAN_HAS_CTR_BE_AVX2)
+   if(length >= pad_size && m_block_size == 16 && m_ctr_size == 4 && pad_size % 64 == 0 &&
+      CPUID::has(CPUID::Feature::AVX2)) {
+      const size_t consumed = ctr_proc_bs16_ctr4_avx2(in, out, length);
+      in += consumed;
+      out += consumed;
+      length -= consumed;
+   }
+#endif
+
    while(length >= pad_size) {
       xor_buf(out, in, pad_bits, pad_size);
       length -= pad_size;
@@ -113,8 +131,11 @@ void CTR_BE::cipher_bytes(const uint8_t in[], uint8_t out[], size_t length) {
       m_cipher->encrypt_n(m_counter.data(), m_pad.data(), m_ctr_blocks);
    }
 
-   xor_buf(out, in, pad_bits, length);
-   m_pad_pos += length;
+   /* Now if length > 0 then we have some remaining text, and m_pad is full - consume as required */
+   if(length > 0) {
+      xor_buf(out, in, pad_bits, length);
+      m_pad_pos = length;
+   }
 }
 
 void CTR_BE::generate_keystream(uint8_t out[], size_t length) {
