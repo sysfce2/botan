@@ -1,5 +1,5 @@
 
-#test cpuid avx512
+#test cpuid avx512 avx2
 
 [Whirlpool]
 In = 

@@ -32,6 +32,10 @@ class Whirlpool final : public HashFunction {
       static void compress_n_avx512(digest_type& digest, std::span<const uint8_t> input, size_t blocks);
 #endif
 
+#if defined(BOTAN_HAS_WHIRLPOOL_AVX2)
+      static void compress_n_avx2(digest_type& digest, std::span<const uint8_t> input, size_t blocks);
+#endif
+
    public:
       std::string name() const override { return "Whirlpool"; }
 
