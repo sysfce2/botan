@@ -48,7 +48,7 @@ class TestMLDSA(WycheproofTests, unittest.TestCase):
             # Currently Botan doesn't support context (ctx), skip...
             self.skipTest("ML-DSA ctx not supported")
 
-        if "msg" not in test:
+        if "msg" not in test or ("flags" in test and "Internal" in test["flags"]):
             # Currently Botan does not provide the "Sign_internal" interface of ML-DSA,
             # hence, signing without "msg" and only using "mu" isn't possible.
             self.skipTest("ML-DSA's Sign_internal interface is not exposed")
@@ -84,7 +84,7 @@ class TestMLDSA(WycheproofTests, unittest.TestCase):
 
         # Derive the public key and validate it against the expected public key
         pub = priv.get_public_key()
-        if "publicKey" in group:
+        if "publicKey" in group and group["publicKey"] is not None:
             self.assertEqual(
                 pub.to_raw(),
                 _from_hex(group["publicKey"]),
