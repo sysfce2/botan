@@ -762,6 +762,32 @@ class SIMD_4x32 final {
 #endif
       }
 
+      /**
+      * Byte-granularity blend: for each byte position, select from @p a where
+      * the corresponding mask byte is 0xFF, or from @p b where it is 0x00.
+      *
+      * Each byte of @p mask must be either 0x00 or 0xFF; other values produce
+      * undefined results.
+      */
+      static inline SIMD_4x32 BOTAN_FN_ISA_SIMD_4X32 byte_blend(const SIMD_4x32& mask,
+                                                                const SIMD_4x32& a,
+                                                                const SIMD_4x32& b) noexcept {
+         return SIMD_4x32::choose(mask, a, b);
+      }
+
+      /**
+      * Byte-granularity blend: for each byte position, select from @p a where
+      * the corresponding mask byte is 0xFF, or from @p b where it is 0x00.
+      *
+      * Each byte of @p mask must be either 0x00 or 0xFF; other values produce
+      * undefined results.
+      */
+      static inline SIMD_4x32 BOTAN_FN_ISA_SIMD_4X32 byte_blend(uint32_t mask,
+                                                                const SIMD_4x32& a,
+                                                                const SIMD_4x32& b) noexcept {
+         return SIMD_4x32::byte_blend(SIMD_4x32::splat(mask), a, b);
+      }
+
       static inline SIMD_4x32 BOTAN_FN_ISA_SIMD_4X32 majority(const SIMD_4x32& x,
                                                               const SIMD_4x32& y,
                                                               const SIMD_4x32& z) noexcept {
