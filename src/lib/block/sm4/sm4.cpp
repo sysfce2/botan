@@ -188,6 +188,12 @@ void SM4::encrypt_n(const uint8_t in[], uint8_t out[], size_t blocks) const {
    }
 #endif
 
+#if defined(BOTAN_HAS_SM4_HWAES)
+   if(CPUID::has(CPUID::Feature::HW_AES)) {
+      return sm4_hwaes_encrypt(in, out, blocks);
+   }
+#endif
+
    while(blocks >= 2) {
       uint32_t B0 = load_be<uint32_t>(in, 0);
       uint32_t B1 = load_be<uint32_t>(in, 1);
@@ -264,6 +270,12 @@ void SM4::decrypt_n(const uint8_t in[], uint8_t out[], size_t blocks) const {
 #if defined(BOTAN_HAS_SM4_GFNI)
    if(CPUID::has(CPUID::Feature::GFNI)) {
       return sm4_gfni_decrypt(in, out, blocks);
+   }
+#endif
+
+#if defined(BOTAN_HAS_SM4_HWAES)
+   if(CPUID::has(CPUID::Feature::HW_AES)) {
+      return sm4_hwaes_decrypt(in, out, blocks);
    }
 #endif
 
@@ -369,6 +381,12 @@ size_t SM4::parallelism() const {
    }
 #endif
 
+#if defined(BOTAN_HAS_SM4_HWAES)
+   if(CPUID::has(CPUID::Feature::HW_AES)) {
+      return 4;
+   }
+#endif
+
    return 1;
 }
 
@@ -387,6 +405,12 @@ std::string SM4::provider() const {
 
 #if defined(BOTAN_HAS_SM4_GFNI)
    if(auto feat = CPUID::check(CPUID::Feature::GFNI)) {
+      return *feat;
+   }
+#endif
+
+#if defined(BOTAN_HAS_SM4_HWAES)
+   if(auto feat = CPUID::check(CPUID::Feature::HW_AES)) {
       return *feat;
    }
 #endif

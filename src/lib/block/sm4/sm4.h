@@ -54,6 +54,11 @@ class SM4 final : public Block_Cipher_Fixed_Params<16, 16> {
       void sm4_gfni_decrypt(const uint8_t in[], uint8_t out[], size_t blocks) const;
 #endif
 
+#if defined(BOTAN_HAS_SM4_HWAES)
+      void sm4_hwaes_encrypt(const uint8_t in[], uint8_t out[], size_t blocks) const;
+      void sm4_hwaes_decrypt(const uint8_t in[], uint8_t out[], size_t blocks) const;
+#endif
+
       secure_vector<uint32_t> m_RK;
 };
 

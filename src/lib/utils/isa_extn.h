@@ -45,6 +45,7 @@
    #define BOTAN_FN_ISA_AVX512_GFNI \
       BOTAN_FUNC_ISA("avx512f,avx512dq,avx512bw,avx512vl,avx512vbmi,avx512vbmi2,avx512bitalg,avx512ifma,gfni")
 
+   #define BOTAN_FN_ISA_HWAES BOTAN_FN_ISA_AESNI
 #endif
 
 #if defined(BOTAN_TARGET_ARCH_IS_ARM64)
@@ -57,6 +58,7 @@
    #define BOTAN_FN_ISA_SM4 BOTAN_FUNC_ISA("arch=armv8.2-a+sm4")
    #define BOTAN_FN_ISA_SHA512 BOTAN_FUNC_ISA("arch=armv8.2-a+sha3")
 
+   #define BOTAN_FN_ISA_HWAES BOTAN_FN_ISA_AES
 #endif
 
 #if defined(BOTAN_TARGET_ARCH_IS_ARM32)
@@ -70,6 +72,7 @@
    #define BOTAN_FN_ISA_AES BOTAN_FUNC_ISA("vsx,crypto")
    #define BOTAN_FN_ISA_RNG BOTAN_FUNC_ISA("cpu=power9")
 
+   #define BOTAN_FN_ISA_HWAES BOTAN_FN_ISA_AES
 #endif
 
 #if defined(BOTAN_TARGET_ARCH_IS_LOONGARCH64)
