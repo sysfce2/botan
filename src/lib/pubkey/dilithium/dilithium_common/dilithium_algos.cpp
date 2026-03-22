@@ -666,6 +666,9 @@ void sample_uniform_eta(StrongSpan<const DilithiumSeedRhoPrime> rhoprime,
  * encoding is deferred until the user explicitly invokes the encoding.
  */
 DilithiumInternalKeypair expand_keypair(DilithiumSeedRandomness xi, DilithiumConstants mode) {
+   if(xi.size() != DilithiumConstants::SEED_RANDOMNESS_BYTES) {
+      throw Decoding_Error("Invalid ML-DSA seed size");
+   }
    const auto& sympriv = mode.symmetric_primitives();
    CT::poison(xi);
 
