@@ -39,6 +39,11 @@ class SEED final : public Block_Cipher_Fixed_Params<16, 16> {
       void avx512_gfni_decrypt(const uint8_t in[], uint8_t out[], size_t blocks) const;
 #endif
 
+#if defined(BOTAN_HAS_SEED_HWAES)
+      void hwaes_encrypt(const uint8_t in[], uint8_t out[], size_t blocks) const;
+      void hwaes_decrypt(const uint8_t in[], uint8_t out[], size_t blocks) const;
+#endif
+
       secure_vector<uint32_t> m_K;
 };
 

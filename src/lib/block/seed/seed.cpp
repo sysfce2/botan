@@ -84,6 +84,12 @@ void SEED::encrypt_n(const uint8_t in[], uint8_t out[], size_t blocks) const {
    }
 #endif
 
+#if defined(BOTAN_HAS_SEED_HWAES)
+   if(CPUID::has(CPUID::Feature::HW_AES)) {
+      return hwaes_encrypt(in, out, blocks);
+   }
+#endif
+
    prefetch_arrays(SEED_S0, SEED_S1);
 
    while(blocks >= 2) {
@@ -170,6 +176,12 @@ void SEED::decrypt_n(const uint8_t in[], uint8_t out[], size_t blocks) const {
 #if defined(BOTAN_HAS_SEED_AVX512_GFNI)
    if(CPUID::has(CPUID::Feature::AVX512, CPUID::Feature::GFNI)) {
       return avx512_gfni_decrypt(in, out, blocks);
+   }
+#endif
+
+#if defined(BOTAN_HAS_SEED_HWAES)
+   if(CPUID::has(CPUID::Feature::HW_AES)) {
+      return hwaes_decrypt(in, out, blocks);
    }
 #endif
 
@@ -310,12 +322,24 @@ size_t SEED::parallelism() const {
    }
 #endif
 
+#if defined(BOTAN_HAS_SEED_HWAES)
+   if(CPUID::has(CPUID::Feature::HW_AES)) {
+      return 4;
+   }
+#endif
+
    return 1;
 }
 
 std::string SEED::provider() const {
 #if defined(BOTAN_HAS_SEED_AVX512_GFNI)
    if(auto feat = CPUID::check(CPUID::Feature::AVX512, CPUID::Feature::GFNI)) {
+      return *feat;
+   }
+#endif
+
+#if defined(BOTAN_HAS_SEED_HWAES)
+   if(auto feat = CPUID::check(CPUID::Feature::HW_AES)) {
       return *feat;
    }
 #endif
