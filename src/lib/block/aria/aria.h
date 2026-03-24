@@ -47,6 +47,11 @@ class ARIA_128 final : public Block_Cipher_Fixed_Params<16, 16> {
       void aria_avx512_gfni_decrypt(const uint8_t in[], uint8_t out[], size_t blocks) const;
 #endif
 
+#if defined(BOTAN_HAS_ARIA_HWAES)
+      void aria_hwaes_encrypt(const uint8_t in[], uint8_t out[], size_t blocks) const;
+      void aria_hwaes_decrypt(const uint8_t in[], uint8_t out[], size_t blocks) const;
+#endif
+
       // Encryption and Decryption round keys.
       secure_vector<uint32_t> m_ERK, m_DRK;
 };
@@ -77,6 +82,11 @@ class ARIA_192 final : public Block_Cipher_Fixed_Params<16, 24> {
       void aria_avx512_gfni_decrypt(const uint8_t in[], uint8_t out[], size_t blocks) const;
 #endif
 
+#if defined(BOTAN_HAS_ARIA_HWAES)
+      void aria_hwaes_encrypt(const uint8_t in[], uint8_t out[], size_t blocks) const;
+      void aria_hwaes_decrypt(const uint8_t in[], uint8_t out[], size_t blocks) const;
+#endif
+
       // Encryption and Decryption round keys.
       secure_vector<uint32_t> m_ERK, m_DRK;
 };
@@ -105,6 +115,11 @@ class ARIA_256 final : public Block_Cipher_Fixed_Params<16, 32> {
 #if defined(BOTAN_HAS_ARIA_AVX512_GFNI)
       void aria_avx512_gfni_encrypt(const uint8_t in[], uint8_t out[], size_t blocks) const;
       void aria_avx512_gfni_decrypt(const uint8_t in[], uint8_t out[], size_t blocks) const;
+#endif
+
+#if defined(BOTAN_HAS_ARIA_HWAES)
+      void aria_hwaes_encrypt(const uint8_t in[], uint8_t out[], size_t blocks) const;
+      void aria_hwaes_decrypt(const uint8_t in[], uint8_t out[], size_t blocks) const;
 #endif
 
       // Encryption and Decryption round keys.

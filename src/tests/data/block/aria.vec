@@ -1,5 +1,5 @@
 
-#test cpuid avx512
+#test cpuid avx512 aesni armv8aes
 
 [ARIA-128]
 
