@@ -12,7 +12,7 @@
 #include <botan/internal/fmt.h>
 #include <botan/internal/loadstor.h>
 
-#if defined(BOTAN_HAS_CTR_BE_AVX2)
+#if defined(BOTAN_HAS_CTR_BE_AVX2) || defined(BOTAN_HAS_CTR_BE_SIMD32)
    #include <botan/internal/cpuid.h>
 #endif
 
@@ -111,10 +111,20 @@ void CTR_BE::cipher_bytes(const uint8_t in[], uint8_t out[], size_t length) {
 
    /* Bulk processing */
 
+   [[maybe_unused]] const bool can_use_bs16_ctr4_fastpath = m_block_size == 16 && m_ctr_size == 4 && pad_size % 64 == 0;
+
 #if defined(BOTAN_HAS_CTR_BE_AVX2)
-   if(length >= pad_size && m_block_size == 16 && m_ctr_size == 4 && pad_size % 64 == 0 &&
-      CPUID::has(CPUID::Feature::AVX2)) {
+   if(length >= pad_size && can_use_bs16_ctr4_fastpath && CPUID::has(CPUID::Feature::AVX2)) {
       const size_t consumed = ctr_proc_bs16_ctr4_avx2(in, out, length);
+      in += consumed;
+      out += consumed;
+      length -= consumed;
+   }
+#endif
+
+#if defined(BOTAN_HAS_CTR_BE_SIMD32)
+   if(length >= pad_size && can_use_bs16_ctr4_fastpath && CPUID::has(CPUID::Feature::SIMD_4X32)) {
+      const size_t consumed = ctr_proc_bs16_ctr4_simd32(in, out, length);
       in += consumed;
       out += consumed;
       length -= consumed;

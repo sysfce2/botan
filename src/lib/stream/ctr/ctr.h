@@ -54,6 +54,10 @@ class CTR_BE final : public StreamCipher {
       size_t ctr_proc_bs16_ctr4_avx2(const uint8_t in[], uint8_t out[], size_t length);
 #endif
 
+#if defined(BOTAN_HAS_CTR_BE_SIMD32)
+      size_t ctr_proc_bs16_ctr4_simd32(const uint8_t in[], uint8_t out[], size_t length);
+#endif
+
       std::unique_ptr<BlockCipher> m_cipher;
 
       const size_t m_block_size;
