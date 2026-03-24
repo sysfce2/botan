@@ -10,7 +10,12 @@ Version 3.12.0, Not Yet Released
 
 * Add optimized SEED implementation using AVX512/GFNI (GH #5472)
 
-* Add optimized Whirlpool implementation using AVX512 (GH #5453)
+* Add optimized Whirlpool implementations using AVX2 and AVX512 (GH #5453 #5473)
+
+* Add SSSE3/NEON and AVX2 optimized codepaths for CTR (GH #5474 #5480)
+
+* Add constant time implementations of Camellia, ARIA, SEED and SM4 using AES-NI
+  or ARMv8 AES instructions to implement sbox lookups (GH #5476 #5477 #5479 #5481)
 
 * Fix bug in Ed25519 where an invalid signature checked with PK_Verifier might
   cause a later valid signature to be rejected. (GH #5454)
