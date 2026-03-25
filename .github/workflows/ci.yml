@@ -127,13 +127,13 @@ jobs:
 
       matrix:
         include:
-#          - target: shared
-#            compiler: xcode
-#            host_os: macos-15-intel
-#          - target: amalgamation
-#            compiler: xcode
-#            host_os: macos-15-intel
-#            make_tool: ninja
+          - target: shared
+            compiler: xcode
+            host_os: macos-15-intel
+          - target: amalgamation
+            compiler: xcode
+            host_os: macos-15-intel
+            make_tool: ninja
           - target: shared
             compiler: xcode
             host_os: macos-15 # uses Apple Silicon
