@@ -71,25 +71,24 @@ class SIMD_16x16 final {
          const auto ones = SIMD_16x16::splat(1);
          const auto K = SIMD_16x16::splat(K_16);
 
-         // Each u16 of the output is set to all-1 mask if == 0, or otherwise 0
-         const auto X_is_zero = SIMD_16x16(_mm256_cmpeq_epi16(X.raw(), zeros.raw()));
-         const auto K_is_zero = SIMD_16x16(_mm256_cmpeq_epi16(K.raw(), zeros.raw()));
+         // If X == 0 or K == 0 then P == X * K == 0
+         const auto P_is_zero = SIMD_16x16(
+            _mm256_or_si256(_mm256_cmpeq_epi16(X.raw(), zeros.raw()), _mm256_cmpeq_epi16(K.raw(), zeros.raw())));
 
-         const auto ml = SIMD_16x16(_mm256_mullo_epi16(X.raw(), K.raw()));
-         const auto mh = SIMD_16x16(_mm256_mulhi_epu16(X.raw(), K.raw()));
+         // Return value if P == 0: 1 - X - K
+         const auto R0 = ones - X - K;
 
-         // AVX2 doesn't have unsigned comparisons for whatever dumb reason
-         const auto bias = SIMD_16x16::splat(0x8000);
-         const auto borrow = (mh ^ bias).cmpgt(ml ^ bias);
+         const auto mul_lo = SIMD_16x16(_mm256_mullo_epi16(X.raw(), K.raw()));
+         const auto mul_hi = SIMD_16x16(_mm256_mulhi_epu16(X.raw(), K.raw()));
 
-         // T = ml - mh + (mh > ml ? 1 : 0)
-         auto T = ml - mh - borrow;
+         // AVX2 doesn't have unsigned comparisons so emulate with a signed compare by flipping the sign bit
+         const auto sign_bit = SIMD_16x16::splat(0x8000);
+         const auto borrow = SIMD_16x16(_mm256_cmpgt_epi16((mul_hi ^ sign_bit).raw(), (mul_lo ^ sign_bit).raw()));
 
-         // Set to 1-K or 1-X to handle the exceptional cases
-         T = T.select_u16(ones - K, X_is_zero);
-         T = T.select_u16(ones - X, K_is_zero);
+         // R1 = mul_lo - mul_hi + (mul_hi > mul_lo ? 1 : 0)
+         const auto R1 = mul_lo - mul_hi - borrow;
 
-         return T;
+         return SIMD_16x16(_mm256_blendv_epi8(R1.raw(), R0.raw(), P_is_zero.raw()));
       }
 
       /*
@@ -156,14 +155,6 @@ class SIMD_16x16 final {
 
    private:
       static SIMD_16x16 BOTAN_FN_ISA_AVX2 splat(uint16_t v) { return SIMD_16x16(_mm256_set1_epi16(v)); }
-
-      SIMD_16x16 BOTAN_FN_ISA_AVX2 cmpgt(const SIMD_16x16& o) const {
-         return SIMD_16x16(_mm256_cmpgt_epi16(m_simd, o.m_simd));
-      }
-
-      SIMD_16x16 BOTAN_FN_ISA_AVX2 select_u16(const SIMD_16x16& other, const SIMD_16x16& mask) const {
-         return SIMD_16x16(_mm256_blendv_epi8(m_simd, other.m_simd, mask.m_simd));
-      }
 
       native_type m_simd;
 };

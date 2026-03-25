@@ -20,35 +20,28 @@ namespace {
 BOTAN_FN_ISA_SSE2 inline __m128i mul(__m128i X, uint16_t K_16) {
    const __m128i zeros = _mm_set1_epi16(0);
    const __m128i ones = _mm_set1_epi16(1);
-
    const __m128i K = _mm_set1_epi16(K_16);
 
-   const __m128i X_is_zero = _mm_cmpeq_epi16(X, zeros);
-   const __m128i K_is_zero = _mm_cmpeq_epi16(K, zeros);
+   // If X == 0 or K == 0 then P == X * K == 0
+   const __m128i P_is_zero = _mm_or_si128(_mm_cmpeq_epi16(X, zeros), _mm_cmpeq_epi16(K, zeros));
+
+   // Return value if P == 0: 1 - X - K
+   const __m128i R0 = _mm_sub_epi16(_mm_sub_epi16(ones, X), K);
 
    const __m128i mul_lo = _mm_mullo_epi16(X, K);
    const __m128i mul_hi = _mm_mulhi_epu16(X, K);
 
-   __m128i T = _mm_sub_epi16(mul_lo, mul_hi);
+   __m128i R1 = _mm_sub_epi16(mul_lo, mul_hi);
 
-   // Unsigned compare; cmp = 1 if mul_lo < mul_hi else 0
-   const __m128i subs = _mm_subs_epu16(mul_hi, mul_lo);
-   const __m128i cmp = _mm_min_epu8(_mm_or_si128(subs, _mm_srli_epi16(subs, 8)), ones);
+   // SSE doesn't have unsigned comparisons so emulate with a signed compare by flipping the sign bit
+   const __m128i sign_bit = _mm_set1_epi16(static_cast<int16_t>(0x8000));
+   const __m128i borrow = _mm_cmpgt_epi16(_mm_xor_si128(mul_hi, sign_bit), _mm_xor_si128(mul_lo, sign_bit));
 
-   T = _mm_add_epi16(T, cmp);
+   // R1 = mul_lo - mul_hi + (mul_hi > mul_lo ? 1 : 0)
+   R1 = _mm_sub_epi16(R1, borrow);
 
-   /* Selection: if X[i] is zero then assign 1-K
-                 if K is zero then assign 1-X[i]
-
-      Could if() off value of K_16 for the second, but this gives a
-      constant time implementation which is a nice bonus.
-   */
-
-   T = _mm_or_si128(_mm_andnot_si128(X_is_zero, T), _mm_and_si128(_mm_sub_epi16(ones, K), X_is_zero));
-
-   T = _mm_or_si128(_mm_andnot_si128(K_is_zero, T), _mm_and_si128(_mm_sub_epi16(ones, X), K_is_zero));
-
-   return T;
+   // Return either R1 or R0 (1-X-K) depending on if P == 0 or not
+   return _mm_or_si128(_mm_andnot_si128(P_is_zero, R1), _mm_and_si128(P_is_zero, R0));
 }
 
 /*
