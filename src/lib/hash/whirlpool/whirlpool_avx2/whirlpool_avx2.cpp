@@ -79,12 +79,12 @@ class WhirlpoolState {
          * than AVX512's due to mostly only working on 128 bit lanes
          */
 
-         constexpr char nil = -1;
+         constexpr char non = -1;
 
-         const auto sc0 = _mm_setr_epi8(0x0, nil, nil, nil, nil, nil, nil, 0xF, 0x8, 0x1, nil, nil, nil, nil, nil, nil);
-         const auto sc1 = _mm_setr_epi8(nil, 0x9, 0x2, nil, nil, nil, nil, nil, nil, nil, 0xA, 0x3, nil, nil, nil, nil);
-         const auto sc2 = _mm_setr_epi8(nil, nil, nil, 0xB, 0x4, nil, nil, nil, nil, nil, nil, nil, 0xC, 0x5, nil, nil);
-         const auto sc3 = _mm_setr_epi8(nil, nil, nil, nil, nil, 0xD, 0x6, nil, nil, nil, nil, nil, nil, nil, 0xE, 0x7);
+         const auto sc0 = _mm_setr_epi8(0x0, non, non, non, non, non, non, 0xF, 0x8, 0x1, non, non, non, non, non, non);
+         const auto sc1 = _mm_setr_epi8(non, 0x9, 0x2, non, non, non, non, non, non, non, 0xA, 0x3, non, non, non, non);
+         const auto sc2 = _mm_setr_epi8(non, non, non, 0xB, 0x4, non, non, non, non, non, non, non, 0xC, 0x5, non, non);
+         const auto sc3 = _mm_setr_epi8(non, non, non, non, non, 0xD, 0x6, non, non, non, non, non, non, non, 0xE, 0x7);
 
          const auto idx_same_lane = _mm256_broadcastsi128_si256(sc0);
          const auto idx_other_half = _mm256_broadcastsi128_si256(sc2);
