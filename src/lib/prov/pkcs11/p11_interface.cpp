@@ -34,33 +34,33 @@ bool operator==(const Version& left, const Version& right) {
    return left.major == right.major && left.minor == right.minor;
 }
 
-Version version_of(const Interface& interface) {
+Version version_of(const Interface& p11_interface) {
    // PKCS #11 CK_INTERFACE documentation:
    //   pFunctionList - the interface function list which must always begin with
    //   a CK_VERSION structure as the first field
-   return *reinterpret_cast<Version*>(interface.pFunctionList);
+   return *reinterpret_cast<Version*>(p11_interface.pFunctionList);
 }
 
-std::span<const Utf8Char> name_of(const Interface& interface) {
+std::span<const Utf8Char> name_of(const Interface& p11_interface) {
    // We cannot use std::basic_string_view<Utf8Char> since some compilers do not
    // seem to support string views with unsigned characters.
-   const std::string_view s(reinterpret_cast<char*>(interface.pInterfaceName));
+   const std::string_view s(reinterpret_cast<char*>(p11_interface.pInterfaceName));
    return std::span<const Utf8Char>(reinterpret_cast<const Utf8Char*>(s.data()), s.size());
 }
 
 }  // namespace
 
-InterfaceWrapper::InterfaceWrapper(Interface raw_interface) : m_interface(raw_interface) {
-   BOTAN_ASSERT_NONNULL(raw_interface.pInterfaceName);
-   BOTAN_ASSERT_NONNULL(raw_interface.pFunctionList);
+InterfaceWrapper::InterfaceWrapper(Interface p11_interface) : m_p11_interface(p11_interface) {
+   BOTAN_ASSERT_NONNULL(p11_interface.pInterfaceName);
+   BOTAN_ASSERT_NONNULL(p11_interface.pFunctionList);
 }
 
 Version InterfaceWrapper::version() const {
-   return version_of(m_interface);
+   return version_of(m_p11_interface);
 }
 
 std::span<const Utf8Char> InterfaceWrapper::name() const {
-   return name_of(m_interface);
+   return name_of(m_p11_interface);
 }
 
 InterfaceWrapper InterfaceWrapper::latest_p11_interface(Dynamically_Loaded_Library& library) {

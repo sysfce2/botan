@@ -1274,11 +1274,11 @@ BOTAN_PUBLIC_API(2, 0) void set_pin(Slot& slot, const secure_string& so_pin, con
  */
 class BOTAN_PUBLIC_API(3, 11) InterfaceWrapper final {
    private:
-      Interface m_interface;
+      Interface m_p11_interface;
 
    public:
       /// Basic constructor using an interface.
-      explicit InterfaceWrapper(Interface raw_interface);
+      explicit InterfaceWrapper(Interface p11_interface);
 
       InterfaceWrapper(const InterfaceWrapper&) = default;
       InterfaceWrapper& operator=(const InterfaceWrapper&) = default;
@@ -1287,7 +1287,7 @@ class BOTAN_PUBLIC_API(3, 11) InterfaceWrapper final {
       ~InterfaceWrapper() = default;
 
       /// Access the underlying interface object
-      const Interface& raw_interface() const { return m_interface; }
+      const Interface& raw_interface() const { return m_p11_interface; }
 
       /// Access the version of the interface
       Version version() const;
