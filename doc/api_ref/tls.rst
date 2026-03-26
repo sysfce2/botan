@@ -695,8 +695,9 @@ policy settings from a file.
 
      No export key exchange mechanisms or ciphersuites are supported
      by botan. The null encryption ciphersuites (which provide only
-     authentication, sending data in cleartext) are also not supported
-     by the implementation and cannot be negotiated.
+     authentication, sending data in cleartext) are only supported if
+     they are explicitly enabled at build time by activating the
+     tls_null module.
 
      Cipher names without an explicit mode refers to CBC+HMAC ciphersuites.
 
