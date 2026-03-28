@@ -22,7 +22,7 @@ namespace {
 
 class Block_Cipher_Tests final : public Text_Based_Test {
    public:
-      Block_Cipher_Tests() : Text_Based_Test("block", "Key,In,Out", "Tweak,Iterations") {}
+      Block_Cipher_Tests() : Text_Based_Test("block", "Key,In,Out", "Tweak") {}
 
       std::vector<std::string> possible_providers(const std::string& algo) override {
          return provider_filter(Botan::BlockCipher::providers(algo));
@@ -33,13 +33,8 @@ class Block_Cipher_Tests final : public Text_Based_Test {
          const std::vector<uint8_t> input = vars.get_req_bin("In");
          const std::vector<uint8_t> expected = vars.get_req_bin("Out");
          const std::vector<uint8_t> tweak = vars.get_opt_bin("Tweak");
-         const size_t iterations = vars.get_opt_sz("Iterations", 1);
 
          Test::Result result(algo);
-
-         if(iterations > 1 && run_long_tests() == false) {
-            return result;
-         }
 
          const std::vector<std::string> providers = possible_providers(algo);
 
@@ -119,18 +114,14 @@ class Block_Cipher_Tests final : public Text_Based_Test {
             // have called set_key on clone: process input values
             std::vector<uint8_t> buf = input;
 
-            for(size_t i = 0; i != iterations; ++i) {
-               cipher->encrypt(buf);
-            }
+            cipher->encrypt(buf);
 
             result.test_bin_eq(provider + " encrypt", buf, expected);
 
             // always decrypt expected ciphertext vs what we produced above
             buf = expected;
 
-            for(size_t i = 0; i != iterations; ++i) {
-               cipher->decrypt(buf);
-            }
+            cipher->decrypt(buf);
 
             result.test_bin_eq(provider + " decrypt", buf, input);
 
@@ -139,18 +130,14 @@ class Block_Cipher_Tests final : public Text_Based_Test {
             buf.resize(input.size() + 1);
             Botan::copy_mem(buf.data() + 1, input.data(), input.size());
 
-            for(size_t i = 0; i != iterations; ++i) {
-               cipher->encrypt_n(buf.data() + 1, buf.data() + 1, blocks);
-            }
+            cipher->encrypt_n(buf.data() + 1, buf.data() + 1, blocks);
 
             result.test_bin_eq(provider + " encrypt misaligned", {buf.data() + 1, buf.size() - 1}, expected);
 
             // always decrypt expected ciphertext vs what we produced above
             Botan::copy_mem(buf.data() + 1, expected.data(), expected.size());
 
-            for(size_t i = 0; i != iterations; ++i) {
-               cipher->decrypt_n(buf.data() + 1, buf.data() + 1, blocks);
-            }
+            cipher->decrypt_n(buf.data() + 1, buf.data() + 1, blocks);
 
             result.test_bin_eq(provider + " decrypt misaligned", std::span{buf.data() + 1, buf.size() - 1}, input);
 
