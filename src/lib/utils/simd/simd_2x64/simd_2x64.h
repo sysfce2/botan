@@ -54,6 +54,14 @@ class SIMD_2x64 final {
       {
       }
 
+      static SIMD_2x64 BOTAN_FN_ISA_SIMD_2X64 splat(uint64_t v) {
+#if defined(BOTAN_SIMD_USE_SSSE3)
+         return SIMD_2x64(_mm_set1_epi64x(v));
+#elif defined(BOTAN_SIMD_USE_SIMD128)
+         return SIMD_2x64(wasm_u64x2_splat(v));
+#endif
+      }
+
       static SIMD_2x64 BOTAN_FN_ISA_SIMD_2X64 all_ones() {
 #if defined(BOTAN_SIMD_USE_SSSE3)
          return SIMD_2x64(_mm_set1_epi8(-1));
