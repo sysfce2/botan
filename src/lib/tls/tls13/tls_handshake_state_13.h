@@ -37,7 +37,15 @@ class BOTAN_TEST_API Handshake_State_13_Base {
 
       bool has_client_finished() const { return m_client_finished.has_value(); }
 
-      bool handshake_finished() const { return has_server_finished() && has_client_finished(); }
+      bool handshake_finished() const {
+         return has_server_finished() && has_client_finished() && m_peer_finished_verified;
+      }
+
+      /**
+       * Once the implementation has successfully verified the peer's Finished
+       * message, the handshake is considered complete and successful.
+       */
+      void confirm_peer_finished_verified() { m_peer_finished_verified = true; }
 
       // Client_Hello_13 cannot be const because it might need modification due to a Hello_Retry_Request
       Client_Hello_13& client_hello() { return get(m_client_hello); }
@@ -96,6 +104,7 @@ class BOTAN_TEST_API Handshake_State_13_Base {
       }
 
       Connection_Side m_side;
+      bool m_peer_finished_verified = false;
 
       std::optional<Client_Hello_13> m_client_hello;
       std::optional<Client_Hello_12_Shim> m_client_hello_12;
