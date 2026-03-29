@@ -1,7 +1,7 @@
 Release Notes
 ========================================
 
-Version 3.12.0, Not Yet Released
+Version 3.11.1, Not Yet Released
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * Add optimized Argon2 implementation using AVX512 (GH #5471)
@@ -15,7 +15,11 @@ Version 3.12.0, Not Yet Released
 * Add SSSE3/NEON and AVX2 optimized codepaths for CTR (GH #5474 #5480)
 
 * Add constant time implementations of Camellia, ARIA, SEED and SM4 using AES-NI
-  or ARMv8 AES instructions to implement sbox lookups (GH #5476 #5477 #5479 #5481)
+  or ARMv8 AES instructions to implement sbox lookups (GH #5476 #5477 #5479 #5481 #5485)
+
+* Improve performance of the AVX512 implementation of SHA-512 especially for Clang (GH #5490)
+
+* Optimizations for the IDEA modular multiplication (GH #5484)
 
 * Fix bug in Ed25519 where an invalid signature checked with PK_Verifier might
   cause a later valid signature to be rejected. (GH #5454)
@@ -31,6 +35,11 @@ Version 3.12.0, Not Yet Released
 
 * Fix a compilation error introduced in 3.11.0 which prevented using ``ffi`` unless
   ``bcrypt`` was also enabled. (GH #5462)
+
+* Avoid a macro collision with Microsoft headers that could cause a compilation
+  problem in amalgamation mode. (GH #5486)
+
+* Enable explicit_bzero, getentropy, getrandom on Hurd (GH #5488)
 
 Version 3.11.0, 2026-03-15
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
