@@ -1801,6 +1801,33 @@ class Name_Constraint_DN_Prefix_Test final : public Test {
 
 BOTAN_REGISTER_TEST("x509", "x509_path_nc_prefix_dn", Name_Constraint_DN_Prefix_Test);
 
+class CVE_2026_35580_Test final : public Test {
+   public:
+      std::vector<Test::Result> run() override {
+         Test::Result result("CVE-2026-35580");
+
+         const Botan::Path_Validation_Restrictions restrictions;
+
+         auto end_entity = Botan::X509_Certificate(Test::data_file("x509/cve_2026_35580/end_entity.pem"));
+         auto trusted_root = Botan::X509_Certificate(Test::data_file("x509/cve_2026_35580/root.pem"));
+
+         auto validation_time = Botan::calendar_point(2026, 3, 29, 0, 0, 0).to_std_timepoint();
+
+         Botan::Certificate_Store_In_Memory trusted;
+         trusted.add_certificate(trusted_root);
+
+         const auto validation_result = Botan::x509_path_validate(
+            {end_entity}, restrictions, {&trusted}, "", Botan::Usage_Type::UNSPECIFIED, validation_time);
+
+         result.test_str_eq(
+            "Cert validation status", Botan::to_string(validation_result.result()), "Cannot establish trust");
+
+         return {result};
+      }
+};
+
+BOTAN_REGISTER_TEST("x509", "x509_cve_2026_35580", CVE_2026_35580_Test);
+
    #endif
 
 #endif
