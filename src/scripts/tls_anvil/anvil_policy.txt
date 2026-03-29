@@ -1,0 +1,11 @@
+allow_tls12 = true
+allow_tls13 = true
+ciphers = AES-128/GCM AES-256/GCM ChaCha20Poly1305 AES-256 AES-128 3DES
+
+# Anvil server uses small keys for some reason
+minimum_rsa_bits = 1024
+
+# RSA kex disabled pending apparent Anvil bug
+key_exchange_methods = ECDH DH
+
+signature_methods = ECDSA RSA IMPLICIT
