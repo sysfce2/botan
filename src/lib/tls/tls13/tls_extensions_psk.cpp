@@ -16,6 +16,7 @@
 #include <botan/tls_psk_identity_13.h>
 #include <botan/tls_session.h>
 #include <botan/tls_session_manager.h>
+#include <botan/internal/ct_utils.h>
 #include <botan/internal/stl_util.h>
 #include <botan/internal/tls_cipher_state.h>
 #include <botan/internal/tls_reader.h>
@@ -427,7 +428,8 @@ bool PSK::validate_binder(const PSK& server_psk, const std::vector<uint8_t>& bin
    const auto& psks = std::get<std::vector<Client_PSK>>(m_impl->psk);
 
    BOTAN_STATE_CHECK(index < psks.size());
-   return psks[index].binder() == binder;
+   const auto& expected_binder = psks[index].binder();
+   return CT::is_equal<uint8_t>(binder, expected_binder).as_bool();
 }
 
 }  // namespace Botan::TLS
