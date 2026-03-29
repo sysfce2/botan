@@ -6,11 +6,11 @@ Version 3.11.1, Not Yet Released
 
 * Add optimized Argon2 implementation using AVX512 (GH #5471)
 
-* Add optimized Twofish implementation using AVX512/GFNI (GH #5465)
+* Add optimized and constant-time Twofish implementation using AVX512/GFNI (GH #5465)
 
-* Add optimized SEED implementation using AVX512/GFNI (GH #5472)
+* Add optimized and constant-time SEED implementation using AVX512/GFNI (GH #5472)
 
-* Add optimized Whirlpool implementations using AVX2 and AVX512 (GH #5453 #5473)
+* Add optimized and constant-time Whirlpool implementations using AVX2 and AVX512 (GH #5453 #5473)
 
 * Add SSSE3/NEON and AVX2 optimized codepaths for CTR (GH #5474 #5480)
 
