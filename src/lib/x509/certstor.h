@@ -74,12 +74,10 @@ class BOTAN_PUBLIC_API(2, 0) Certificate_Store /* NOLINT(*-special-member-functi
       virtual std::optional<X509_CRL> find_crl_for(const X509_Certificate& subject) const;
 
       /**
-      * @return whether the certificate is known
+      * @return whether this certificate is contained within the store
       * @param cert certificate to be searched
       */
-      bool certificate_known(const X509_Certificate& cert) const {
-         return find_cert(cert.subject_dn(), cert.subject_key_id()).has_value();
-      }
+      bool certificate_known(const X509_Certificate& cert) const;
 
       // remove this (used by TLS::Server)
       virtual std::vector<X509_DN> all_subjects() const = 0;

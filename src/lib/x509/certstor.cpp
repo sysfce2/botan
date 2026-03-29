@@ -19,6 +19,16 @@ namespace Botan {
 
 Certificate_Store::~Certificate_Store() = default;
 
+bool Certificate_Store::certificate_known(const X509_Certificate& searching) const {
+   for(const auto& cert : find_all_certs(searching.subject_dn(), searching.subject_key_id())) {
+      if(cert == searching) {
+         return true;
+      }
+   }
+
+   return false;
+}
+
 std::optional<X509_Certificate> Certificate_Store::find_cert(const X509_DN& subject_dn,
                                                              const std::vector<uint8_t>& key_id) const {
    const auto certs = find_all_certs(subject_dn, key_id);
