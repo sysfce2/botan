@@ -41,7 +41,7 @@ std::unique_ptr<Extension> make_extension(TLS_Data_Reader& reader,
    const uint16_t size = static_cast<uint16_t>(reader.remaining_bytes());
    switch(code) {
       case Extension_Code::ServerNameIndication:
-         return std::make_unique<Server_Name_Indicator>(reader, size);
+         return std::make_unique<Server_Name_Indicator>(reader, size, from);
 
       case Extension_Code::SupportedGroups:
          return std::make_unique<Supported_Groups>(reader, size);
@@ -263,32 +263,59 @@ std::vector<uint8_t> Unknown_Extension::serialize(Connection_Side /*whoami*/) co
    return m_value;
 }
 
-Server_Name_Indicator::Server_Name_Indicator(TLS_Data_Reader& reader, uint16_t extension_size) {
+Server_Name_Indicator::Server_Name_Indicator(TLS_Data_Reader& reader, uint16_t extension_size, Connection_Side from) {
    /*
-   * This is used by the server to confirm that it knew the name
+   RFC 6066 Section 3
+
+      A server that receives a client hello containing the "server_name"
+      extension MAY use the information contained in the extension to guide
+      its selection of an appropriate certificate to return to the client,
+      and/or other aspects of security policy.  In this event, the server
+      SHALL include an extension of type "server_name" in the (extended)
+      server hello.  The "extension_data" field of this extension SHALL be
+      empty.
    */
-   if(extension_size == 0) {
-      return;
-   }
+   if(from == Connection_Side::Server) {
+      if(extension_size != 0) {
+         throw TLS_Exception(Alert::IllegalParameter, "Server sent non-empty SNI extension");
+      }
+   } else {
+      // Clients are required to send at least one name in the SNI
+      if(extension_size == 0) {
+         throw TLS_Exception(Alert::IllegalParameter, "Client sent empty SNI extension");
+      }
 
-   uint16_t name_bytes = reader.get_uint16_t();
+      const uint16_t name_bytes = reader.get_uint16_t();
 
-   if(name_bytes + 2 != extension_size) {
-      throw Decoding_Error("Bad encoding of SNI extension");
-   }
+      if(name_bytes + 2 != extension_size || name_bytes < 3) {
+         throw Decoding_Error("Bad encoding of SNI extension");
+      }
 
-   while(name_bytes > 0) {
-      const uint8_t name_type = reader.get_byte();
-      name_bytes--;
+      BOTAN_ASSERT_NOMSG(reader.remaining_bytes() == name_bytes);
 
-      if(name_type == 0) {
-         // DNS
-         m_sni_host_name = reader.get_string(2, 1, 65535);
-         name_bytes -= static_cast<uint16_t>(2 + m_sni_host_name.size());
-      } else {
-         // some other unknown name type, which we will ignore
-         reader.discard_next(name_bytes);
-         name_bytes = 0;
+      while(reader.has_remaining()) {
+         const uint8_t name_type = reader.get_byte();
+
+         if(name_type == 0) {
+            /*
+            RFC 6066 Section 3
+               The ServerNameList MUST NOT contain more than one name of the same name_type.
+            */
+            if(!m_sni_host_name.empty()) {
+               throw Decoding_Error("TLS ServerNameIndicator contains more than one host_name");
+            }
+            m_sni_host_name = reader.get_string(2, 1, 65535);
+         } else {
+            /*
+            Unknown name type - skip its length-prefixed value and continue
+
+            RFC 6066 Section 3
+               For backward compatibility, all future data structures associated
+               with new NameTypes MUST begin with a 16-bit length field.
+            */
+            const uint16_t unknown_name_len = reader.get_uint16_t();
+            reader.discard_next(unknown_name_len);
+         }
       }
    }
 }

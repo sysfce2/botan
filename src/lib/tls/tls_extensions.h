@@ -108,7 +108,7 @@ class BOTAN_UNSTABLE_API Server_Name_Indicator final : public Extension {
 
       explicit Server_Name_Indicator(std::string_view host_name) : m_sni_host_name(host_name) {}
 
-      Server_Name_Indicator(TLS_Data_Reader& reader, uint16_t extension_size);
+      Server_Name_Indicator(TLS_Data_Reader& reader, uint16_t extension_size, Connection_Side from);
 
       std::string host_name() const { return m_sni_host_name; }
 
