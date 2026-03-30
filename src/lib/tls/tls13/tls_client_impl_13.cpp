@@ -359,6 +359,13 @@ void Client_Impl_13::handle(const Hello_Retry_Request& hrr) {
    auto cipher = Ciphersuite::by_id(hrr.ciphersuite());
    BOTAN_ASSERT_NOMSG(cipher.has_value());  // should work, since we offered this suite
 
+   // RFC 8446 4.1.4 / Appendix B.4
+   //    Similarly, cipher suites for TLS 1.2 and lower cannot be used with
+   //    TLS 1.3.
+   if(!cipher->usable_in_version(Protocol_Version::TLS_V13)) {
+      throw TLS_Exception(Alert::IllegalParameter, "HelloRetryRequest selected a cipher suite not usable in TLS 1.3");
+   }
+
    m_transcript_hash =
       Transcript_Hash_State::recreate_after_hello_retry_request(cipher.value().prf_algo(), m_transcript_hash);
 
