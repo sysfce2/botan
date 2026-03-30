@@ -364,6 +364,16 @@ Record_Layer::ReadResult<Record> Record_Layer::next_record(Cipher_State* cipher_
 
       // erase content type and padding
       record.fragment.erase((end_of_content + 1).base(), record.fragment.cend());
+
+      // RFC 8446 5.4
+      //    Implementations MUST NOT send Handshake and Alert records that have
+      //    a zero-length TLSInnerPlaintext.content; if such a message is
+      //    received, the receiving implementation MUST terminate the connection
+      //    with an "unexpected_message" alert.
+      if(record.fragment.empty() && record.type != Record_Type::ApplicationData) {
+         throw TLS_Exception(Alert::UnexpectedMessage,
+                             "Received a protected record with empty TLSInnerPlaintext content");
+      }
    }
 
    return record;
