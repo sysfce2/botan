@@ -332,11 +332,19 @@ std::vector<uint8_t> Basic_Constraints::encode_inner() const {
 * Decode the extension
 */
 void Basic_Constraints::decode_inner(const std::vector<uint8_t>& in) {
-   BER_Decoder(in)
+   /*
+   * RFC 5280 Section 4.2.1.9
+   *
+   * BasicConstraints ::= SEQUENCE {
+   *    cA                      BOOLEAN DEFAULT FALSE,
+   *    pathLenConstraint       INTEGER (0..MAX) OPTIONAL }
+   */
+   BER_Decoder(in, BER_Decoder::Limits::DER())
       .start_sequence()
       .decode_optional(m_is_ca, ASN1_Type::Boolean, ASN1_Class::Universal, false)
       .decode_optional(m_path_length_constraint, ASN1_Type::Integer, ASN1_Class::Universal)
-      .end_cons();
+      .end_cons()
+      .verify_end();
 }
 
 /*
@@ -366,7 +374,8 @@ std::vector<uint8_t> Key_Usage::encode_inner() const {
 * Decode the extension
 */
 void Key_Usage::decode_inner(const std::vector<uint8_t>& in) {
-   BER_Decoder ber(in);
+   /* RFC 5280 Section 4.2.1.3 - KeyUsage ::= BIT STRING */
+   BER_Decoder ber(in, BER_Decoder::Limits::DER());
 
    const BER_Object obj = ber.get_next_object();
 
@@ -393,6 +402,8 @@ void Key_Usage::decode_inner(const std::vector<uint8_t>& in) {
    } else {
       m_constraints = Key_Constraints(0);
    }
+
+   ber.verify_end();
 }
 
 /*
@@ -408,7 +419,8 @@ std::vector<uint8_t> Subject_Key_ID::encode_inner() const {
 * Decode the extension
 */
 void Subject_Key_ID::decode_inner(const std::vector<uint8_t>& in) {
-   BER_Decoder(in).decode(m_key_id, ASN1_Type::OctetString).verify_end();
+   /* RFC 5280 Section 4.2.1.2 - SubjectKeyIdentifier ::= KeyIdentifier */
+   BER_Decoder(in, BER_Decoder::Limits::DER()).decode(m_key_id, ASN1_Type::OctetString).verify_end();
 }
 
 /*
@@ -445,7 +457,20 @@ std::vector<uint8_t> Authority_Key_ID::encode_inner() const {
 * Decode the extension
 */
 void Authority_Key_ID::decode_inner(const std::vector<uint8_t>& in) {
-   BER_Decoder(in).start_sequence().decode_optional_string(m_key_id, ASN1_Type::OctetString, 0);
+   /*
+   * RFC 5280 Section 4.2.1.1
+   *
+   * AuthorityKeyIdentifier ::= SEQUENCE {
+   *    keyIdentifier             [0] KeyIdentifier           OPTIONAL,
+   *    authorityCertIssuer       [1] GeneralNames            OPTIONAL,
+   *    authorityCertSerialNumber [2] CertificateSerialNumber OPTIONAL }
+   */
+   BER_Decoder(in, BER_Decoder::Limits::DER())
+      .start_sequence()
+      .decode_optional_string(m_key_id, ASN1_Type::OctetString, 0)
+      .discard_remaining()
+      .end_cons()
+      .verify_end();
 }
 
 /*
@@ -470,14 +495,16 @@ std::vector<uint8_t> Issuer_Alternative_Name::encode_inner() const {
 * Decode the extension
 */
 void Subject_Alternative_Name::decode_inner(const std::vector<uint8_t>& in) {
-   BER_Decoder(in).decode(m_alt_name);
+   /* RFC 5280 Section 4.2.1.6 - SubjectAltName ::= GeneralNames */
+   BER_Decoder(in, BER_Decoder::Limits::DER()).decode(m_alt_name).verify_end();
 }
 
 /*
 * Decode the extension
 */
 void Issuer_Alternative_Name::decode_inner(const std::vector<uint8_t>& in) {
-   BER_Decoder(in).decode(m_alt_name);
+   /* RFC 5280 Section 4.2.1.7 - IssuerAltName ::= GeneralNames */
+   BER_Decoder(in, BER_Decoder::Limits::DER()).decode(m_alt_name).verify_end();
 }
 
 /*
@@ -493,7 +520,8 @@ std::vector<uint8_t> Extended_Key_Usage::encode_inner() const {
 * Decode the extension
 */
 void Extended_Key_Usage::decode_inner(const std::vector<uint8_t>& in) {
-   BER_Decoder(in).decode_list(m_oids);
+   /* RFC 5280 Section 4.2.1.12 - ExtKeyUsageSyntax ::= SEQUENCE SIZE (1..MAX) OF KeyPurposeId */
+   BER_Decoder(in, BER_Decoder::Limits::DER()).decode_list(m_oids).verify_end();
 }
 
 /*
@@ -507,7 +535,14 @@ std::vector<uint8_t> Name_Constraints::encode_inner() const {
 * Decode the extension
 */
 void Name_Constraints::decode_inner(const std::vector<uint8_t>& in) {
-   BER_Decoder ber(in);
+   /*
+   * RFC 5280 Section 4.2.1.10
+   *
+   * NameConstraints ::= SEQUENCE {
+   *    permittedSubtrees       [0] GeneralSubtrees OPTIONAL,
+   *    excludedSubtrees        [1] GeneralSubtrees OPTIONAL }
+   */
+   BER_Decoder ber(in, BER_Decoder::Limits::DER());
    BER_Decoder inner = ber.start_sequence();
 
    std::vector<GeneralSubtree> permitted;
@@ -525,6 +560,7 @@ void Name_Constraints::decode_inner(const std::vector<uint8_t>& in) {
    }
 
    inner.end_cons();
+   ber.verify_end();
 
    if(permitted.empty() && excluded.empty()) {
       throw Decoding_Error("Empty NameConstraint extension");
@@ -607,9 +643,10 @@ std::vector<uint8_t> Certificate_Policies::encode_inner() const {
 * Decode the extension
 */
 void Certificate_Policies::decode_inner(const std::vector<uint8_t>& in) {
+   /* RFC 5280 Section 4.2.1.4 - CertificatePolicies ::= SEQUENCE SIZE (1..MAX) OF PolicyInformation */
    std::vector<Policy_Information> policies;
 
-   BER_Decoder(in).decode_list(policies);
+   BER_Decoder(in, BER_Decoder::Limits::DER()).decode_list(policies).verify_end();
    m_oids.clear();
    for(const auto& policy : policies) {
       m_oids.push_back(policy.oid());
@@ -655,7 +692,16 @@ std::vector<uint8_t> Authority_Information_Access::encode_inner() const {
 }
 
 void Authority_Information_Access::decode_inner(const std::vector<uint8_t>& in) {
-   BER_Decoder ber = BER_Decoder(in).start_sequence();
+   /*
+   * RFC 5280 Section 4.2.2.1
+   *
+   * AuthorityInfoAccessSyntax ::= SEQUENCE SIZE (1..MAX) OF AccessDescription
+   * AccessDescription ::= SEQUENCE {
+   *    accessMethod          OBJECT IDENTIFIER,
+   *    accessLocation        GeneralName }
+   */
+   BER_Decoder outer(in, BER_Decoder::Limits::DER());
+   BER_Decoder ber = outer.start_sequence();
 
    while(ber.more_items()) {
       OID oid;
@@ -679,6 +725,9 @@ void Authority_Information_Access::decode_inner(const std::vector<uint8_t>& in) 
          }
       }
    }
+
+   ber.end_cons();
+   outer.verify_end();
 }
 
 /*
@@ -714,7 +763,8 @@ std::vector<uint8_t> CRL_Number::encode_inner() const {
 * Decode the extension
 */
 void CRL_Number::decode_inner(const std::vector<uint8_t>& in) {
-   BER_Decoder(in).decode(m_crl_number);
+   /* RFC 5280 Section 5.2.3 - CRLNumber ::= INTEGER (0..MAX) */
+   BER_Decoder(in, BER_Decoder::Limits::DER()).decode(m_crl_number).verify_end();
    m_has_value = true;
 }
 
@@ -731,8 +781,11 @@ std::vector<uint8_t> CRL_ReasonCode::encode_inner() const {
 * Decode the extension
 */
 void CRL_ReasonCode::decode_inner(const std::vector<uint8_t>& in) {
+   /* RFC 5280 Section 5.3.1 - CRLReason ::= ENUMERATED { ... } */
    size_t reason_code = 0;
-   BER_Decoder(in).decode(reason_code, ASN1_Type::Enumerated, ASN1_Class::Universal);
+   BER_Decoder(in, BER_Decoder::Limits::DER())
+      .decode(reason_code, ASN1_Type::Enumerated, ASN1_Class::Universal)
+      .verify_end();
    m_reason = static_cast<CRL_Code>(reason_code);
 }
 
@@ -743,7 +796,12 @@ std::vector<uint8_t> CRL_Distribution_Points::encode_inner() const {
 }
 
 void CRL_Distribution_Points::decode_inner(const std::vector<uint8_t>& buf) {
-   BER_Decoder(buf).decode_list(m_distribution_points).verify_end();
+   /*
+   * RFC 5280 Section 4.2.1.13
+   *
+   * CRLDistributionPoints ::= SEQUENCE SIZE (1..MAX) OF DistributionPoint
+   */
+   BER_Decoder(buf, BER_Decoder::Limits::DER()).decode_list(m_distribution_points).verify_end();
 
    std::stringstream ss;
 
@@ -793,7 +851,8 @@ std::vector<uint8_t> CRL_Issuing_Distribution_Point::encode_inner() const {
 }
 
 void CRL_Issuing_Distribution_Point::decode_inner(const std::vector<uint8_t>& buf) {
-   BER_Decoder(buf).decode(m_distribution_point).verify_end();
+   /* RFC 5280 Section 5.2.5 - IssuingDistributionPoint ::= SEQUENCE { ... } */
+   BER_Decoder(buf, BER_Decoder::Limits::DER()).decode(m_distribution_point).verify_end();
 }
 
 void TNAuthList::Entry::encode_into(DER_Encoder& /*to*/) const {
@@ -808,13 +867,13 @@ void TNAuthList::Entry::decode_from(class BER_Decoder& ber) {
    if(type_tag == ServiceProviderCode) {
       m_type = ServiceProviderCode;
       ASN1_String spc_string;
-      BER_Decoder(obj).decode(spc_string);
+      BER_Decoder(obj, ber.limits()).decode(spc_string);
       m_data = std::move(spc_string);
    } else if(type_tag == TelephoneNumberRange) {
       m_type = TelephoneNumberRange;
       m_data = RangeContainer();
       auto& range_items = std::get<RangeContainer>(m_data);
-      BER_Decoder list = BER_Decoder(obj).start_sequence();
+      BER_Decoder list = BER_Decoder(obj, ber.limits()).start_sequence();
       while(list.more_items()) {
          TelephoneNumberRangeData entry;
 
@@ -838,7 +897,7 @@ void TNAuthList::Entry::decode_from(class BER_Decoder& ber) {
    } else if(type_tag == TelephoneNumber) {
       m_type = TelephoneNumber;
       ASN1_String one_string;
-      BER_Decoder(obj).decode(one_string);
+      BER_Decoder(obj, ber.limits()).decode(one_string);
       if(!is_valid_telephone_number(one_string)) {
          throw Decoding_Error(fmt("Invalid TelephoneNumber {}", one_string.value()));
       }
@@ -853,7 +912,8 @@ std::vector<uint8_t> TNAuthList::encode_inner() const {
 }
 
 void TNAuthList::decode_inner(const std::vector<uint8_t>& in) {
-   BER_Decoder(in).decode_list(m_tn_entries).verify_end();
+   /* RFC 8226 Section 9 - TNAuthorizationList ::= SEQUENCE SIZE (1..MAX) OF TNEntry */
+   BER_Decoder(in, BER_Decoder::Limits::DER()).decode_list(m_tn_entries).verify_end();
    if(m_tn_entries.empty()) {
       throw Decoding_Error("TNAuthorizationList is empty");
    }
@@ -881,7 +941,8 @@ std::vector<uint8_t> IPAddressBlocks::encode_inner() const {
 }
 
 void IPAddressBlocks::decode_inner(const std::vector<uint8_t>& in) {
-   BER_Decoder(in).decode_list(m_ip_addr_blocks).verify_end();
+   /* RFC 3779 Section 2.2.3.1 - IPAddrBlocks ::= SEQUENCE OF IPAddressFamily */
+   BER_Decoder(in, BER_Decoder::Limits::DER()).decode_list(m_ip_addr_blocks).verify_end();
    sort_and_merge();
 }
 
@@ -1483,7 +1544,8 @@ std::vector<uint8_t> ASBlocks::encode_inner() const {
 }
 
 void ASBlocks::decode_inner(const std::vector<uint8_t>& in) {
-   BER_Decoder(in).decode(m_as_identifiers).verify_end();
+   /* RFC 3779 Section 3.2.3.1 - ASIdentifiers ::= SEQUENCE { ... } */
+   BER_Decoder(in, BER_Decoder::Limits::DER()).decode(m_as_identifiers).verify_end();
 }
 
 ASBlocks::ASIdentifierChoice ASBlocks::add_new(const std::optional<ASIdentifierChoice>& old, asnum_t min, asnum_t max) {
@@ -1532,7 +1594,7 @@ void ASBlocks::ASIdentifiers::decode_from(Botan::BER_Decoder& from) {
 
    // asnum, potentially followed by an rdi
    if(elem_type_tag == 0) {
-      BER_Decoder as_obj_ber = BER_Decoder(elem_obj);
+      BER_Decoder as_obj_ber = BER_Decoder(elem_obj, seq_dec.limits());
       ASIdentifierChoice asnum;
       as_obj_ber.decode(asnum);
       m_asnum = asnum;
@@ -1540,7 +1602,7 @@ void ASBlocks::ASIdentifiers::decode_from(Botan::BER_Decoder& from) {
       const BER_Object rdi_obj = seq_dec.get_next_object();
       const ASN1_Type rdi_type_tag = rdi_obj.type_tag();
       if(static_cast<uint32_t>(rdi_type_tag) == 1) {
-         BER_Decoder rdi_obj_ber = BER_Decoder(rdi_obj);
+         BER_Decoder rdi_obj_ber = BER_Decoder(rdi_obj, seq_dec.limits());
          ASIdentifierChoice rdi;
          rdi_obj_ber.decode(rdi);
          m_rdi = rdi;
@@ -1551,7 +1613,7 @@ void ASBlocks::ASIdentifiers::decode_from(Botan::BER_Decoder& from) {
 
    // just an rdi
    if(elem_type_tag == 1) {
-      BER_Decoder rdi_obj_ber = BER_Decoder(elem_obj);
+      BER_Decoder rdi_obj_ber = BER_Decoder(elem_obj, seq_dec.limits());
       ASIdentifierChoice rdi;
       rdi_obj_ber.decode(rdi);
       m_rdi = rdi;
@@ -1688,7 +1750,8 @@ void ASBlocks::validate(const X509_Certificate& /* unused */,
 }
 
 void OCSP_NoCheck::decode_inner(const std::vector<uint8_t>& buf) {
-   BER_Decoder(buf).verify_end();
+   /* RFC 6960 Section 4.2.2.2.1 - id-pkix-ocsp-nocheck (value is NULL or empty) */
+   BER_Decoder(buf, BER_Decoder::Limits::DER()).verify_end();
 }
 
 std::vector<uint8_t> Unknown_Extension::encode_inner() const {

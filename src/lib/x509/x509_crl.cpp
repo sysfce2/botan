@@ -121,7 +121,7 @@ namespace {
 std::unique_ptr<CRL_Data> decode_crl_body(const std::vector<uint8_t>& body, const AlgorithmIdentifier& sig_algo) {
    auto data = std::make_unique<CRL_Data>();
 
-   BER_Decoder tbs_crl(body);
+   BER_Decoder tbs_crl(body, BER_Decoder::Limits::DER());
 
    tbs_crl.decode_optional(data->m_version, ASN1_Type::Integer, ASN1_Class::Universal);
    data->m_version += 1;  // wire-format is 0-based
@@ -153,7 +153,7 @@ std::unique_ptr<CRL_Data> decode_crl_body(const std::vector<uint8_t>& body, cons
    BER_Object next = tbs_crl.get_next_object();
 
    if(next.is_a(ASN1_Type::Sequence, ASN1_Class::Constructed)) {
-      BER_Decoder cert_list(std::move(next));
+      BER_Decoder cert_list(next, tbs_crl.limits());
 
       while(cert_list.more_items()) {
          CRL_Entry entry;
@@ -164,7 +164,7 @@ std::unique_ptr<CRL_Data> decode_crl_body(const std::vector<uint8_t>& body, cons
    }
 
    if(next.is_a(0, ASN1_Class::Constructed | ASN1_Class::ContextSpecific)) {
-      BER_Decoder crl_options(std::move(next));
+      BER_Decoder crl_options(next, tbs_crl.limits());
       crl_options.decode(data->m_extensions).verify_end();
       next = tbs_crl.get_next_object();
    }

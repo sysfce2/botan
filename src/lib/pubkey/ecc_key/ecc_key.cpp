@@ -179,13 +179,14 @@ EC_PrivateKey::EC_PrivateKey(const AlgorithmIdentifier& alg_id,
    secure_vector<uint8_t> private_key_bits;
    secure_vector<uint8_t> public_key_bits;
 
-   BER_Decoder(key_bits)
+   BER_Decoder(key_bits, BER_Decoder::Limits::DER())
       .start_sequence()
       .decode_and_check<size_t>(1, "Unknown version code for ECC key")
       .decode(private_key_bits, ASN1_Type::OctetString)
       .decode_optional(key_parameters, ASN1_Type(0), ASN1_Class::ExplicitContextSpecific)
       .decode_optional_string(public_key_bits, ASN1_Type::BitString, 1, ASN1_Class::ExplicitContextSpecific)
-      .end_cons();
+      .end_cons()
+      .verify_end();
 
    m_private_key = std::make_shared<EC_PrivateKey_Data>(group, private_key_bits);
 

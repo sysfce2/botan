@@ -57,7 +57,7 @@ std::unique_ptr<Private_Key> Ed448_PublicKey::generate_another(RandomNumberGener
 
 Ed448_PrivateKey::Ed448_PrivateKey(const AlgorithmIdentifier& /*unused*/, std::span<const uint8_t> key_bits) {
    secure_vector<uint8_t> bits;
-   BER_Decoder(key_bits).decode(bits, ASN1_Type::OctetString).verify_end();
+   BER_Decoder(key_bits, BER_Decoder::Limits::DER()).decode(bits, ASN1_Type::OctetString).verify_end();
 
    if(bits.size() != ED448_LEN) {
       throw Decoding_Error("Invalid size for Ed448 private key");

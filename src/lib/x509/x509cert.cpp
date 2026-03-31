@@ -111,7 +111,7 @@ std::unique_ptr<X509_Certificate_Data> parse_x509_cert_body(const X509_Object& o
    BER_Object public_key;
    BER_Object v3_exts_data;
 
-   BER_Decoder(obj.signed_body())
+   BER_Decoder(obj.signed_body(), BER_Decoder::Limits::DER())
       .decode_optional(data->m_version, ASN1_Type(0), ASN1_Class::Constructed | ASN1_Class::ContextSpecific)
       .decode(serial_bn)
       .decode(data->m_sig_algo_inner)
@@ -149,13 +149,14 @@ std::unique_ptr<X509_Certificate_Data> parse_x509_cert_body(const X509_Object& o
 
    data->m_subject_public_key_bits_seq = ASN1::put_in_sequence(data->m_subject_public_key_bits);
 
-   BER_Decoder(data->m_subject_public_key_bits)
+   BER_Decoder(data->m_subject_public_key_bits, BER_Decoder::Limits::DER())
       .decode(data->m_subject_public_key_algid)
-      .decode(data->m_subject_public_key_bitstring, ASN1_Type::BitString);
+      .decode(data->m_subject_public_key_bitstring, ASN1_Type::BitString)
+      .verify_end();
 
    if(v3_exts_data.is_a(3, ASN1_Class::Constructed | ASN1_Class::ContextSpecific)) {
       // Path validation will reject a v1/v2 cert with v3 extensions
-      BER_Decoder(v3_exts_data).decode(data->m_v3_extensions).verify_end();
+      BER_Decoder(v3_exts_data, BER_Decoder::Limits::DER()).decode(data->m_v3_extensions).verify_end();
    } else if(v3_exts_data.is_set()) {
       throw BER_Bad_Tag("Unknown tag in X.509 cert", v3_exts_data.tagging());
    }

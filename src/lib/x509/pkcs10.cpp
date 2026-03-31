@@ -96,7 +96,7 @@ namespace {
 std::unique_ptr<PKCS10_Data> decode_pkcs10(const std::vector<uint8_t>& body) {
    auto data = std::make_unique<PKCS10_Data>();
 
-   BER_Decoder cert_req_info(body);
+   BER_Decoder cert_req_info(body, BER_Decoder::Limits::DER());
 
    size_t version = 0;
    cert_req_info.decode(version);
@@ -118,13 +118,13 @@ std::unique_ptr<PKCS10_Data> decode_pkcs10(const std::vector<uint8_t>& body) {
    std::set<std::string> pkcs9_email;
 
    if(attr_bits.is_a(0, ASN1_Class::Constructed | ASN1_Class::ContextSpecific)) {
-      BER_Decoder attributes(attr_bits);
+      BER_Decoder attributes(attr_bits, cert_req_info.limits());
       while(attributes.more_items()) {
          Attribute attr;
          attributes.decode(attr);
 
          const OID& oid = attr.object_identifier();
-         BER_Decoder value(attr.get_parameters());
+         BER_Decoder value(attr.get_parameters(), cert_req_info.limits());
 
          if(oid == OID::from_string("PKCS9.EmailAddress")) {
             ASN1_String email;

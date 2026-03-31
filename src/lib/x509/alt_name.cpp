@@ -116,7 +116,7 @@ void AlternativeName::decode_from(BER_Decoder& source) {
       const BER_Object obj = names.get_next_object();
 
       if(obj.is_a(0, ASN1_Class::ExplicitContextSpecific)) {
-         BER_Decoder othername(obj);
+         BER_Decoder othername(obj, names.limits());
 
          OID oid;
          othername.decode(oid);
@@ -128,7 +128,7 @@ void AlternativeName::decode_from(BER_Decoder& source) {
                throw Decoding_Error("Invalid tags on otherName value");
             }
 
-            BER_Decoder othername_value_inner(othername_value_outer);
+            BER_Decoder othername_value_inner(othername_value_outer, names.limits());
 
             const BER_Object value = othername_value_inner.get_next_object();
             othername_value_inner.verify_end();
@@ -142,7 +142,7 @@ void AlternativeName::decode_from(BER_Decoder& source) {
       } else if(obj.is_a(2, ASN1_Class::ContextSpecific)) {
          m_dns.insert(check_and_canonicalize_dns_name(ASN1::to_string(obj)));
       } else if(obj.is_a(4, ASN1_Class::ContextSpecific | ASN1_Class::Constructed)) {
-         BER_Decoder dec(obj);
+         BER_Decoder dec(obj, names.limits());
          X509_DN dn;
          dec.decode(dn);
          this->add_dn(dn);

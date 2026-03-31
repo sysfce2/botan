@@ -74,12 +74,17 @@ GOST_3410_PublicKey::GOST_3410_PublicKey(const AlgorithmIdentifier& alg_id, std:
    OID ecc_param_id;
 
    // The parameters also includes hash and cipher OIDs
-   BER_Decoder(alg_id.parameters()).start_sequence().decode(ecc_param_id);
+   BER_Decoder(alg_id.parameters(), BER_Decoder::Limits::DER())
+      .start_sequence()
+      .decode(ecc_param_id)
+      .discard_remaining()
+      .end_cons()
+      .verify_end();
 
    auto group = check_domain(EC_Group::from_OID(ecc_param_id));
 
    std::vector<uint8_t> bits;
-   BER_Decoder(key_bits).decode(bits, ASN1_Type::OctetString);
+   BER_Decoder(key_bits, BER_Decoder::Limits::DER()).decode(bits, ASN1_Type::OctetString).verify_end();
 
    if(bits.size() != 2 * (group.get_p_bits() / 8)) {
       throw Decoding_Error("GOST-34.10-2012 invalid encoding of public key");

@@ -23,7 +23,7 @@ namespace {
 /// Converts a DER-encoded ANSI X9.62 ECPoint to EC_Point
 EC_AffinePoint decode_public_point(const EC_Group& group, std::span<const uint8_t> ec_point_data) {
    std::vector<uint8_t> ec_point;
-   BER_Decoder(ec_point_data).decode(ec_point, ASN1_Type::OctetString);
+   BER_Decoder(ec_point_data, BER_Decoder::Limits::DER()).decode(ec_point, ASN1_Type::OctetString).verify_end();
    // Throws if invalid
    return EC_AffinePoint(group, ec_point);
 }

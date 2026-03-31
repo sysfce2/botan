@@ -27,7 +27,7 @@ void x448_basepoint_from_data(std::span<uint8_t, X448_LEN> mypublic, std::span<c
 
 secure_vector<uint8_t> ber_decode_sk(std::span<const uint8_t> key_bits) {
    secure_vector<uint8_t> decoded_bits;
-   BER_Decoder(key_bits).decode(decoded_bits, ASN1_Type::OctetString).verify_end();
+   BER_Decoder(key_bits, BER_Decoder::Limits::DER()).decode(decoded_bits, ASN1_Type::OctetString).verify_end();
    BOTAN_ASSERT_NOMSG(decoded_bits.size() == X448_LEN);
    return decoded_bits;
 }
