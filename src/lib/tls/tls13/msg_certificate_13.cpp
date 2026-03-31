@@ -226,7 +226,17 @@ Certificate_13::Certificate_13(const Client_Hello_13& client_hello,
       //    [In the case of server authentication], the request context
       //    SHALL be zero length
       m_request_context(/* NOLINT(*-redundant-member-init) */), m_side(Connection_Side::Server) {
-   BOTAN_ASSERT_NOMSG(client_hello.extensions().has<Signature_Algorithms>());
+   /*
+   RFC 8446 4.2.3:
+       Clients which desire the server to authenticate itself via a
+       certificate MUST send the "signature_algorithms" extension.  If a
+       server is authenticating via a certificate and the client has not sent
+       a "signature_algorithms" extension, then the server MUST abort the
+       handshake with a "missing_extension" alert.
+   */
+   if(!client_hello.extensions().has<Signature_Algorithms>()) {
+      throw TLS_Exception(Alert::MissingExtension, "Client Hello is missing required signature_algorithms extension");
+   }
 
    const auto key_types = filter_signature_schemes(client_hello.signature_schemes());
    const std::string op_type = "tls-server";

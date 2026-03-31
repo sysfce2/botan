@@ -576,6 +576,8 @@ void Server_Impl_13::handle(const Finished_13& finished_msg) {
       throw TLS_Exception(Alert::DecryptError, "Finished message didn't verify");
    }
 
+   m_handshake_state.confirm_peer_finished_verified();
+
    // Give the application a chance for a final veto before fully
    // establishing the connection.
    callbacks().tls_session_established(
