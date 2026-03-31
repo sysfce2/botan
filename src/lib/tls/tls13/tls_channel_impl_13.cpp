@@ -163,6 +163,10 @@ size_t Channel_Impl_13::from_peer(std::span<const uint8_t> data) {
          } else if(record.type == Record_Type::ChangeCipherSpec) {
             process_dummy_change_cipher_spec();
          } else if(record.type == Record_Type::ApplicationData) {
+            BOTAN_ASSERT_NONNULL(m_cipher_state);
+            if(!m_cipher_state->can_decrypt_application_traffic()) {
+               throw Unexpected_Message("Application data received before handshake completion");
+            }
             BOTAN_ASSERT(record.seq_no.has_value(), "decrypted application traffic had a sequence number");
             callbacks().tls_record_received(record.seq_no.value(), record.fragment);
          } else if(record.type == Record_Type::Alert) {
