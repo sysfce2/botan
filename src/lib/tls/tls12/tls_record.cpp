@@ -337,16 +337,15 @@ Record_Header read_tls_record(secure_vector<uint8_t>& readbuf,
    Verify that the record type and record version are within some expected
    range, so we can quickly reject totally invalid packets.
 
-   The version check is a little hacky but given how TLS 1.3 versioning works
-   this is probably safe
+   Unfortunately we cannot be more strict about the record number than just
+   checking the major version, at least at this level, due to this requirement
+   in RFC 7568
 
-   - The first byte is the record version which in TLS 1.2 is always in [20..23)
-   - The second byte is the TLS major version which is effectively fossilized at 3
-   - The third byte is the TLS minor version which (due to TLS 1.3 versioning changes)
-     will never be more than 3 (signifying TLS 1.2)
+      TLS servers MUST accept any value {03,XX} (including {03,00}) as
+      the record layer version number for ClientHello
    */
    const bool bad_record_type = readbuf[0] < 20 || readbuf[0] > 23;
-   const bool bad_record_version = readbuf[1] != 3 || readbuf[2] >= 4;
+   const bool bad_record_version = readbuf[1] != 3;
 
    if(bad_record_type || bad_record_version) {
       // We know we read up to at least the 5 byte TLS header
