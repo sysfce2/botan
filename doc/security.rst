@@ -18,6 +18,28 @@ https://keybase.io/jacklloyd and on most PGP keyservers.
 2026
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+* 2026-03-31 (CVE-2026-35582): TLS 1.3 client authentication bypass
+
+  The TLS 1.3 implementation allowed ApplicationData records to be processed
+  prior to the Finished message being received. A server which is attempting to
+  enforce client authentication via certificates can by bypassed by a client
+  which entirely omits Certificate, CertificateVerify, and the Finished message
+  and instead sends application data records.
+
+  Introduced in 3.0.0, fixed in 3.11.1
+
+  Credit: Ben Smyth
+
+* 2026-03-31 (CVE-2026-35580): Certificate verification bypass due to trust anchor confusion
+
+  During path validation, an end-entity certificate whose DN collided with the
+  DN of a trust anchor would be accepted immediately without further validation.
+  This bug was introduced in 3.11.0; prior versions are not affected.
+
+  Introduced in 3.11.0, fixed in 3.11.1
+
+  Credit: Nicholas Carlini with Claude, Anthropic
+
 * 2026-03-15 (CVE-2026-32883): OCSP Response Forgery
 
   During verification of X.509 paths involving OCSP responses, Botan omitted checking

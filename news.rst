@@ -1,8 +1,12 @@
 Release Notes
 ========================================
 
-Version 3.11.1, Not Yet Released
+Version 3.11.1, 2026-03-31
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* CVE-2026-35580: Resolve certificate verification bypass bug introduced in 3.11.0 (GH #5500)
+
+* CVE-2026-35582: Resolve TLS 1.3 client authentication bypass (GH #5599)
 
 * Add optimized Argon2 implementation using AVX512 (GH #5471)
 
@@ -21,7 +25,7 @@ Version 3.11.1, Not Yet Released
 
 * Optimizations for the IDEA modular multiplication (GH #5484)
 
-* Fix various minor TLS conformance issues flagged by TLS-Anvil (GH #5494)
+* Fix various minor TLS conformance issues flagged by TLS-Anvil (GH #5494 #5498)
 
 * Fix bug in Ed25519 where an invalid signature checked with PK_Verifier might
   cause a later valid signature to be rejected. (GH #5454)
