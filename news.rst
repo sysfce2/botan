@@ -15,11 +15,13 @@ Version 3.11.1, Not Yet Released
 * Add SSSE3/NEON and AVX2 optimized codepaths for CTR (GH #5474 #5480)
 
 * Add constant time implementations of Camellia, ARIA, SEED and SM4 using AES-NI
-  or ARMv8 AES instructions to implement sbox lookups (GH #5476 #5477 #5479 #5481 #5485)
+  or ARMv8 AES instructions to implement sbox lookups (GH #5476 #5477 #5479 #5481 #5485 #5492)
 
 * Improve performance of the AVX512 implementation of SHA-512 especially for Clang (GH #5490)
 
 * Optimizations for the IDEA modular multiplication (GH #5484)
+
+* Fix various minor TLS conformance issues flagged by TLS-Anvil (GH #5494)
 
 * Fix bug in Ed25519 where an invalid signature checked with PK_Verifier might
   cause a later valid signature to be rejected. (GH #5454)
