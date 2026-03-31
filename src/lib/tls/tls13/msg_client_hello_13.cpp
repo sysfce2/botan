@@ -46,6 +46,13 @@ Client_Hello_13::Client_Hello_13(std::unique_ptr<Client_Hello_Internal> data) : 
       throw TLS_Exception(Alert::DecodeError, "TLS 1.3 Client Hello has invalid legacy_version");
    }
 
+   // RFC 8446 D.5
+   //    Any endpoint receiving a Hello message with ClientHello.legacy_version [...]
+   //    set to 0x0300 MUST abort the handshake with a "protocol_version" alert.
+   if(m_data->legacy_version().major_version() == 3 && m_data->legacy_version().minor_version() == 0) {
+      throw TLS_Exception(Alert::ProtocolVersion, "TLS 1.3 Client Hello has invalid legacy_version");
+   }
+
    // RFC 8446 4.1.2
    //    For every TLS 1.3 ClientHello, [the compression method] MUST contain
    //    exactly one byte, set to zero, [...].  If a TLS 1.3 ClientHello is
