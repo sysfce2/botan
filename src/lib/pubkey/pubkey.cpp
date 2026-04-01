@@ -423,13 +423,13 @@ void PK_Verifier::update(const uint8_t in[], size_t length) {
 
 namespace {
 
-std::vector<uint8_t> decode_der_signature_pair(const uint8_t sig[], size_t length, size_t sig_part_size) {
+std::vector<uint8_t> decode_der_signature_pair(std::span<const uint8_t> sig, size_t sig_part_size) {
    BOTAN_ASSERT_NOMSG(sig_part_size > 0);
 
    std::vector<uint8_t> real_sig;
    real_sig.reserve(2 * sig_part_size);
 
-   BER_Decoder decoder(sig, length);
+   BER_Decoder decoder(sig);
    BER_Decoder ber_sig = decoder.start_sequence();
 
    size_t count = 0;
@@ -456,7 +456,7 @@ std::vector<uint8_t> decode_der_signature_pair(const uint8_t sig[], size_t lengt
 
    const std::vector<uint8_t> reencoded = der_encode_signature(real_sig, 2, sig_part_size);
 
-   if(!CT::is_equal<uint8_t>(reencoded, std::span{sig, length}).as_bool()) {
+   if(!CT::is_equal<uint8_t>(reencoded, sig).as_bool()) {
       throw Decoding_Error("PK_Verifier: signature is not the canonical DER encoding");
    }
    return real_sig;
@@ -475,7 +475,7 @@ bool PK_Verifier::check_signature(const uint8_t sig[], size_t length) {
          BOTAN_ASSERT_NOMSG(m_sig_element_size.has_value());
 
          try {
-            real_sig = decode_der_signature_pair(sig, length, m_sig_element_size.value());
+            real_sig = decode_der_signature_pair({sig, length}, m_sig_element_size.value());
             decoding_success = true;
          } catch(...) {}
 

@@ -355,7 +355,7 @@ Session::Session(std::span<const uint8_t> ber_data) /* NOLINT(*-member-init) */ 
    uint16_t ciphersuite_code = 0;
    uint64_t lifetime_hint = 0;
 
-   BER_Decoder(ber_data.data(), ber_data.size())
+   BER_Decoder(ber_data)
       .start_sequence()
       .decode_and_check(TLS_SESSION_PARAM_STRUCT_VERSION, "Unknown version in serialized TLS session")
       .decode_integer_type(start_time)

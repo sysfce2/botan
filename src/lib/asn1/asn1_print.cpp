@@ -82,7 +82,7 @@ std::string ASN1_Formatter::print(const uint8_t in[], size_t len) const {
 }
 
 void ASN1_Formatter::print_to_stream(std::ostream& output, const uint8_t in[], size_t len) const {
-   BER_Decoder dec(in, len);
+   BER_Decoder dec(std::span<const uint8_t>{in, len});
    decode(output, dec, 0);
 }
 
@@ -104,7 +104,7 @@ void ASN1_Formatter::decode(std::ostream& output, BER_Decoder& decoder, size_t l
       BER_Decoder data(bits);
 
       if(intersects(class_tag, ASN1_Class::Constructed)) {
-         BER_Decoder cons_info(obj.bits(), obj.length());
+         BER_Decoder cons_info(obj);
 
          if(recurse_deeper) {
             output << format(type_tag, class_tag, level, length, "");
