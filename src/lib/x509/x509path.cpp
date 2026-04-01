@@ -18,6 +18,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #if defined(BOTAN_HAS_ONLINE_REVOCATION_CHECKS)
@@ -709,9 +710,10 @@ Certificate_Status_Code PKIX::build_all_certificate_paths(std::vector<std::vecto
    * This is an inelegant but functional way of preventing path loops
    * (where C1 -> C2 -> C3 -> C1). We store a set of all the certificate
    * fingerprints in the path. If there is a duplicate, we error out.
-   * TODO: save fingerprints in result struct? Maybe useful for blacklists, etc.
    */
-   std::set<std::string> certs_seen;
+   using TagSet = std::unordered_set<X509_Certificate::Tag, X509_Certificate::TagHash>;
+
+   TagSet certs_seen;
 
    // new certs are added and removed from the path during the DFS
    // it is copied into cert_paths_out when we encounter a trusted root
@@ -724,8 +726,7 @@ Certificate_Status_Code PKIX::build_all_certificate_paths(std::vector<std::vecto
       // found a deletion marker that guides the DFS, backtracking
       if(last == std::nullopt) {
          stack.pop_back();
-         const std::string fprint = path_so_far.back().fingerprint("SHA-256");
-         certs_seen.erase(fprint);
+         certs_seen.erase(path_so_far.back().tag());
          path_so_far.pop_back();
       }
       // process next cert on the path
@@ -734,8 +735,8 @@ Certificate_Status_Code PKIX::build_all_certificate_paths(std::vector<std::vecto
          stack.pop_back();
 
          // certificate already seen?
-         const std::string fprint = last->fingerprint("SHA-256");
-         if(certs_seen.count(fprint) == 1) {
+         const auto tag = last->tag();
+         if(certs_seen.contains(tag)) {
             stats.push_back(Certificate_Status_Code::CERT_CHAIN_LOOP);
             // the current path ended in a loop
             continue;
@@ -774,7 +775,7 @@ Certificate_Status_Code PKIX::build_all_certificate_paths(std::vector<std::vecto
 
          // push the latest certificate onto the path_so_far
          path_so_far.push_back(*last);
-         certs_seen.emplace(fprint);
+         certs_seen.emplace(tag);
 
          // push a deletion marker on the stack for backtracking later
          stack.push_back({std::optional<X509_Certificate>(), false});
