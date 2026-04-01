@@ -16,7 +16,17 @@
 
 namespace Botan {
 
-struct CRL_Data {
+class CRL_Data final {
+   public:
+      CRL_Data(const X509_DN& issuer,
+               const X509_Time& this_update,
+               const X509_Time& next_update,
+               const std::vector<CRL_Entry>& revoked) :
+            m_issuer(issuer), m_this_update(this_update), m_next_update(next_update), m_entries(revoked) {}
+
+      CRL_Data() = default;
+
+      // NOLINTBEGIN(*non-private-member-variables-in-classes)
       X509_DN m_issuer;
       size_t m_version{};
       X509_Time m_this_update;
@@ -28,6 +38,7 @@ struct CRL_Data {
       size_t m_crl_number = 0;
       std::vector<uint8_t> m_auth_key_id;
       std::vector<std::string> m_idp_urls;
+      // NOLINTEND(*non-private-member-variables-in-classes)
 };
 
 std::string X509_CRL::PEM_label() const {
@@ -58,11 +69,7 @@ X509_CRL::X509_CRL(const X509_DN& issuer,
                    const X509_Time& this_update,
                    const X509_Time& next_update,
                    const std::vector<CRL_Entry>& revoked) {
-   m_data = std::make_shared<CRL_Data>();
-   m_data->m_issuer = issuer;
-   m_data->m_this_update = this_update;
-   m_data->m_next_update = next_update;
-   m_data->m_entries = revoked;
+   m_data = std::make_shared<CRL_Data>(issuer, this_update, next_update, revoked);
 }
 
 /**

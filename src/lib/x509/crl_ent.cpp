@@ -17,25 +17,30 @@
 
 namespace Botan {
 
-struct CRL_Entry_Data {
+class CRL_Entry_Data final {
+   public:
+      CRL_Entry_Data(const X509_Certificate& cert, CRL_Code why) :
+            m_serial(cert.serial_number()), m_time(X509_Time(std::chrono::system_clock::now())), m_reason(why) {
+         if(why != CRL_Code::Unspecified) {
+            m_extensions.add(std::make_unique<Cert_Extension::CRL_ReasonCode>(why));
+         }
+      }
+
+      CRL_Entry_Data() = default;
+
+      // NOLINTBEGIN(*non-private-member-variables-in-classes)
       std::vector<uint8_t> m_serial;
       X509_Time m_time;
       CRL_Code m_reason = CRL_Code::Unspecified;
       Extensions m_extensions;
+      // NOLINTEND(*non-private-member-variables-in-classes)
 };
 
 /*
 * Create a CRL_Entry
 */
 CRL_Entry::CRL_Entry(const X509_Certificate& cert, CRL_Code why) {
-   m_data = std::make_shared<CRL_Entry_Data>();
-   m_data->m_serial = cert.serial_number();
-   m_data->m_time = X509_Time(std::chrono::system_clock::now());
-   m_data->m_reason = why;
-
-   if(why != CRL_Code::Unspecified) {
-      m_data->m_extensions.add(std::make_unique<Cert_Extension::CRL_ReasonCode>(why));
-   }
+   m_data = std::make_shared<CRL_Entry_Data>(cert, why);
 }
 
 /*

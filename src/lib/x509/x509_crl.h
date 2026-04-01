@@ -20,8 +20,8 @@ class Extensions;
 class X509_Certificate;
 class X509_DN;
 
-struct CRL_Entry_Data;
-struct CRL_Data;
+class CRL_Entry_Data;
+class CRL_Data;
 
 /**
 * This class represents CRL entries
@@ -71,7 +71,7 @@ class BOTAN_PUBLIC_API(2, 0) CRL_Entry final : public ASN1_Object {
 
       const CRL_Entry_Data& data() const;
 
-      std::shared_ptr<CRL_Entry_Data> m_data;
+      std::shared_ptr<const CRL_Entry_Data> m_data;
 };
 
 /**
@@ -207,7 +207,7 @@ class BOTAN_PUBLIC_API(2, 0) X509_CRL final : public X509_Object {
 
       const CRL_Data& data() const;
 
-      std::shared_ptr<CRL_Data> m_data;
+      std::shared_ptr<const CRL_Data> m_data;
 };
 
 }  // namespace Botan
