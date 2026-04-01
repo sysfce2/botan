@@ -106,7 +106,7 @@ Certificate_Request_12::Certificate_Request_12(const std::vector<uint8_t>& buf) 
    while(reader.has_remaining()) {
       std::vector<uint8_t> name_bits = reader.get_range_vector<uint8_t>(2, 0, 65535);
 
-      BER_Decoder decoder(name_bits.data(), name_bits.size());
+      BER_Decoder decoder(name_bits);
       X509_DN name;
       decoder.decode(name);
       m_names.emplace_back(name);

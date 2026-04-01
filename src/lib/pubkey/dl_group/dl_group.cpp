@@ -125,11 +125,10 @@ class DL_Group_Data final {
 };
 
 //static
-std::shared_ptr<DL_Group_Data> DL_Group::BER_decode_DL_group(const uint8_t data[],
-                                                             size_t data_len,
+std::shared_ptr<DL_Group_Data> DL_Group::BER_decode_DL_group(const std::span<const uint8_t> data,
                                                              DL_Group_Format format,
                                                              DL_Group_Source source) {
-   BER_Decoder decoder(data, data_len);
+   BER_Decoder decoder(data);
    BER_Decoder ber = decoder.start_sequence();
 
    if(format == DL_Group_Format::ANSI_X9_57) {
@@ -205,7 +204,7 @@ DL_Group::DL_Group(std::string_view str) {
          const std::vector<uint8_t> ber = unlock(PEM_Code::decode(str, label));
          const DL_Group_Format format = pem_label_to_dl_format(label);
 
-         m_data = BER_decode_DL_group(ber.data(), ber.size(), format, DL_Group_Source::ExternalSource);
+         m_data = BER_decode_DL_group(ber, format, DL_Group_Source::ExternalSource);
       } catch(...) {}
    }
 
@@ -627,8 +626,8 @@ std::string DL_Group::PEM_encode(DL_Group_Format format) const {
    }
 }
 
-DL_Group::DL_Group(const uint8_t ber[], size_t ber_len, DL_Group_Format format) {
-   m_data = BER_decode_DL_group(ber, ber_len, format, DL_Group_Source::ExternalSource);
+DL_Group::DL_Group(std::span<const uint8_t> ber, DL_Group_Format format) {
+   m_data = BER_decode_DL_group(ber, format, DL_Group_Source::ExternalSource);
 }
 
 }  // namespace Botan

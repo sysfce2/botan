@@ -128,7 +128,12 @@ class BOTAN_PUBLIC_API(2, 0) DL_Group final {
       /**
       * Decode a BER-encoded DL group param
       */
-      DL_Group(const uint8_t ber[], size_t ber_len, DL_Group_Format format);
+      DL_Group(const uint8_t ber[], size_t ber_len, DL_Group_Format format) : DL_Group({ber, ber_len}, format) {}
+
+      /**
+      * Decode a BER-encoded DL group param
+      */
+      DL_Group(std::span<const uint8_t> ber, DL_Group_Format format);
 
       /**
       * Decode a BER-encoded DL group param
@@ -390,8 +395,7 @@ class BOTAN_PUBLIC_API(2, 0) DL_Group final {
 
       static std::shared_ptr<DL_Group_Data> load_DL_group_info(const char* p_str, const char* g_str);
 
-      static std::shared_ptr<DL_Group_Data> BER_decode_DL_group(const uint8_t data[],
-                                                                size_t data_len,
+      static std::shared_ptr<DL_Group_Data> BER_decode_DL_group(std::span<const uint8_t> data,
                                                                 DL_Group_Format format,
                                                                 DL_Group_Source source);
 

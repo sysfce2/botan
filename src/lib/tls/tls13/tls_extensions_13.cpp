@@ -115,7 +115,7 @@ Certificate_Authorities::Certificate_Authorities(TLS_Data_Reader& reader, uint16
    while(reader.has_remaining()) {
       std::vector<uint8_t> name_bits = reader.get_tls_length_value(2);
 
-      BER_Decoder decoder(name_bits.data(), name_bits.size());
+      BER_Decoder decoder(name_bits);
       m_distinguished_names.emplace_back();
       decoder.decode(m_distinguished_names.back());
    }

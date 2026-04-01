@@ -357,24 +357,8 @@ BER_Decoder::BER_Decoder(DataSource& src) : m_source(&src) {}
 /*
 * BER_Decoder Constructor
  */
-BER_Decoder::BER_Decoder(const uint8_t data[], size_t length) {
-   m_data_src = std::make_unique<DataSource_Memory>(data, length);
-   m_source = m_data_src.get();
-}
-
-/*
-* BER_Decoder Constructor
-*/
-BER_Decoder::BER_Decoder(const secure_vector<uint8_t>& data) {
-   m_data_src = std::make_unique<DataSource_Memory>(data);
-   m_source = m_data_src.get();
-}
-
-/*
-* BER_Decoder Constructor
-*/
-BER_Decoder::BER_Decoder(const std::vector<uint8_t>& data) {
-   m_data_src = std::make_unique<DataSource_Memory>(data.data(), data.size());
+BER_Decoder::BER_Decoder(std::span<const uint8_t> buf) {
+   m_data_src = std::make_unique<DataSource_Memory>(buf);
    m_source = m_data_src.get();
 }
 
