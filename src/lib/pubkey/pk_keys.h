@@ -423,10 +423,21 @@ class BOTAN_PUBLIC_API(2, 0) PK_Key_Agreement_Key : public virtual Private_Key {
       virtual std::vector<uint8_t> public_value() const = 0;
 };
 
-std::string BOTAN_PUBLIC_API(2, 4) create_hex_fingerprint(const uint8_t bits[], size_t len, std::string_view hash_name);
+/**
+* Hex encode the data and separate them in blocks with `:` characters
+*/
+std::string BOTAN_PUBLIC_API(3, 12) format_hex_fingerprint(std::span<const uint8_t> bits);
 
-inline std::string create_hex_fingerprint(std::span<const uint8_t> vec, std::string_view hash_name) {
-   return create_hex_fingerprint(vec.data(), vec.size(), hash_name);
+/**
+* Hash the input then format that hash using format_hex_fingerprint
+*/
+std::string BOTAN_PUBLIC_API(3, 0) create_hex_fingerprint(std::span<const uint8_t> bits, std::string_view hash_name);
+
+/**
+* Old interface for create_hex_fingerprint added in 2.4 pre-span
+*/
+inline std::string create_hex_fingerprint(const uint8_t bits[], size_t len, std::string_view hash_name) {
+   return create_hex_fingerprint({bits, len}, hash_name);
 }
 
 }  // namespace Botan
