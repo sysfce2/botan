@@ -66,14 +66,17 @@ void X509_Object::encode_into(DER_Encoder& to) const {
 * Read a BER encoded X.509 object
 */
 void X509_Object::decode_from(BER_Decoder& from) {
+   auto data = std::make_shared<Signed_Data>();
+
    from.start_sequence()
       .start_sequence()
-      .raw_bytes(m_tbs_bits)
+      .raw_bytes(data->m_tbs_bits)
       .end_cons()
-      .decode(m_sig_algo)
-      .decode(m_sig, ASN1_Type::BitString)
+      .decode(data->m_sig_algo)
+      .decode(data->m_sig, ASN1_Type::BitString)
       .end_cons();
 
+   m_signed_data = std::move(data);
    force_decode();
 }
 
@@ -88,7 +91,7 @@ std::string X509_Object::PEM_encode() const {
 * Return the TBS data
 */
 std::vector<uint8_t> X509_Object::tbs_data() const {
-   return ASN1::put_in_sequence(m_tbs_bits);
+   return ASN1::put_in_sequence(signed_body());
 }
 
 /*
