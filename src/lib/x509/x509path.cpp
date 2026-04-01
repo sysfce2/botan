@@ -272,7 +272,7 @@ Certificate_Status_Code verify_ocsp_signing_cert(const X509_Certificate& signing
    //
    //    1. Matches a local configuration of OCSP signing authority
    //       for the certificate in question, or
-   if(restrictions.trusted_ocsp_responders()->certificate_known(signing_cert)) {
+   if(restrictions.trusted_ocsp_responders()->contains(signing_cert)) {
       return Certificate_Status_Code::OK;
    }
 
@@ -691,7 +691,7 @@ Certificate_Status_Code PKIX::build_all_certificate_paths(std::vector<std::vecto
 
    auto cert_in_any_trusted_store = [&](const X509_Certificate& cert) {
       return std::ranges::any_of(trusted_certstores,
-                                 [&](const Certificate_Store* store) { return store->certificate_known(cert); });
+                                 [&](const Certificate_Store* store) { return store->contains(cert); });
    };
 
    /*

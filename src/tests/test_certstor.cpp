@@ -280,7 +280,7 @@ Test::Result test_certstor_all_finders(const std::vector<CertificateAndKey>& cer
 
          // find by subject hash
          {
-            const auto hash = cert.raw_subject_dn_sha256();
+            const auto& hash = cert.raw_subject_dn_sha256();
 
             const auto found = store.find_cert_by_raw_subject_dn_sha256(hash);
             if(!found) {

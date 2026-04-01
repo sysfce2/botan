@@ -126,7 +126,7 @@ class BOTAN_PUBLIC_API(2, 0) X509_Certificate : public X509_Object {
       /**
       * SHA-256 of Raw issuer DN
       */
-      std::vector<uint8_t> raw_issuer_dn_sha256() const;
+      const std::vector<uint8_t>& raw_issuer_dn_sha256() const;
 
       /**
       * Raw subject DN
@@ -136,7 +136,7 @@ class BOTAN_PUBLIC_API(2, 0) X509_Certificate : public X509_Object {
       /**
       * SHA-256 of Raw subject DN
       */
-      std::vector<uint8_t> raw_subject_dn_sha256() const;
+      const std::vector<uint8_t>& raw_subject_dn_sha256() const;
 
       /**
       * Get the notBefore of the certificate as X509_Time
