@@ -436,7 +436,7 @@ class BOTAN_PUBLIC_API(2, 0) X509_Certificate : public X509_Object {
 
       const X509_Certificate_Data& data() const;
 
-      std::shared_ptr<X509_Certificate_Data> m_data;
+      std::shared_ptr<const X509_Certificate_Data> m_data;
 };
 
 /**
