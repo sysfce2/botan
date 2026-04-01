@@ -19,73 +19,78 @@ namespace Botan {
 
 namespace {
 
-bool caseless_eq(char a, char b) {
-   return (std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b)));
-}
-
 bool is_space(char c) {
    return c == ' ' || c == '\t';
 }
 
+/*
+* Yields the X.500 canonical form of a name component one character at a time
+*/
+class X500_Char_Iterator {
+   public:
+      explicit X500_Char_Iterator(std::string_view s) : m_str(s), m_pos(0) {
+         // Skip leading whitespace
+         while(m_pos < m_str.size() && is_space(m_str[m_pos])) {
+            ++m_pos;
+         }
+      }
+
+      // Returns next canonical character, or nullopt when exhausted.
+      std::optional<char> next() {
+         if(m_pos >= m_str.size()) {
+            return std::nullopt;
+         }
+
+         if(is_space(m_str[m_pos])) {
+            // Skip the entire whitespace run
+            while(m_pos < m_str.size() && is_space(m_str[m_pos])) {
+               ++m_pos;
+            }
+            // Emit a single space only if more content follows (strip trailing ws)
+            if(m_pos < m_str.size()) {
+               return ' ';
+            }
+            return std::nullopt;
+         }
+
+         const char c = m_str[m_pos++];
+         return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+      }
+
+      static std::string canonicalize(std::string_view name) {
+         std::string result;
+         result.reserve(name.size());
+
+         X500_Char_Iterator it(name);
+         while(auto c = it.next()) {
+            result += *c;
+         }
+
+         return result;
+      }
+
+   private:
+      std::string_view m_str;
+      size_t m_pos;
+};
+
 }  // namespace
 
 bool x500_name_cmp(std::string_view name1, std::string_view name2) {
-   // MSVC uses an actual iterator type for string_view, so we must use plain `auto` here
-   auto p1 = name1.begin();  // NOLINT(readability-qualified-auto)
-   auto p2 = name2.begin();  // NOLINT(readability-qualified-auto)
+   X500_Char_Iterator it1(name1);
+   X500_Char_Iterator it2(name2);
 
-   while((p1 != name1.end()) && is_space(*p1)) {
-      ++p1;
-   }
-   while((p2 != name2.end()) && is_space(*p2)) {
-      ++p2;
-   }
+   while(true) {
+      const auto c1 = it1.next();
+      const auto c2 = it2.next();
 
-   while(p1 != name1.end() && p2 != name2.end()) {
-      if(is_space(*p1)) {
-         if(!is_space(*p2)) {
-            return false;
-         }
-
-         while((p1 != name1.end()) && is_space(*p1)) {
-            ++p1;
-         }
-         while((p2 != name2.end()) && is_space(*p2)) {
-            ++p2;
-         }
-
-         if(p1 == name1.end() && p2 == name2.end()) {
-            return true;
-         }
-         if(p1 == name1.end() || p2 == name2.end()) {
-            return false;
-         }
-      }
-
-      if(!caseless_eq(*p1, *p2)) {
+      if(c1 != c2) {
          return false;
       }
-      ++p1;
-      ++p2;
+      if(!c1.has_value() && !c2.has_value()) {
+         return true;
+      }
    }
-
-   // Accept/ignore trailing spaces
-   while((p1 != name1.end()) && is_space(*p1)) {
-      ++p1;
-   }
-   if(p1 != name1.end()) {
-      return false;
-   }
-
-   while((p2 != name2.end()) && is_space(*p2)) {
-      ++p2;
-   }
-   if(p2 != name2.end()) {
-      return false;
-   }
-
-   // accept:
-   return true;
 }
 
 /*
@@ -266,11 +271,8 @@ bool operator<(const X509_DN& dn1, const X509_DN& dn2) {
    auto attr2 = dn2.get_attributes();
 
    // If they are not the same size, choose the smaller as the "lessor"
-   if(attr1.size() < attr2.size()) {
-      return true;
-   }
-   if(attr1.size() > attr2.size()) {
-      return false;
+   if(attr1.size() != attr2.size()) {
+      return attr1.size() < attr2.size();
    }
 
    // We know they are the same # of elements, now compare the OIDs:
@@ -282,27 +284,12 @@ bool operator<(const X509_DN& dn1, const X509_DN& dn2) {
          return (p1->first < p2->first);
       }
 
-      ++p1;
-      ++p2;
-   }
-
-   // We know this is true because maps have the same size
-   BOTAN_ASSERT_NOMSG(p1 == attr1.end());
-   BOTAN_ASSERT_NOMSG(p2 == attr2.end());
-
-   // Now we know all elements have the same OIDs, compare
-   // their string values:
-
-   p1 = attr1.begin();
-   p2 = attr2.begin();
-   while(p1 != attr1.end() && p2 != attr2.end()) {
-      BOTAN_DEBUG_ASSERT(p1->first == p2->first);
-
-      // They may be binary different but same by X.500 rules, check this
-      if(!x500_name_cmp(p1->second, p2->second)) {
-         // If they are not (by X.500) the same string, pick the
-         // lexicographic first as the lessor
-         return (p1->second < p2->second);
+      // If they are not (by X.500) the same string, pick the
+      // lexicographic first as the lessor
+      const std::string c1 = X500_Char_Iterator::canonicalize(p1->second);
+      const std::string c2 = X500_Char_Iterator::canonicalize(p2->second);
+      if(c1 != c2) {
+         return c1 < c2;
       }
 
       ++p1;
