@@ -56,6 +56,10 @@ enum class Certificate_Status_Code : uint16_t {
    CRL_HAS_EXPIRED = 2005,
    OCSP_IS_TOO_OLD = 2006,
 
+   // Revocation checks are skipped for chains which have an error more
+   // serious than this because they are anyway invalid
+   FIRST_ERROR_STATUS_TO_SKIP_REVOCATION = 3000,
+
    // Chain generation problems
    CERT_ISSUER_NOT_FOUND = 3000,
    CANNOT_ESTABLISH_TRUST = 3001,
