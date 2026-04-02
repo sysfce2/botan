@@ -189,26 +189,23 @@ secure_vector<uint8_t> nist_key_unwrap_padded(const uint8_t input[], size_t inpu
       R = raw_nist_key_unwrap(input, input_len, bc, ICV_out);
    }
 
-   if((ICV_out >> 32) != 0xA65959A6) {
+   /*
+   The padded key wrap ICV is 0xA65959A6 || uint32(plaintext_length).
+
+   We know the expected ICV almost entirely: the top 32 bits are the
+   fixed constant and the bottom 32 bits encode the original plaintext
+   length, which is R.size() minus 0 to 7 bytes of padding. Compute
+   the ICV we'd expect for the zero-padding case and subtract ICV_out;
+   for a valid unwrap the difference is at most 7, and equals the padding.
+   */
+   const uint64_t expected_ICV_max = 0xA65959A600000000 | static_cast<uint32_t>(R.size());
+   const uint64_t padding = expected_ICV_max - ICV_out;
+
+   if(padding > 7) {
       throw Invalid_Authentication_Tag("NIST key unwrap failed");
    }
 
-   const size_t len = (ICV_out & 0xFFFFFFFF);
-
-   if(R.size() < 8 || len > R.size() || len <= R.size() - 8) {
-      throw Invalid_Authentication_Tag("NIST key unwrap failed");
-   }
-
-   const size_t padding = R.size() - len;
-
-   for(size_t i = 0; i != padding; ++i) {
-      if(R[R.size() - i - 1] != 0) {
-         throw Invalid_Authentication_Tag("NIST key unwrap failed");
-      }
-   }
-
-   R.resize(R.size() - padding);
-
+   R.resize(R.size() - static_cast<size_t>(padding));
    return R;
 }
 
