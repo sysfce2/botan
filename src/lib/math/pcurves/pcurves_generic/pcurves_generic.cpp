@@ -1477,6 +1477,7 @@ secure_vector<uint8_t> GenericPrimeOrderCurve::mul_x_only(const AffinePoint& pt,
                                                           RandomNumberGenerator& rng) const {
    GenericWindowedMul pt_table(from_stash(pt));
    auto pt_s = pt_table.mul(from_stash(scalar), rng);
+   BOTAN_STATE_CHECK(!pt_s.is_identity().as_bool());
    return to_affine_x<GenericCurve>(pt_s).serialize<secure_vector<uint8_t>>();
 }
 

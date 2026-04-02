@@ -48,7 +48,9 @@ class PrimeOrderCurveImpl final : public PrimeOrderCurve {
                                         const Scalar& scalar,
                                         RandomNumberGenerator& rng) const override {
          auto tbl = WindowedBoothMulTable<C, VarPointWindowBits>(from_stash(pt));
-         auto pt_x = to_affine_x<C>(tbl.mul(from_stash(scalar), rng));
+         auto result = tbl.mul(from_stash(scalar), rng);
+         BOTAN_STATE_CHECK(!result.is_identity().as_bool());
+         auto pt_x = to_affine_x<C>(result);
          secure_vector<uint8_t> x_bytes(C::FieldElement::BYTES);
          pt_x.serialize_to(std::span<uint8_t, C::FieldElement::BYTES>{x_bytes});
          return x_bytes;
