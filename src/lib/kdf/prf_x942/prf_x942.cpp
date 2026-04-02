@@ -48,6 +48,9 @@ void X942_PRF::perform_kdf(std::span<uint8_t> key,
    // possible output to 2^32 - 1 blocks.
    BOTAN_ARG_CHECK(blocks_required <= 0xFFFFFFFE, "X942_PRF maximum output length exceeded");
 
+   // The key length in bits is encoded as a uint32_t in the DER output
+   BOTAN_ARG_CHECK(key.size() <= 0x1FFFFFFF, "X942_PRF output length too large for DER encoding");
+
    auto hash = HashFunction::create("SHA-1");
    const auto in = concat<secure_vector<uint8_t>>(label, salt);
 
