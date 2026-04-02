@@ -220,7 +220,7 @@ class Frodo_KEM_Decryptor final : public PK_Ops::KEM_Decryption_with_KDF {
          // matrices individually in CT and CT-&& the resulting masks.
          const auto cmp = b_p.constant_time_compare(b_pp) & c.constant_time_compare(c_p);
 
-         std::vector<uint8_t> k_bar(constants.len_sec_bytes(), 0);
+         secure_vector<uint8_t> k_bar(constants.len_sec_bytes(), 0);
          CT::conditional_copy_mem(cmp, k_bar.data(), k_p.data(), m_private_key->s().data(), constants.len_sec_bytes());
 
          shake->update(encapsulated_key);
