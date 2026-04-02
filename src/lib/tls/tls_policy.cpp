@@ -245,6 +245,10 @@ size_t Policy::minimum_dh_group_size() const {
    return 2048;
 }
 
+size_t Policy::maximum_dh_group_size() const {
+   return 8192;
+}
+
 size_t Policy::minimum_ecdsa_group_size() const {
    // Here we are at the mercy of whatever the CA signed, but most certs should be 256 bit by now
    return 256;

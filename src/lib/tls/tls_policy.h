@@ -277,8 +277,19 @@ class BOTAN_PUBLIC_API(2, 0) Policy /* NOLINT(*-special-member-functions) */ {
       * to reconnect after disabling ephemeral Diffie-Hellman.
       *
       * Default: 2048 bits
+      *
+      * This only affects the TLS 1.2 client
       */
       virtual size_t minimum_dh_group_size() const;
+
+      /**
+      * Largest DH group size (in bits) the client will accept from a server.
+      *
+      * Default: 8192 bits (the largest FFDHE group)
+      *
+      * This only affects the TLS 1.2 client
+      */
+      virtual size_t maximum_dh_group_size() const;
 
       /**
       * For ECDSA authenticated ciphersuites, the smallest key size the
