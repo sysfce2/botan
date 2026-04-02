@@ -165,6 +165,12 @@ bool Certificate_Store_In_SQL::insert_cert(const X509_Certificate& cert) {
    return true;
 }
 
+bool Certificate_Store_In_SQL::contains(const X509_Certificate& cert) const {
+   auto stmt = m_database->new_statement("SELECT 1 FROM " + m_prefix + "certificates WHERE fingerprint == ?1");
+   stmt->bind(1, cert.fingerprint("SHA-256"));
+   return stmt->step();
+}
+
 bool Certificate_Store_In_SQL::remove_cert(const X509_Certificate& cert) {
    if(!find_cert(cert.subject_dn(), cert.subject_key_id())) {
       return false;

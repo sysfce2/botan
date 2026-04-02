@@ -55,11 +55,17 @@ Flatfile_Certificate_Store::Flatfile_Certificate_Store(std::string_view file, bo
       * but we cannot fix the trust store. So instead just ignore any such certificate.
       */
       if(cert.is_self_signed() && cert.is_CA_cert()) {
-         m_all_subjects.push_back(cert.subject_dn());
-         m_dn_to_cert[cert.subject_dn()].push_back(cert);
-         m_pubkey_sha1_to_cert.emplace(cert.subject_public_key_bitstring_sha1(), cert);
-         m_subject_dn_sha256_to_cert.emplace(cert.raw_subject_dn_sha256(), cert);
-         m_issuer_dn_to_cert[cert.issuer_dn()].push_back(cert);
+         const auto tag = cert.tag();
+
+         // dedup
+         if(!m_cert_tags.contains(tag)) {
+            m_cert_tags.insert(tag);
+            m_all_subjects.push_back(cert.subject_dn());
+            m_dn_to_cert[cert.subject_dn()].push_back(cert);
+            m_pubkey_sha1_to_cert.emplace(cert.subject_public_key_bitstring_sha1(), cert);
+            m_subject_dn_sha256_to_cert.emplace(cert.raw_subject_dn_sha256(), cert);
+            m_issuer_dn_to_cert[cert.issuer_dn()].push_back(cert);
+         }
       } else if(!ignore_non_ca) {
          throw Invalid_Argument("Flatfile_Certificate_Store received non CA cert " + cert.subject_dn().to_string());
       }
@@ -72,6 +78,10 @@ Flatfile_Certificate_Store::Flatfile_Certificate_Store(std::string_view file, bo
 
 std::vector<X509_DN> Flatfile_Certificate_Store::all_subjects() const {
    return m_all_subjects;
+}
+
+bool Flatfile_Certificate_Store::contains(const X509_Certificate& cert) const {
+   return m_cert_tags.contains(cert.tag());
 }
 
 std::vector<X509_Certificate> Flatfile_Certificate_Store::find_all_certs(const X509_DN& subject_dn,

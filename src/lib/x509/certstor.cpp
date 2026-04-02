@@ -9,8 +9,8 @@
 #include <botan/certstor.h>
 
 #include <botan/asn1_time.h>
+#include <botan/assert.h>
 #include <botan/data_src.h>
-#include <botan/hash.h>
 #include <botan/pkix_types.h>
 #include <botan/internal/filesystem.h>
 #include <algorithm>
@@ -19,7 +19,11 @@ namespace Botan {
 
 Certificate_Store::~Certificate_Store() = default;
 
-bool Certificate_Store::certificate_known(const X509_Certificate& searching) const {
+bool Certificate_Store::certificate_known(const X509_Certificate& cert) const {
+   return contains(cert);
+}
+
+bool Certificate_Store::contains(const X509_Certificate& searching) const {
    for(const auto& cert : find_all_certs(searching.subject_dn(), searching.subject_key_id())) {
       if(cert == searching) {
          return true;
@@ -46,13 +50,13 @@ std::optional<X509_CRL> Certificate_Store::find_crl_for(const X509_Certificate& 
 }
 
 void Certificate_Store_In_Memory::add_certificate(const X509_Certificate& cert) {
-   for(const auto& c : m_certs) {
-      if(c == cert) {
-         return;
-      }
+   const auto tag = cert.tag();
+   if(!m_cert_tags.contains(tag)) {
+      m_cert_tags.insert(tag);
+      const size_t idx = m_certs.size();
+      m_certs.push_back(cert);
+      m_dn_to_indices[cert.subject_dn()].push_back(idx);
    }
-
-   m_certs.push_back(cert);
 }
 
 std::vector<X509_DN> Certificate_Store_In_Memory::all_subjects() const {
@@ -66,19 +70,23 @@ std::vector<X509_DN> Certificate_Store_In_Memory::all_subjects() const {
 
 std::optional<X509_Certificate> Certificate_Store_In_Memory::find_cert(const X509_DN& subject_dn,
                                                                        const std::vector<uint8_t>& key_id) const {
-   for(const auto& cert : m_certs) {
-      // Only compare key ids if set in both call and in the cert
+   const auto it = m_dn_to_indices.find(subject_dn);
+   if(it == m_dn_to_indices.end()) {
+      return std::nullopt;
+   }
+
+   for(const size_t idx : it->second) {
+      const auto& cert = m_certs[idx];
+      BOTAN_ASSERT_NOMSG(cert.subject_dn() == subject_dn);
+
       if(!key_id.empty()) {
          const std::vector<uint8_t>& skid = cert.subject_key_id();
-
          if(!skid.empty() && skid != key_id) {  // no match
             continue;
          }
       }
 
-      if(cert.subject_dn() == subject_dn) {
-         return cert;
-      }
+      return cert;
    }
 
    return std::nullopt;
@@ -88,18 +96,23 @@ std::vector<X509_Certificate> Certificate_Store_In_Memory::find_all_certs(const 
                                                                           const std::vector<uint8_t>& key_id) const {
    std::vector<X509_Certificate> matches;
 
-   for(const auto& cert : m_certs) {
+   const auto it = m_dn_to_indices.find(subject_dn);
+   if(it == m_dn_to_indices.end()) {
+      return matches;
+   }
+
+   for(const size_t idx : it->second) {
+      const auto& cert = m_certs[idx];
+      BOTAN_ASSERT_NOMSG(cert.subject_dn() == subject_dn);
+
       if(!key_id.empty()) {
          const std::vector<uint8_t>& skid = cert.subject_key_id();
-
          if(!skid.empty() && skid != key_id) {  // no match
             continue;
          }
       }
 
-      if(cert.subject_dn() == subject_dn) {
-         matches.push_back(cert);
-      }
+      matches.push_back(cert);
    }
 
    return matches;
@@ -111,11 +124,8 @@ std::optional<X509_Certificate> Certificate_Store_In_Memory::find_cert_by_pubkey
       throw Invalid_Argument("Certificate_Store_In_Memory::find_cert_by_pubkey_sha1 invalid hash");
    }
 
-   auto hash = HashFunction::create_or_throw("SHA-1");
-
    for(const auto& cert : m_certs) {
-      hash->update(cert.subject_public_key_bitstring());
-      if(key_hash == hash->final_stdvec()) {  //final_stdvec also clears the hash to initial state
+      if(key_hash == cert.subject_public_key_bitstring_sha1()) {
          return cert;
       }
    }
@@ -129,11 +139,8 @@ std::optional<X509_Certificate> Certificate_Store_In_Memory::find_cert_by_raw_su
       throw Invalid_Argument("Certificate_Store_In_Memory::find_cert_by_raw_subject_dn_sha256 invalid hash");
    }
 
-   auto hash = HashFunction::create_or_throw("SHA-256");
-
    for(const auto& cert : m_certs) {
-      hash->update(cert.raw_subject_dn());
-      if(subject_hash == hash->final_stdvec()) {  //final_stdvec also clears the hash to initial state
+      if(subject_hash == cert.raw_subject_dn_sha256()) {
          return cert;
       }
    }
@@ -190,6 +197,10 @@ std::optional<X509_CRL> Certificate_Store_In_Memory::find_crl_for(const X509_Cer
    return {};
 }
 
+bool Certificate_Store_In_Memory::contains(const X509_Certificate& cert) const {
+   return m_cert_tags.contains(cert.tag());
+}
+
 Certificate_Store_In_Memory::Certificate_Store_In_Memory(const X509_Certificate& cert) {
    add_certificate(cert);
 }
@@ -216,8 +227,7 @@ Certificate_Store_In_Memory::Certificate_Store_In_Memory(std::string_view dir) {
          DataSource_Stream src(cert_file, true);
          while(!src.end_of_data()) {
             try {
-               const X509_Certificate cert(src);
-               m_certs.push_back(cert);
+               add_certificate(X509_Certificate(src));
             } catch(std::exception&) {
                // stop searching for other certificate at first exception
                break;

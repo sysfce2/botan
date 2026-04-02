@@ -8,9 +8,12 @@
 #ifndef BOTAN_CERT_STORE_H_
 #define BOTAN_CERT_STORE_H_
 
+#include <botan/pkix_types.h>
 #include <botan/x509_crl.h>
 #include <botan/x509cert.h>
+#include <map>
 #include <optional>
+#include <set>
 
 namespace Botan {
 
@@ -76,6 +79,13 @@ class BOTAN_PUBLIC_API(2, 0) Certificate_Store /* NOLINT(*-special-member-functi
       /**
       * @return whether this certificate is contained within the store
       * @param cert certificate to be searched
+      *
+      * Default implementation uses find_all_certs
+      */
+      virtual bool contains(const X509_Certificate& cert) const;
+
+      /**
+      * Old version of contains
       */
       bool certificate_known(const X509_Certificate& cert) const;
 
@@ -155,9 +165,12 @@ class BOTAN_PUBLIC_API(2, 0) Certificate_Store_In_Memory final : public Certific
       */
       std::optional<X509_CRL> find_crl_for(const X509_Certificate& subject) const override;
 
+      bool contains(const X509_Certificate& cert) const override;
+
    private:
-      // TODO: Add indexing on the DN and key id to avoid linear search
       std::vector<X509_Certificate> m_certs;
+      std::set<X509_Certificate::Tag> m_cert_tags;
+      std::map<X509_DN, std::vector<size_t>> m_dn_to_indices;
       std::vector<X509_CRL> m_crls;
 };
 
