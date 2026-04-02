@@ -1,6 +1,6 @@
 /*
 * X.509 Certificate Path Validation
-* (C) 2010,2011,2012,2014,2016 Jack Lloyd
+* (C) 2010,2011,2012,2014,2016,2026 Jack Lloyd
 * (C) 2017 Fabian Weissberg, Rohde & Schwarz Cybersecurity
 *
 * Botan is released under the Simplified BSD License (see license.txt)
@@ -27,6 +27,169 @@
 #endif
 
 namespace Botan {
+
+namespace {
+
+/**
+ * Lazy DFS iterator that yields certificate paths one at a time.
+ *
+ * Build all possible certificate paths from the end certificate to self-signed trusted roots.
+ *
+ * Basically, a DFS is performed starting from the end certificate. A stack (vector)
+ * serves to control the DFS. At the beginning of each iteration, a pair is popped from
+ * the stack that contains (1) the next certificate to add to the path (2) a bool that
+ * indicates if the certificate is part of a trusted certstore. Ideally, we follow the
+ * unique issuer of the current certificate until a trusted root is reached. However, the
+ * issuer DN + authority key id need not be unique among the certificates used for
+ * building the path. In such a case, we consider all the matching issuers by pushing
+ * <IssuerCert, trusted?> on the stack for each of them.
+ *
+ * Each call to next() resumes the search and returns the next discovered path, or nullopt
+ * when the search space is exhausted.
+*/
+class CertificatePathBuilder {
+   public:
+      CertificatePathBuilder(const std::vector<Certificate_Store*>& trusted_certstores,
+                             const X509_Certificate& end_entity,
+                             const std::vector<X509_Certificate>& end_entity_extra,
+                             bool require_self_signed = false) :
+            m_trusted_certstores(trusted_certstores), m_require_self_signed(require_self_signed) {
+         if(std::ranges::any_of(trusted_certstores, [](auto* ptr) { return ptr == nullptr; })) {
+            throw Invalid_Argument("Certificate store list must not contain nullptr");
+         }
+
+         for(const auto& cert : end_entity_extra) {
+            if(!cert_in_any_trusted_store(cert)) {
+               m_ee_extras.add_certificate(cert);
+            }
+         }
+
+         m_stack.push_back({end_entity, cert_in_any_trusted_store(end_entity)});
+      }
+
+      std::optional<std::vector<X509_Certificate>> next() {
+         while(!m_stack.empty()) {
+            auto [last, trusted] = std::move(m_stack.back());  // move before pop_back
+            m_stack.pop_back();
+
+            // Found a deletion marker that guides the DFS, backtracking
+            if(!last.has_value()) {
+               m_certs_seen.erase(m_path_so_far.back().tag());
+               m_path_so_far.pop_back();
+               continue;
+            }
+
+            // Certificate already seen in this path?
+            const auto tag = last->tag();
+            if(m_certs_seen.contains(tag)) {
+               if(!m_error.has_value()) {
+                  m_error = Certificate_Status_Code::CERT_CHAIN_LOOP;
+               }
+               continue;
+            }
+
+            // A valid path has been discovered. It includes endpoints that may end
+            // with either a self-signed or a non-self-signed certificate. For
+            // certificates that are not self-signed, additional paths could
+            // potentially extend from the current one.
+            if(trusted) {
+               auto path = m_path_so_far;
+               path.push_back(*last);
+               push_issuers(*last);
+
+               if(!m_require_self_signed || last->is_self_signed()) {
+                  return path;
+               }
+
+               /*
+               This unconditionally overwrites the error because it's likely the most
+               informative error in this context - we found a path that seemed entirely
+               suitable, except that self-signed roots are required so it was skipped.
+               */
+               m_error = Certificate_Status_Code::CANNOT_ESTABLISH_TRUST;
+               continue;
+            }
+
+            if(last->is_self_signed()) {
+               if(!m_error.has_value()) {
+                  m_error = Certificate_Status_Code::CANNOT_ESTABLISH_TRUST;
+               }
+               continue;
+            }
+
+            push_issuers(*last);
+         }
+
+         return std::nullopt;
+      }
+
+      /**
+      * Return the first error encountered during path building
+      *
+      * Only used as a last resort if there were no successful paths
+      */
+      Certificate_Status_Code error() const {
+         if(m_error.has_value()) {
+            // Confirm it is an actual error code and not accidentally OK...
+            BOTAN_ASSERT_NOMSG(static_cast<uint32_t>(m_error.value()) >= 3000);
+            return m_error.value();
+         } else {
+            return Certificate_Status_Code::CERT_ISSUER_NOT_FOUND;
+         }
+      }
+
+   private:
+      bool cert_in_any_trusted_store(const X509_Certificate& cert) const {
+         return std::ranges::any_of(m_trusted_certstores,
+                                    [&](const Certificate_Store* store) { return store->contains(cert); });
+      }
+
+      void push_issuers(const X509_Certificate& cert) {
+         const X509_DN& issuer_dn = cert.issuer_dn();
+         const std::vector<uint8_t>& auth_key_id = cert.authority_key_id();
+
+         // Search for trusted issuers
+         std::vector<X509_Certificate> trusted_issuers;
+         for(const Certificate_Store* store : m_trusted_certstores) {
+            auto new_issuers = store->find_all_certs(issuer_dn, auth_key_id);
+            trusted_issuers.insert(trusted_issuers.end(), new_issuers.begin(), new_issuers.end());
+         }
+
+         // Search the supplemental certs
+         const std::vector<X509_Certificate> misc_issuers = m_ee_extras.find_all_certs(issuer_dn, auth_key_id);
+
+         // If we could not find any issuers, the current path ends here
+         if(trusted_issuers.empty() && misc_issuers.empty()) {
+            if(!m_error.has_value()) {
+               m_error = Certificate_Status_Code::CERT_ISSUER_NOT_FOUND;
+            }
+            return;
+         }
+
+         m_path_so_far.push_back(cert);
+         m_certs_seen.emplace(cert.tag());
+
+         // Push a deletion marker on the stack for backtracking later
+         m_stack.push_back({std::nullopt, false});
+
+         for(const auto& trusted_cert : trusted_issuers) {
+            m_stack.push_back({trusted_cert, true});
+         }
+         for(const auto& misc : misc_issuers) {
+            m_stack.push_back({misc, false});
+         }
+      }
+
+      const std::vector<Certificate_Store*> m_trusted_certstores;
+      const bool m_require_self_signed;
+      Certificate_Store_In_Memory m_ee_extras;
+      std::vector<std::pair<std::optional<X509_Certificate>, bool>> m_stack;
+      std::vector<X509_Certificate> m_path_so_far;
+      std::unordered_set<X509_Certificate::Tag, X509_Certificate::TagHash> m_certs_seen;
+      std::optional<Certificate_Status_Code> m_error;
+};
+
+}  // namespace
 
 /*
 * PKIX path validation
@@ -631,53 +794,35 @@ Certificate_Status_Code PKIX::build_certificate_path(std::vector<X509_Certificat
                                                      const std::vector<Certificate_Store*>& trusted_certstores,
                                                      const X509_Certificate& end_entity,
                                                      const std::vector<X509_Certificate>& end_entity_extra) {
-   std::vector<std::vector<X509_Certificate>> all_cert_paths;
-   const auto build_all_paths_res =
-      build_all_certificate_paths(all_cert_paths, trusted_certstores, end_entity, end_entity_extra);
+   CertificatePathBuilder builder(trusted_certstores, end_entity, end_entity_extra);
 
-   if(build_all_paths_res != Certificate_Status_Code::OK) {
-      return build_all_paths_res;
-   }
-   BOTAN_ASSERT_NOMSG(!all_cert_paths.empty());
+   std::vector<X509_Certificate> first_path;
 
-   // Paths ending in self-signed certificates are preferred.
-   const auto first_with_self_signed_anchor = std::ranges::find_if(all_cert_paths, [&](const auto& left_path) {
-      BOTAN_ASSERT_NOMSG(!left_path.empty());
-      return left_path.back().is_self_signed();
-   });
-   if(first_with_self_signed_anchor != all_cert_paths.end()) {
-      cert_path.insert(cert_path.end(), first_with_self_signed_anchor->begin(), first_with_self_signed_anchor->end());
-   } else {
-      cert_path.insert(cert_path.end(), all_cert_paths.front().begin(), all_cert_paths.front().end());
+   while(auto path = builder.next()) {
+      BOTAN_ASSERT_NOMSG(path->empty() == false);
+
+      // Prefer paths ending in self-signed certificates.
+      if(path->back().is_self_signed()) {
+         cert_path.insert(cert_path.end(), path->begin(), path->end());
+         return Certificate_Status_Code::OK;
+      }
+
+      // Save the first path for later just in case we find nothing better
+      if(first_path.empty()) {
+         first_path = std::move(*path);
+      }
    }
-   return Certificate_Status_Code::OK;
+
+   if(!first_path.empty()) {
+      // We found a path, it's not self-signed but it's as good as can be formed...
+      cert_path.insert(cert_path.end(), first_path.begin(), first_path.end());
+      return Certificate_Status_Code::OK;
+   }
+
+   // Failed to build any path at all
+   return builder.error();
 }
 
-/**
- * utilities for PKIX::build_all_certificate_paths
- */
-namespace {
-// <certificate, trusted?>
-using cert_maybe_trusted = std::pair<std::optional<X509_Certificate>, bool>;
-}  // namespace
-
-/**
- * Build all possible certificate paths from the end certificate to self-signed trusted roots.
- *
- * All potentially valid paths are put into the cert_paths vector. If no potentially valid paths are found,
- * one of the encountered errors is returned arbitrarily.
- *
- * todo add a path building function that returns detailed information on errors encountered while building
- * the potentially numerous path candidates.
- *
- * Basically, a DFS is performed starting from the end certificate. A stack (vector) serves to control the DFS.
- * At the beginning of each iteration, a pair is popped from the stack that contains (1) the next certificate
- * to add to the path (2) a bool that indicates if the certificate is part of a trusted certstore. Ideally, we
- * follow the unique issuer of the current certificate until a trusted root is reached. However, the issuer DN +
- * authority key id need not be unique among the certificates used for building the path. In such a case,
- * we consider all the matching issuers by pushing <IssuerCert, trusted?> on the stack for each of them.
- *
- */
 Certificate_Status_Code PKIX::build_all_certificate_paths(std::vector<std::vector<X509_Certificate>>& cert_paths_out,
                                                           const std::vector<Certificate_Store*>& trusted_certstores,
                                                           const X509_Certificate& end_entity,
@@ -685,121 +830,19 @@ Certificate_Status_Code PKIX::build_all_certificate_paths(std::vector<std::vecto
    if(!cert_paths_out.empty()) {
       throw Invalid_Argument("PKIX::build_all_certificate_paths: cert_paths_out must be empty");
    }
-   if(std::ranges::any_of(trusted_certstores, [](auto* ptr) { return ptr == nullptr; })) {
-      throw Invalid_Argument("certificate store list must not contain nullptr");
+   CertificatePathBuilder builder(trusted_certstores, end_entity, end_entity_extra);
+
+   while(auto path = builder.next()) {
+      BOTAN_ASSERT_NOMSG(path->empty() == false);
+      cert_paths_out.push_back(std::move(*path));
    }
 
-   auto cert_in_any_trusted_store = [&](const X509_Certificate& cert) {
-      return std::ranges::any_of(trusted_certstores,
-                                 [&](const Certificate_Store* store) { return store->contains(cert); });
-   };
-
-   /*
-    * Pile up error messages
-    */
-   std::vector<Certificate_Status_Code> stats;
-
-   Certificate_Store_In_Memory ee_extras;
-   for(const auto& cert : end_entity_extra) {
-      if(!cert_in_any_trusted_store(cert)) {
-         ee_extras.add_certificate(cert);
-      }
-   }
-
-   /*
-   * This is an inelegant but functional way of preventing path loops
-   * (where C1 -> C2 -> C3 -> C1). We store a set of all the certificate
-   * fingerprints in the path. If there is a duplicate, we error out.
-   */
-   using TagSet = std::unordered_set<X509_Certificate::Tag, X509_Certificate::TagHash>;
-
-   TagSet certs_seen;
-
-   // new certs are added and removed from the path during the DFS
-   // it is copied into cert_paths_out when we encounter a trusted root
-   std::vector<X509_Certificate> path_so_far;
-
-   std::vector<cert_maybe_trusted> stack = {{end_entity, cert_in_any_trusted_store(end_entity)}};
-
-   while(!stack.empty()) {
-      std::optional<X509_Certificate> last = stack.back().first;
-      // found a deletion marker that guides the DFS, backtracking
-      if(last == std::nullopt) {
-         stack.pop_back();
-         certs_seen.erase(path_so_far.back().tag());
-         path_so_far.pop_back();
-      }
-      // process next cert on the path
-      else {
-         const bool trusted = stack.back().second;
-         stack.pop_back();
-
-         // certificate already seen?
-         const auto tag = last->tag();
-         if(certs_seen.contains(tag)) {
-            stats.push_back(Certificate_Status_Code::CERT_CHAIN_LOOP);
-            // the current path ended in a loop
-            continue;
-         }
-
-         // A valid path has been discovered. It includes endpoints that may end
-         // with either a self-signed or a non-self-signed certificate. For
-         // certificates that are not self-signed, additional paths could
-         // potentially extend from the current one.
-         if(trusted) {
-            cert_paths_out.push_back(path_so_far);
-            cert_paths_out.back().push_back(*last);
-         } else if(last->is_self_signed()) {
-            stats.push_back(Certificate_Status_Code::CANNOT_ESTABLISH_TRUST);
-            continue;
-         }
-
-         const X509_DN issuer_dn = last->issuer_dn();
-         const std::vector<uint8_t> auth_key_id = last->authority_key_id();
-
-         // search for trusted issuers
-         std::vector<X509_Certificate> trusted_issuers;
-         for(const Certificate_Store* store : trusted_certstores) {
-            auto new_issuers = store->find_all_certs(issuer_dn, auth_key_id);
-            trusted_issuers.insert(trusted_issuers.end(), new_issuers.begin(), new_issuers.end());
-         }
-
-         // search the supplemental certs
-         const std::vector<X509_Certificate> misc_issuers = ee_extras.find_all_certs(issuer_dn, auth_key_id);
-
-         // if we could not find any issuers, the current path ends here
-         if(trusted_issuers.empty() && misc_issuers.empty()) {
-            stats.push_back(Certificate_Status_Code::CERT_ISSUER_NOT_FOUND);
-            continue;
-         }
-
-         // push the latest certificate onto the path_so_far
-         path_so_far.push_back(*last);
-         certs_seen.emplace(tag);
-
-         // push a deletion marker on the stack for backtracking later
-         stack.push_back({std::optional<X509_Certificate>(), false});
-
-         for(const auto& trusted_cert : trusted_issuers) {
-            stack.push_back({trusted_cert, true});
-         }
-
-         for(const auto& misc : misc_issuers) {
-            stack.push_back({misc, false});
-         }
-      }
-   }
-
-   // could not construct any potentially valid path
-   if(cert_paths_out.empty()) {
-      if(stats.empty()) {
-         throw Internal_Error("X509 path building failed for unknown reasons");
-      } else {
-         // arbitrarily return the first error
-         return stats[0];
-      }
-   } else {
+   if(!cert_paths_out.empty()) {
+      // Was able to generate at least one potential path
       return Certificate_Status_Code::OK;
+   } else {
+      // Could not construct any potentially valid path...
+      return builder.error();
    }
 }
 
@@ -884,43 +927,36 @@ Path_Validation_Result x509_path_validate(const std::vector<X509_Certificate>& e
       end_entity_extra.push_back(end_certs[i]);
    }
 
-   std::vector<std::vector<X509_Certificate>> cert_paths;
-   const Certificate_Status_Code path_building_result =
-      PKIX::build_all_certificate_paths(cert_paths, trusted_roots, end_entity, end_entity_extra);
+   const bool require_self_signed = restrictions.require_self_signed_trust_anchors();
 
-   // If we cannot successfully build a chain to a trusted self-signed root, stop now
-   if(path_building_result != Certificate_Status_Code::OK) {
-      return Path_Validation_Result(path_building_result);
-   }
+   CertificatePathBuilder builder(trusted_roots, end_entity, end_entity_extra, require_self_signed);
 
-   // If we require trust anchors to be self-signed we need to filter all paths
-   // not ending in a self-signed certificate.
-   if(restrictions.require_self_signed_trust_anchors()) {
-      auto has_non_self_signed_trust_anchor = [](const auto& cert_path) {
-         return cert_path.empty() || !cert_path.back().is_self_signed();
-      };
-      std::erase_if(cert_paths, has_non_self_signed_trust_anchor);
-   }
-   if(cert_paths.empty()) {
-      return Path_Validation_Result(Certificate_Status_Code::CANNOT_ESTABLISH_TRUST);
-   }
+   constexpr size_t max_paths = 128;
 
-   std::vector<Path_Validation_Result> error_results;
-   // Try validating all the potentially valid paths and return the first one to validate properly
-   for(auto cert_path : cert_paths) {
-      CertificatePathStatusCodes status = PKIX::check_chain(cert_path, ref_time, hostname, usage, restrictions);
+   std::optional<Path_Validation_Result> first_path_error;
+   size_t paths_checked = 0;
 
-      const CertificatePathStatusCodes crl_status = PKIX::check_crl(cert_path, trusted_roots, ref_time);
+   while(auto cert_path = builder.next()) {
+      BOTAN_ASSERT_NOMSG(cert_path->empty() == false);
+
+      paths_checked += 1;
+      if(paths_checked > max_paths) {
+         break;
+      }
+
+      CertificatePathStatusCodes status = PKIX::check_chain(*cert_path, ref_time, hostname, usage, restrictions);
+
+      const CertificatePathStatusCodes crl_status = PKIX::check_crl(*cert_path, trusted_roots, ref_time);
 
       CertificatePathStatusCodes ocsp_status;
 
       if(!ocsp_resp.empty()) {
-         ocsp_status = PKIX::check_ocsp(cert_path, ocsp_resp, trusted_roots, ref_time, restrictions);
+         ocsp_status = PKIX::check_ocsp(*cert_path, ocsp_resp, trusted_roots, ref_time, restrictions);
       }
 
       if(ocsp_status.empty() && ocsp_timeout != std::chrono::milliseconds(0)) {
 #if defined(BOTAN_TARGET_OS_HAS_THREADS) && defined(BOTAN_HAS_HTTP_UTIL)
-         ocsp_status = PKIX::check_ocsp_online(cert_path, trusted_roots, ref_time, ocsp_timeout, restrictions);
+         ocsp_status = PKIX::check_ocsp_online(*cert_path, trusted_roots, ref_time, ocsp_timeout, restrictions);
 #else
          ocsp_status.resize(1);
          ocsp_status[0].insert(Certificate_Status_Code::OCSP_NO_HTTP);
@@ -929,14 +965,23 @@ Path_Validation_Result x509_path_validate(const std::vector<X509_Certificate>& e
 
       PKIX::merge_revocation_status(status, crl_status, ocsp_status, restrictions);
 
-      Path_Validation_Result pvd(status, std::move(cert_path));
+      Path_Validation_Result pvd(status, std::move(*cert_path));
       if(pvd.successful_validation()) {
          return pvd;
-      } else {
-         error_results.push_back(std::move(pvd));
+      } else if(!first_path_error.has_value()) {
+         // Save the errors from the first path we attempted
+         first_path_error = std::move(pvd);
       }
    }
-   return error_results[0];
+
+   if(first_path_error.has_value()) {
+      // We found at least one path, but none of them verified
+      // Return arbitrarily the error from the first path attempted
+      return first_path_error.value();
+   } else {
+      // Failed to build any path at all
+      return Path_Validation_Result(builder.error());
+   }
 }
 
 Path_Validation_Result x509_path_validate(const X509_Certificate& end_cert,
