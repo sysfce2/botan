@@ -168,6 +168,11 @@ size_t DataSource_Stream::peek(uint8_t out[], size_t length, size_t offset) cons
 * Check if the stream is empty or in error
 */
 bool DataSource_Stream::end_of_data() const {
+   /*
+   Peek to trigger EOF indicator if positioned at the end of the stream.
+   Without this, good() returns true even when all data has been read.
+   */
+   m_source.peek();
    return (!m_source.good());
 }
 
