@@ -275,32 +275,24 @@ std::unique_ptr<X509_Certificate_Data> parse_x509_cert_body(const X509_Object& o
       data->m_crl_distribution_points = ext->crl_distribution_urls();
    }
 
-   // Check for self-signed vs self-issued certificates
+   /*
+   Determine if this certificate appears to be self-issued (subject == issuer).
+   This is only a heuristic used for path building so it's ok it is not precise.
+   The self-signature is verified during path validation.
+   */
    if(data->m_subject_dn == data->m_issuer_dn) {
-      if(data->m_subject_key_id.empty() == false && data->m_authority_key_id.empty() == false) {
+      if(!data->m_subject_key_id.empty() && !data->m_authority_key_id.empty()) {
+         /*
+         Both SKID and AKID are set so we can reliably determine self-signed vs
+         self-issued by comparing the two
+         */
          data->m_self_signed = (data->m_subject_key_id == data->m_authority_key_id);
       } else {
          /*
-         If a parse error or unknown algorithm is encountered, default
-         to assuming it is self signed. We have no way of being certain but
-         that is usually the default case (self-issued is rare in practice).
+         Without both SKID and AKID we can't determine with certainty. Assume
+         self-signed since that's by far the common case.
          */
          data->m_self_signed = true;
-
-         try {
-            auto pub_key = X509::load_key(data->m_subject_public_key_bits_seq);
-
-            const auto sig_status = obj.verify_signature(*pub_key);
-
-            if(sig_status.first == Certificate_Status_Code::OK ||
-               sig_status.first == Certificate_Status_Code::SIGNATURE_ALGO_UNKNOWN) {
-               data->m_self_signed = true;
-            } else {
-               data->m_self_signed = false;
-            }
-         } catch(...) {
-            // ignore errors here to allow parsing to continue
-         }
       }
    }
 
