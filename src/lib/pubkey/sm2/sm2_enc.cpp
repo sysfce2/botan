@@ -172,11 +172,13 @@ class SM2_Decryption_Operation final : public PK_Ops::Decryption {
          m_hash->update(y2_bytes);
          const auto u = m_hash->final();
 
-         if(!CT::is_equal<uint8_t>(u, C3).as_bool()) {
-            return secure_vector<uint8_t>();
-         }
+         const auto mac_ok = CT::is_equal<uint8_t>(u, C3);
+         valid_mask = mac_ok.if_set_return(0xFF);
 
-         valid_mask = 0xFF;
+         // Zero the plaintext if the MAC check failed
+         (~mac_ok).if_set_zero_out(masked_msg.data(), masked_msg.size());
+         const size_t output_len = CT::Mask<size_t>::expand(mac_ok).if_set_return(masked_msg.size());
+         masked_msg.resize(output_len);
          return masked_msg;
       }
 
