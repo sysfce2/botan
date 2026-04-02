@@ -334,6 +334,11 @@ void GeneralSubtree::encode_into(DER_Encoder& /*to*/) const {
 }
 
 void GeneralSubtree::decode_from(BER_Decoder& ber) {
+   /*
+   * RFC 5280 Section 4.2.1.10:
+   *    Within this profile, the minimum and maximum fields are not used with any
+   *    name forms, thus, the minimum MUST be zero, and maximum MUST be absent.
+   */
    size_t minimum = 0;
 
    ber.start_sequence()
