@@ -114,6 +114,37 @@ McEliece_PublicKey::McEliece_PublicKey(std::span<const uint8_t> key_bits) {
       .end_cons()
       .decode(m_public_matrix, ASN1_Type::OctetString)
       .end_cons();
+
+   if(n == 0 || t == 0) {
+      throw Decoding_Error("Invalid McEliece parameters");
+   }
+
+   // GF(2^m) field requires extension degree in [2, 16]
+   const size_t ext_deg = ceil_log2(n);
+   if(ext_deg < 2 || ext_deg > 16) {
+      throw Decoding_Error("McEliece code length out of supported range");
+   }
+
+   // Since ext_deg >= 2, t >= n already implies ext_deg * t > n
+   if(t >= n) {
+      throw Decoding_Error("McEliece parameters are inconsistent");
+   }
+
+   const size_t codimension = ext_deg * t;
+
+   // codimension must be strictly less than n, otherwise the code has no message bits
+   if(codimension >= n) {
+      throw Decoding_Error("McEliece parameters are inconsistent");
+   }
+
+   const size_t dimension = n - codimension;
+
+   // public matrix is a dimension x codimension binary matrix stored as uint32_t rows
+   const size_t expected_pubmat_size = dimension * bit_size_to_32bit_size(codimension) * sizeof(uint32_t);
+   if(m_public_matrix.size() != expected_pubmat_size) {
+      throw Decoding_Error("McEliece public matrix size does not match parameters");
+   }
+
    m_t = t;
    m_code_length = n;
 }
@@ -187,10 +218,32 @@ McEliece_PrivateKey::McEliece_PrivateKey(std::span<const uint8_t> key_bits) {
    }
 
    const uint32_t ext_deg = ceil_log2(n);
+
+   if(ext_deg < 2 || ext_deg > 16) {
+      throw Decoding_Error("McEliece code length out of supported range");
+   }
+
+   // Since ext_deg >= 2, t >= n already implies ext_deg * t > n
+   if(t >= n) {
+      throw Decoding_Error("McEliece parameters are inconsistent");
+   }
+
+   const size_t codimension = ext_deg * t;
+
+   if(codimension >= n) {
+      throw Decoding_Error("McEliece parameters are inconsistent");
+   }
+
+   const size_t dimension = n - codimension;
+   const size_t expected_pubmat_size = dimension * bit_size_to_32bit_size(codimension) * sizeof(uint32_t);
+   if(m_public_matrix.size() != expected_pubmat_size) {
+      throw Decoding_Error("McEliece public matrix size does not match parameters");
+   }
+
    m_code_length = n;
    m_t = t;
-   m_codimension = (ext_deg * t);
-   m_dimension = (n - m_codimension);
+   m_codimension = codimension;
+   m_dimension = dimension;
 
    auto sp_field = std::make_shared<GF2m_Field>(ext_deg);
    m_g = {polyn_gf2m(enc_g, sp_field)};
