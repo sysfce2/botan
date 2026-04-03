@@ -600,16 +600,15 @@ CertificatePathStatusCodes PKIX::check_crl(const std::vector<X509_Certificate>& 
             }
          }
 
-         for(const auto& extension : crls[i]->extensions().extensions()) {
-            // XXX this is wrong - the OID might be defined but the extension not full parsed
-            // for example see #1652
-
-            // is the extension critical and unknown?
-            if(extension.second && !extension.first->oid_of().registered_oid()) {
-               /* NIST Certificate Path Valiadation Testing document: "When an implementation does not recognize a critical extension in the
-                * crlExtensions field, it shall assume that identified certificates have been revoked and are no longer valid"
-                */
-               status.insert(Certificate_Status_Code::CERT_IS_REVOKED);
+         for(const auto& [extension, critical] : crls[i]->extensions().extensions()) {
+            if(critical) {
+               /* NIST Certificate Path Validation Testing document: "When an implementation does
+               * not recognize a critical extension in the crlExtensions field, it shall assume
+               * that identified certificates have been revoked and are no longer valid"
+               */
+               if(dynamic_cast<const Cert_Extension::Unknown_Extension*>(extension.get()) != nullptr) {
+                  status.insert(Certificate_Status_Code::CERT_IS_REVOKED);
+               }
             }
          }
       }

@@ -42,7 +42,7 @@ ext_06$CA certificate not allowed to issue certs
 ext_07$CA certificate not allowed to issue certs
 ext_08$Certificate chain too long
 ext_09$Verified
-ext_10$Unknown critical extension encountered
+ext_10$Certificate extension encoding error
 ext_11$CA certificate not allowed to issue certs
 ext_12$Certificate contains duplicate policy
 ext_13$Unknown critical extension encountered

@@ -18,6 +18,7 @@ tests_that_succeed_unexpectedly = {
     'crl::revoked-certificate-with-crl': 'Need CRL support in this script',
     'crl::crlnumber-missing': 'Need CRL support in this script',
     'crl::crlnumber-critical': 'Need CRL support in this script',
+    'crl::issuer-missing-crlsign':  'Need CRL support in this script',
 
     'rfc5280::aki::critical-aki unexpected': 'Conflates CA and verifier requirements',
     'rfc5280::aki::critical-aki': 'Conflates CA and verifier requirements',
@@ -65,7 +66,6 @@ tests_that_succeed_unexpectedly = {
 
     'rfc5280::nc::nc-forbids-othername': 'Othername is a NULL which we drop',
     'webpki::san::wildcard-embedded-ulabel-san': 'Needs investigation',
-    'webpki::malformed-aia': 'Needs investigation',
 
     # A number of tests (736, 737, ...) seem to make the implicit assumption
     # that if a name constraint applies to a certificate then we should not

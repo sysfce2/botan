@@ -88,6 +88,7 @@ enum class Certificate_Status_Code : uint16_t {
    EXT_IN_V1_V2_CERT = 4505,
    DUPLICATE_CERT_POLICY = 4506,
    V2_IDENTIFIERS_IN_V1_CERT = 4507,
+   EXTENSION_ENCODING_ERROR = 4508,
 
    // Hard failures
    CERT_IS_REVOKED = 5000,

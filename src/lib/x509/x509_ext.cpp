@@ -112,14 +112,18 @@ std::unique_ptr<Certificate_Extension> Extensions::create_extn_obj(const OID& oi
    if(!extn) {
       // some other unknown extension type
       extn = std::make_unique<Cert_Extension::Unknown_Extension>(oid, critical);
+   } else {
+      try {
+         extn->decode_inner(body);
+         return extn;
+      } catch(const Decoding_Error&) {
+         // OID was recognized but contents failed to decode
+         extn = std::make_unique<Cert_Extension::Unknown_Extension>(oid, critical, /*failed_to_decode=*/true);
+      }
    }
 
-   try {
-      extn->decode_inner(body);
-   } catch(Decoding_Error&) {
-      extn = std::make_unique<Cert_Extension::Unknown_Extension>(oid, critical);
-      extn->decode_inner(body);
-   }
+   // This is always Unknown_Extension:
+   extn->decode_inner(body);
    return extn;
 }
 

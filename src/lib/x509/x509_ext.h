@@ -941,10 +941,11 @@ class BOTAN_PUBLIC_API(3, 9) ASBlocks final : public Certificate_Extension {
 */
 class BOTAN_PUBLIC_API(2, 4) Unknown_Extension final : public Certificate_Extension {
    public:
-      Unknown_Extension(const OID& oid, bool critical) : m_oid(oid), m_critical(critical) {}
+      Unknown_Extension(const OID& oid, bool critical, bool failed_to_decode = false) :
+            m_oid(oid), m_critical(critical), m_failed_to_decode(failed_to_decode) {}
 
       std::unique_ptr<Certificate_Extension> copy() const override {
-         return std::make_unique<Unknown_Extension>(m_oid, m_critical);
+         return std::make_unique<Unknown_Extension>(m_oid, m_critical, m_failed_to_decode);
       }
 
       /**
@@ -964,12 +965,20 @@ class BOTAN_PUBLIC_API(2, 4) Unknown_Extension final : public Certificate_Extens
       */
       bool is_critical_extension() const { return m_critical; }
 
+      /**
+      * Return true if this extension's OID was recognized but the contents
+      * failed to decode.
+      */
+      bool failed_to_decode() const { return m_failed_to_decode; }
+
       void validate(const X509_Certificate& /*subject*/,
                     const std::optional<X509_Certificate>& /*issuer*/,
                     const std::vector<X509_Certificate>& /*cert_path*/,
                     std::vector<std::set<Certificate_Status_Code>>& cert_status,
                     size_t pos) override {
-         if(m_critical) {
+         if(m_failed_to_decode) {
+            cert_status.at(pos).insert(Certificate_Status_Code::EXTENSION_ENCODING_ERROR);
+         } else if(m_critical) {
             cert_status.at(pos).insert(Certificate_Status_Code::UNKNOWN_CRITICAL_EXTENSION);
          }
       }
@@ -984,6 +993,7 @@ class BOTAN_PUBLIC_API(2, 4) Unknown_Extension final : public Certificate_Extens
 
       OID m_oid;
       bool m_critical;
+      bool m_failed_to_decode;
       std::vector<uint8_t> m_bytes;
 };
 
