@@ -560,6 +560,20 @@ bool NameConstraints::is_excluded(const X509_Certificate& cert, bool reject_unkn
          if(c.base().matches_dns(name)) {
             return true;
          }
+
+         /*
+         RFC 5280 4.2.1.10 - "any name matching a restriction in the
+         excludedSubtrees field is invalid".
+
+         If the cert has a wildcard SAN (*.example.com), and that wildcard
+         could be matched against an excluded name, it must be rejected.
+         */
+         if(c.base().m_type == GeneralName::NameType::DNS) {
+            const auto& constraint = std::get<GeneralName::DNS_IDX>(c.base().m_name);
+            if(host_wildcard_match(name, constraint)) {
+               return true;
+            }
+         }
       }
 
       // There is at least one excluded name and we didn't match

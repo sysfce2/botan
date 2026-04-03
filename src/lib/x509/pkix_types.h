@@ -337,6 +337,7 @@ class BOTAN_PUBLIC_API(2, 0) GeneralName final : public ASN1_Object {
       bool matches_dn(const X509_DN& dn) const;
 
    private:
+      friend class NameConstraints;
       static constexpr size_t RFC822_IDX = 0;
       static constexpr size_t DNS_IDX = 1;
       static constexpr size_t URI_IDX = 2;
