@@ -488,6 +488,10 @@ uint64_t BER_Decoder::decode_constrained_integer(ASN1_Type type_tag, ASN1_Class 
    BigInt integer;
    decode(integer, type_tag, class_tag);
 
+   if(integer.is_negative()) {
+      throw BER_Decoding_Error("Decoded small integer value was negative");
+   }
+
    if(integer.bits() > 8 * T_bytes) {
       throw BER_Decoding_Error("Decoded integer value larger than expected");
    }
