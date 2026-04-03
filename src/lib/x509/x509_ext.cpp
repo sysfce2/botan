@@ -589,6 +589,13 @@ void Name_Constraints::validate(const X509_Certificate& subject,
       for(size_t j = 0; j < pos; ++j) {
          const auto& cert = cert_path.at(j);
 
+         // RFC 5280 6.1.4(b): "Name constraints are not applied to self-issued
+         // certificates (unless the certificate is the final certificate in the path)"
+         // Position 0 is the end entity (final certificate); skip self-issued intermediates.
+         if(j > 0 && cert.issuer_dn() == cert.subject_dn()) {
+            continue;
+         }
+
          if(!m_name_constraints.is_permitted(cert, issuer_name_constraint_critical)) {
             cert_status.at(j).insert(Certificate_Status_Code::NAME_CONSTRAINT_ERROR);
             continue;
