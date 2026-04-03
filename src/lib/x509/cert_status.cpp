@@ -71,6 +71,8 @@ const char* to_string(Certificate_Status_Code code) {
          return "Certificate policy error";
       case Certificate_Status_Code::DUPLICATE_CERT_POLICY:
          return "Certificate contains duplicate policy";
+      case Certificate_Status_Code::EXTENSION_ENCODING_ERROR:
+         return "Certificate extension encoding error";
       case Certificate_Status_Code::INVALID_USAGE:
          return "Certificate does not allow the requested usage";
       case Certificate_Status_Code::CERT_CHAIN_TOO_LONG:
