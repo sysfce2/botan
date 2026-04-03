@@ -40,6 +40,11 @@ bool CertID::is_id_for(const X509_Certificate& issuer, const X509_Certificate& s
       }
 
       const std::string hash_algo = m_hash_id.oid().to_formatted_string();
+
+      if(hash_algo != "SHA-1" && hash_algo != "SHA-256") {
+         return false;
+      }
+
       auto hash = HashFunction::create_or_throw(hash_algo);
 
       if(m_issuer_dn_hash != unlock(hash->process(subject.raw_issuer_dn()))) {
