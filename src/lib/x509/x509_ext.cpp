@@ -1103,38 +1103,39 @@ using IPValidationMap = std::map<uint32_t, std::pair<bool, const IPRangeVec<V>*>
 
 template <typename T>
 std::optional<std::vector<T>> sort_and_merge_ranges(std::optional<std::span<const T>> ranges) {
-   // This method iteratively both sorts and combines IPAddressOrRange or ASIdOrRange objects.
+   // Sort and merge overlapping/adjacent IPAddressOrRange or ASIdOrRange objects.
    // cf. https://www.rfc-editor.org/rfc/rfc3779.html#section-2.2.3.6 and https://www.rfc-editor.org/rfc/rfc3779.html#section-3.2.3.4
    // This implementation uses only min-max ranges internally, so sorting by the prefix length is not necessary / impossible here.
-   //
-   // We first sort all range objects by their minimum value, then check if two adjacent elements can be combined into one
-   // (either one ends and the other immediately starts, or they overlap), in which case the two are removed, and a new combined object is added.
-   // This process is repeated until there are no further changes, because multiple adjacent elements may need to be combined one by one.
 
    if(!ranges.has_value()) {
       return std::nullopt;
    }
 
-   std::vector<T> current(ranges.value().begin(), ranges.value().end());
+   std::vector<T> sorted(ranges.value().begin(), ranges.value().end());
 
-   if(current.empty()) {
-      return current;
+   if(sorted.empty()) {
+      return sorted;
    }
-   // sort by size of the min value
-   std::sort(current.begin(), current.end(), [](T& a, T& b) { return a.min() < b.min(); });
-   for(size_t i = 0; i < current.size() - 1;) {
-      const T a = current[i];
-      const T b = current[i + 1];
+
+   // sort by the min value
+   std::sort(sorted.begin(), sorted.end(), [](T& a, T& b) { return a.min() < b.min(); });
+
+   // Single-pass merge: extend the last merged range or start a new one
+   std::vector<T> merged;
+   merged.reserve(sorted.size());
+   merged.push_back(sorted[0]);
+
+   for(size_t i = 1; i < sorted.size(); ++i) {
+      auto& back = merged.back();
       // they either overlap or are adjacent
-      if(b.min() <= a.max() || b.min() == (a.max() + 1)) {
-         // erase old a and b
-         current.erase(current.begin() + i, current.begin() + i + 2);
-         current.insert(current.begin() + i, T(a.min(), std::max(a.max(), b.max())));
+      if(sorted[i].min() <= back.max() || sorted[i].min() == (back.max() + 1)) {
+         back = T(back.min(), std::max(back.max(), sorted[i].max()));
       } else {
-         i++;
+         merged.push_back(sorted[i]);
       }
    }
-   return current;
+
+   return merged;
 }
 
 template <typename T>
