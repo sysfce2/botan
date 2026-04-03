@@ -472,6 +472,9 @@ int botan_x509_cert_get_public_key(botan_x509_cert_t cert, botan_pubkey_t* key) 
 
 int botan_x509_cert_get_issuer_dn(
    botan_x509_cert_t cert, const char* key, size_t index, uint8_t out[], size_t* out_len) {
+   if(key == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
 #if defined(BOTAN_HAS_X509_CERTIFICATES)
    return BOTAN_FFI_VISIT(cert, [=](const auto& c) -> int {
       auto issuer_info = c.issuer_info(key);
@@ -506,6 +509,9 @@ int botan_x509_cert_get_issuer_dn_count(botan_x509_cert_t cert, const char* key,
 
 int botan_x509_cert_get_subject_dn(
    botan_x509_cert_t cert, const char* key, size_t index, uint8_t out[], size_t* out_len) {
+   if(key == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
 #if defined(BOTAN_HAS_X509_CERTIFICATES)
    return BOTAN_FFI_VISIT(cert, [=](const auto& c) -> int {
       auto subject_info = c.subject_info(key);
@@ -620,6 +626,9 @@ int botan_x509_cert_get_time_expires(botan_x509_cert_t cert, char out[], size_t*
 }
 
 int botan_x509_cert_not_before(botan_x509_cert_t cert, uint64_t* time_since_epoch) {
+   if(time_since_epoch == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
 #if defined(BOTAN_HAS_X509_CERTIFICATES)
    return BOTAN_FFI_VISIT(cert, [=](const auto& c) { *time_since_epoch = c.not_before().time_since_epoch(); });
 #else
@@ -629,6 +638,9 @@ int botan_x509_cert_not_before(botan_x509_cert_t cert, uint64_t* time_since_epoc
 }
 
 int botan_x509_cert_not_after(botan_x509_cert_t cert, uint64_t* time_since_epoch) {
+   if(time_since_epoch == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
 #if defined(BOTAN_HAS_X509_CERTIFICATES)
    return BOTAN_FFI_VISIT(cert, [=](const auto& c) { *time_since_epoch = c.not_after().time_since_epoch(); });
 #else
@@ -663,6 +675,9 @@ int botan_x509_cert_serial_number(botan_x509_cert_t cert, botan_mp_t* serial_num
 }
 
 int botan_x509_cert_get_fingerprint(botan_x509_cert_t cert, const char* hash, uint8_t out[], size_t* out_len) {
+   if(hash == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
 #if defined(BOTAN_HAS_X509_CERTIFICATES)
    // TODO(Botan4) change the type of out and remove this cast
 

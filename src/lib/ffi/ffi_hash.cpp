@@ -77,6 +77,9 @@ int botan_hash_final(botan_hash_t hash, uint8_t out[]) {
 
 // NOLINTNEXTLINE(misc-misplaced-const)
 int botan_hash_copy_state(botan_hash_t* dest, const botan_hash_t source) {
+   if(dest == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
    return BOTAN_FFI_VISIT(source, [=](const auto& src) { return ffi_new_object(dest, src.copy_state()); });
 }
 

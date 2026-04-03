@@ -872,6 +872,9 @@ int botan_pubkey_load_ed25519(botan_pubkey_t* key, const uint8_t pubkey[32]) {
 }
 
 int botan_privkey_ed25519_get_privkey(botan_privkey_t key, uint8_t output[64]) {
+   if(output == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
 #if defined(BOTAN_HAS_ED25519)
    return BOTAN_FFI_VISIT(key, [=](const auto& k) {
       if(auto ed = dynamic_cast<const Botan::Ed25519_PrivateKey*>(&k)) {
@@ -892,6 +895,9 @@ int botan_privkey_ed25519_get_privkey(botan_privkey_t key, uint8_t output[64]) {
 }
 
 int botan_pubkey_ed25519_get_pubkey(botan_pubkey_t key, uint8_t output[32]) {
+   if(output == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
 #if defined(BOTAN_HAS_ED25519)
    return BOTAN_FFI_VISIT(key, [=](const auto& k) {
       if(auto ed = dynamic_cast<const Botan::Ed25519_PublicKey*>(&k)) {
@@ -946,6 +952,9 @@ int botan_pubkey_load_ed448(botan_pubkey_t* key, const uint8_t pubkey[57]) {
 }
 
 int botan_privkey_ed448_get_privkey(botan_privkey_t key, uint8_t output[57]) {
+   if(output == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
 #if defined(BOTAN_HAS_ED448)
    return BOTAN_FFI_VISIT(key, [=](const auto& k) {
       if(auto ed = dynamic_cast<const Botan::Ed448_PrivateKey*>(&k)) {
@@ -963,6 +972,9 @@ int botan_privkey_ed448_get_privkey(botan_privkey_t key, uint8_t output[57]) {
 }
 
 int botan_pubkey_ed448_get_pubkey(botan_pubkey_t key, uint8_t output[57]) {
+   if(output == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
 #if defined(BOTAN_HAS_ED448)
    return BOTAN_FFI_VISIT(key, [=](const auto& k) {
       if(auto ed = dynamic_cast<const Botan::Ed448_PublicKey*>(&k)) {
@@ -1014,6 +1026,9 @@ int botan_pubkey_load_x25519(botan_pubkey_t* key, const uint8_t pubkey[32]) {
 }
 
 int botan_privkey_x25519_get_privkey(botan_privkey_t key, uint8_t output[32]) {
+   if(output == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
 #if defined(BOTAN_HAS_X25519)
    return BOTAN_FFI_VISIT(key, [=](const auto& k) {
       if(auto x25519 = dynamic_cast<const Botan::X25519_PrivateKey*>(&k)) {
@@ -1034,6 +1049,9 @@ int botan_privkey_x25519_get_privkey(botan_privkey_t key, uint8_t output[32]) {
 }
 
 int botan_pubkey_x25519_get_pubkey(botan_pubkey_t key, uint8_t output[32]) {
+   if(output == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
 #if defined(BOTAN_HAS_X25519)
    return BOTAN_FFI_VISIT(key, [=](const auto& k) {
       if(auto x25519 = dynamic_cast<const Botan::X25519_PublicKey*>(&k)) {
@@ -1084,6 +1102,9 @@ int botan_pubkey_load_x448(botan_pubkey_t* key, const uint8_t pubkey[56]) {
 }
 
 int botan_privkey_x448_get_privkey(botan_privkey_t key, uint8_t output[56]) {
+   if(output == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
 #if defined(BOTAN_HAS_X448)
    return BOTAN_FFI_VISIT(key, [=](const auto& k) {
       if(auto x448 = dynamic_cast<const Botan::X448_PrivateKey*>(&k)) {
@@ -1101,6 +1122,9 @@ int botan_privkey_x448_get_privkey(botan_privkey_t key, uint8_t output[56]) {
 }
 
 int botan_pubkey_x448_get_pubkey(botan_pubkey_t key, uint8_t output[56]) {
+   if(output == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
 #if defined(BOTAN_HAS_X448)
    return BOTAN_FFI_VISIT(key, [=](const auto& k) {
       if(auto x448 = dynamic_cast<const Botan::X448_PublicKey*>(&k)) {
