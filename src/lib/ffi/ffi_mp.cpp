@@ -62,11 +62,11 @@ int botan_mp_set_from_mp(botan_mp_t dest, const botan_mp_t source) {
 }
 
 int botan_mp_is_negative(const botan_mp_t mp) {
-   return BOTAN_FFI_VISIT(mp, [](const auto& bn) { return bn.is_negative() ? 1 : 0; });
+   return BOTAN_FFI_VISIT(mp, [](const auto& bn) { return bn.signum() < 0 ? 1 : 0; });
 }
 
 int botan_mp_is_positive(const botan_mp_t mp) {
-   return BOTAN_FFI_VISIT(mp, [](const auto& bn) { return bn.is_positive() ? 1 : 0; });
+   return BOTAN_FFI_VISIT(mp, [](const auto& bn) { return bn.signum() >= 0 ? 1 : 0; });
 }
 
 int botan_mp_flip_sign(botan_mp_t mp) {

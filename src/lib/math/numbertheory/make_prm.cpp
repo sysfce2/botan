@@ -113,7 +113,7 @@ BigInt random_prime(
    if(bits <= 1) {
       throw Invalid_Argument("random_prime: Can't make a prime of " + std::to_string(bits) + " bits");
    }
-   if(coprime.is_negative() || (!coprime.is_zero() && coprime.is_even()) || coprime.bits() >= bits) {
+   if(coprime.signum() < 0 || (coprime.signum() != 0 && coprime.is_even()) || coprime.bits() >= bits) {
       throw Invalid_Argument("random_prime: invalid coprime");
    }
    // TODO(Botan4) reduce this to ~1000

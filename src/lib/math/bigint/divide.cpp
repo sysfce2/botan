@@ -21,7 +21,7 @@ namespace {
 void sign_fixup(const BigInt& x, const BigInt& y, BigInt& q, BigInt& r) {
    q.cond_flip_sign(x.sign() != y.sign());
 
-   if(x.is_negative() && r.is_nonzero()) {
+   if(x.signum() < 0 && r.signum() != 0) {
       q -= 1;
       r = y.abs() - r;
    }
@@ -81,8 +81,8 @@ void ct_divide(const BigInt& x, const BigInt& y, BigInt& q_out, BigInt& r_out) {
 }
 
 BigInt ct_divide_pow2k(size_t k, const BigInt& y) {
-   BOTAN_ARG_CHECK(!y.is_zero(), "Cannot divide by zero");
-   BOTAN_ARG_CHECK(!y.is_negative(), "Negative divisor not supported");
+   BOTAN_ARG_CHECK(y.signum() != 0, "Cannot divide by zero");
+   BOTAN_ARG_CHECK(y.signum() >= 0, "Negative divisor not supported");
    BOTAN_ARG_CHECK(k > 1, "Invalid k");
 
    const size_t x_bits = k + 1;
@@ -145,7 +145,7 @@ void ct_divide_word(const BigInt& x, word y, BigInt& q_out, word& r_out) {
       r = r_gte_y.select(r - y, r);
    }
 
-   if(x.is_negative()) {
+   if(x.signum() < 0) {
       q.flip_sign();
       if(r != 0) {
          --q;
@@ -166,7 +166,7 @@ BigInt ct_divide_word(const BigInt& x, word y) {
 }
 
 word ct_mod_word(const BigInt& x, word y) {
-   BOTAN_ARG_CHECK(x.is_positive(), "The argument x must be positive");
+   BOTAN_ARG_CHECK(x.signum() >= 0, "The argument x must be non-negative");
    BOTAN_ARG_CHECK(y != 0, "Cannot divide by zero");
 
    const size_t x_bits = x.bits();
@@ -190,7 +190,7 @@ word ct_mod_word(const BigInt& x, word y) {
 }
 
 BigInt ct_modulo(const BigInt& x, const BigInt& y) {
-   if(y.is_negative() || y.is_zero()) {
+   if(y.signum() <= 0) {
       throw Invalid_Argument("ct_modulo requires y > 0");
    }
 
@@ -213,8 +213,8 @@ BigInt ct_modulo(const BigInt& x, const BigInt& y) {
       r.ct_cond_swap(r_gte_y, t);
    }
 
-   if(x.is_negative()) {
-      if(r.is_nonzero()) {
+   if(x.signum() < 0) {
+      if(r.signum() != 0) {
          r = y - r;
       }
    }
@@ -225,8 +225,8 @@ BigInt ct_modulo(const BigInt& x, const BigInt& y) {
 BigInt vartime_divide_pow2k(size_t k, const BigInt& y_arg) {
    constexpr size_t WB = WordInfo<word>::bits;
 
-   BOTAN_ARG_CHECK(!y_arg.is_zero(), "Cannot divide by zero");
-   BOTAN_ARG_CHECK(!y_arg.is_negative(), "Negative divisor not supported");
+   BOTAN_ARG_CHECK(y_arg.signum() != 0, "Cannot divide by zero");
+   BOTAN_ARG_CHECK(y_arg.signum() >= 0, "Negative divisor not supported");
    BOTAN_ARG_CHECK(k > 1, "Invalid k");
 
    BigInt y = y_arg;
@@ -303,11 +303,11 @@ BigInt vartime_divide_pow2k(size_t k, const BigInt& y_arg) {
             r -= qit * shifted_y;
          }
 
-         if(r.is_negative()) {
+         if(r.signum() < 0) {
             BOTAN_ASSERT_NOMSG(qit > 0);
             qit--;
             r += shifted_y;
-            BOTAN_ASSERT_NOMSG(r.is_positive());
+            BOTAN_ASSERT_NOMSG(r.signum() >= 0);
          }
       }
 
@@ -393,11 +393,11 @@ void vartime_divide(const BigInt& x, const BigInt& y_arg, BigInt& q_out, BigInt&
 
       if(qit != 0) {
          r -= qit * shifted_y;
-         if(r.is_negative()) {
+         if(r.signum() < 0) {
             BOTAN_ASSERT_NOMSG(qit > 0);
             qit--;
             r += shifted_y;
-            BOTAN_ASSERT_NOMSG(r.is_positive());
+            BOTAN_ASSERT_NOMSG(r.signum() >= 0);
          }
       }
 

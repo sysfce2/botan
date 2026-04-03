@@ -91,10 +91,10 @@ EC_AffinePoint EC_AffinePoint::generator(const EC_Group& group) {
 }
 
 std::optional<EC_AffinePoint> EC_AffinePoint::from_bigint_xy(const EC_Group& group, const BigInt& x, const BigInt& y) {
-   if(x.is_negative() || x >= group.get_p()) {
+   if(x.signum() < 0 || x >= group.get_p()) {
       return {};
    }
-   if(y.is_negative() || y >= group.get_p()) {
+   if(y.signum() < 0 || y >= group.get_p()) {
       return {};
    }
 

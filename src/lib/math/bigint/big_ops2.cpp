@@ -43,7 +43,7 @@ BigInt& BigInt::add(const word y[], size_t y_words, Sign y_sign) {
 }
 
 BigInt& BigInt::mod_add(const BigInt& s, const BigInt& mod, secure_vector<word>& ws) {
-   if(this->is_negative() || s.is_negative() || mod.is_negative()) {
+   if(this->signum() < 0 || s.signum() < 0 || mod.signum() < 0) {
       throw Invalid_Argument("BigInt::mod_add expects all arguments are positive");
    }
 
@@ -92,7 +92,7 @@ BigInt& BigInt::mod_add(const BigInt& s, const BigInt& mod, secure_vector<word>&
 }
 
 BigInt& BigInt::mod_sub(const BigInt& s, const BigInt& mod, secure_vector<word>& ws) {
-   if(this->is_negative() || s.is_negative() || mod.is_negative()) {
+   if(this->signum() < 0 || s.signum() < 0 || mod.signum() < 0) {
       throw Invalid_Argument("BigInt::mod_sub expects all arguments are positive");
    }
 
@@ -120,7 +120,7 @@ BigInt& BigInt::mod_sub(const BigInt& s, const BigInt& mod, secure_vector<word>&
 }
 
 BigInt& BigInt::mod_mul(uint8_t y, const BigInt& mod, secure_vector<word>& ws) {
-   BOTAN_ARG_CHECK(this->is_negative() == false, "*this must be positive");
+   BOTAN_ARG_CHECK(this->signum() >= 0, "*this must be positive");
    BOTAN_ARG_CHECK(y < 16, "y too large");
 
    BOTAN_DEBUG_ASSERT(*this < mod);
@@ -202,7 +202,7 @@ BigInt& BigInt::operator*=(word y) {
 * Division Operator
 */
 BigInt& BigInt::operator/=(const BigInt& y) {
-   if(y.sig_words() == 1 && is_positive() && y.is_positive() && is_power_of_2(y.word_at(0))) {
+   if(y.sig_words() == 1 && signum() >= 0 && y.signum() >= 0 && is_power_of_2(y.word_at(0))) {
       (*this) >>= (y.bits() - 1);
    } else {
       (*this) = (*this) / y;
@@ -267,8 +267,8 @@ BigInt& BigInt::operator<<=(size_t shift) {
 BigInt& BigInt::operator>>=(size_t shift) {
    bigint_shr1(m_data.mutable_data(), m_data.size(), shift);
 
-   if(is_negative() && is_zero()) {
-      set_sign(Positive);
+   if(sig_words() == 0 && m_signedness == Negative) {
+      m_signedness = Positive;
    }
 
    return (*this);

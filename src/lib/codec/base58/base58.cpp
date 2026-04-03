@@ -100,7 +100,7 @@ std::string base58_encode(BigInt v, size_t leading_zeros) {
    BigInt q;
    std::vector<uint8_t> digits;
 
-   while(v.is_nonzero()) {
+   while(!v.is_zero()) {
       word r = 0;
       ct_divide_word(v, radix, q, r);
 

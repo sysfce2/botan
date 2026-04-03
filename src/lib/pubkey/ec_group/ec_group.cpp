@@ -303,19 +303,21 @@ std::pair<std::shared_ptr<EC_Group_Data>, bool> EC_Group::BER_decode_EC_group(st
          throw Decoding_Error("Invalid ECC cofactor parameter");
       }
 
-      if(p.bits() < 112 || p.bits() > 521 || p.is_negative()) {
+      if(p.bits() < 112 || p.bits() > 521 || p.signum() < 0) {
          throw Decoding_Error("ECC p parameter is invalid size");
       }
 
-      if(a.is_negative() || a >= p) {
+      // A can be zero
+      if(a.signum() < 0 || a >= p) {
          throw Decoding_Error("Invalid ECC a parameter");
       }
 
-      if(b <= 0 || b >= p) {
+      // B must be > 0
+      if(b.signum() <= 0 || b >= p) {
          throw Decoding_Error("Invalid ECC b parameter");
       }
 
-      if(order.is_negative() || order.is_zero() || order >= 2 * p) {
+      if(order.signum() <= 0 || order >= 2 * p) {
          throw Decoding_Error("Invalid ECC group order");
       }
 

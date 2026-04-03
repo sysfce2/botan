@@ -308,7 +308,7 @@ BigInt lcm(const BigInt& a, const BigInt& b) {
 * Modular Exponentiation
 */
 BigInt power_mod(const BigInt& base, const BigInt& exp, const BigInt& mod) {
-   if(mod.is_negative() || mod == 1) {
+   if(mod.signum() < 0 || mod == 1) {
       return BigInt::zero();
    }
 
