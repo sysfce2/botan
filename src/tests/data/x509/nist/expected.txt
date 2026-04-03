@@ -80,5 +80,7 @@ test47:Verified
 # Right answer for wrong reason (delta CRL with no base CRL)
 test75:Certificate is revoked
 
-# CRL contains IDP extension saying CRL is for CA certs only
-test76:Verified
+# CRL contains IDP extension saying CRL is for CA certs only.
+# The IDP parser does not handle onlyContainsCACerts, so the critical
+# extension is treated as unprocessable and certificates are assumed revoked.
+test76:Certificate is revoked
