@@ -77,7 +77,7 @@ Client_Hello_13::Client_Hello_13(std::unique_ptr<Client_Hello_Internal> data) : 
       //     The "pre_shared_key" extension MUST be the last extension in the
       //     ClientHello [...]. Servers MUST check that it is the last extension
       //     and otherwise fail the handshake with an "illegal_parameter" alert.
-      if(exts.all().back()->type() != Extension_Code::PresharedKey) {
+      if(exts.last_added() != Extension_Code::PresharedKey) {
          throw TLS_Exception(Alert::IllegalParameter, "PSK extension was not at the very end of the Client Hello");
       }
    }
@@ -268,7 +268,7 @@ Client_Hello_13::Client_Hello_13(const Policy& policy,
       // RFC 8446 4.2.11
       //    The "pre_shared_key" extension MUST be the last extension in the
       //    ClientHello (this facilitates implementation [...]).
-      if(m_data->extensions().all().back()->type() != Extension_Code::PresharedKey) {
+      if(m_data->extensions().last_added() != Extension_Code::PresharedKey) {
          throw TLS_Exception(Alert::InternalError,
                              "Application modified extensions of Client Hello, PSK is not last anymore");
       }

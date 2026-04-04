@@ -19,6 +19,7 @@
 #include <botan/tls_signature_scheme.h>
 #include <botan/tls_version.h>
 
+#include <map>
 #include <memory>
 #include <set>
 
@@ -458,8 +459,6 @@ class BOTAN_UNSTABLE_API Extensions final {
    public:
       std::set<Extension_Code> extension_types() const;
 
-      const std::vector<std::unique_ptr<Extension>>& all() const { return m_extensions; }
-
       template <typename T>
       T* get() const {
          return dynamic_cast<T*>(get(T::static_type()));
@@ -470,7 +469,7 @@ class BOTAN_UNSTABLE_API Extensions final {
          return get<T>() != nullptr;
       }
 
-      bool has(Extension_Code type) const { return get(type) != nullptr; }
+      bool has(Extension_Code type) const;
 
       size_t size() const { return m_extensions.size(); }
 
@@ -504,37 +503,32 @@ class BOTAN_UNSTABLE_API Extensions final {
       }
 
       /**
-       * Take the extension with the given type out of the extensions list.
-       * Returns a nullptr if the extension didn't exist.
-       */
-      template <typename T>
-      decltype(auto) take() {
-         std::unique_ptr<T> out_ptr;
-
-         auto ext = take(T::static_type());
-         if(ext != nullptr) {
-            out_ptr.reset(dynamic_cast<T*>(ext.get()));
-            BOTAN_ASSERT_NOMSG(out_ptr != nullptr);
-            ext.release();
-         }
-
-         return out_ptr;
-      }
-
-      /**
-       * Take the extension with the given type out of the extensions list.
-       * Returns a nullptr if the extension didn't exist.
-       */
-      std::unique_ptr<Extension> take(Extension_Code type);
-
-      /**
       * Remove an extension from this extensions object, if it exists.
       * Returns true if the extension existed (and thus is now removed),
       * otherwise false (the extension wasn't set in the first place).
       *
       * Note: not used internally, might be used in Callbacks::tls_modify_extensions()
       */
-      bool remove_extension(Extension_Code type) { return take(type) != nullptr; }
+      bool remove_extension(Extension_Code type);
+
+      /**
+      * Reorder extensions for serialization. Extensions not mentioned in
+      * @p order retain their relative position at the front; extensions in
+      * @p order are appended in the given order.
+      */
+      void reorder(const std::vector<Extension_Code>& order);
+
+      /**
+      * Return the code of the extension that appears last in the encoding
+      * This is used for checking the position of PSK extension in TLS 1.3
+      */
+      std::optional<Extension_Code> last_added() const {
+         if(m_extension_codes.empty()) {
+            return {};
+         } else {
+            return m_extension_codes.back();
+         }
+      }
 
       Extensions() = default;
       Extensions(const Extensions&) = delete;
@@ -548,7 +542,9 @@ class BOTAN_UNSTABLE_API Extensions final {
       }
 
    private:
-      std::vector<std::unique_ptr<Extension>> m_extensions;
+      // Kept in the order they were added
+      std::vector<Extension_Code> m_extension_codes;
+      std::map<Extension_Code, std::unique_ptr<Extension>> m_extensions;
 };
 
 }  // namespace TLS
