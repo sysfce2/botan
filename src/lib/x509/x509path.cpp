@@ -453,6 +453,22 @@ Certificate_Status_Code verify_ocsp_signing_cert(const X509_Certificate& signing
    //       usage extension and is issued by the CA that issued the
    //       certificate in question as stated above.
 
+   // Verify the delegated responder was issued by the CA that issued
+   // the certificate in question (the EKU and signature chain are
+   // verified by the path validation below).
+   if(signing_cert.issuer_dn() != ca.subject_dn()) {
+      return Certificate_Status_Code::OCSP_ISSUER_NOT_TRUSTED;
+   } else {
+      // If both key identifiers are available, verify they match to
+      // handle CAs that share a subject DN but have different keys
+      // (eg re-keyed or cross-certified CAs).
+      const auto& aki = signing_cert.authority_key_id();
+      const auto& ski = ca.subject_key_id();
+      if(!aki.empty() && !ski.empty() && aki != ski) {
+         return Certificate_Status_Code::OCSP_ISSUER_NOT_TRUSTED;
+      }
+   }
+
    // TODO: Implement OCSP revocation check of OCSP signer certificate
    // Note: This needs special care to prevent endless loops on specifically
    //       forged chains of OCSP responses referring to each other.

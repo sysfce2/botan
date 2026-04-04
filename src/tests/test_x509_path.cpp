@@ -1460,10 +1460,10 @@ class Path_Validation_With_OCSP_Tests final : public Test {
          // response and generate an appropriate error. By no means it should
          // follow the unauthentic OCSP response.
          check_path("x509/ocsp/randombit_ocsp_forged_valid.der",
-                    Botan::Certificate_Status_Code::CERT_ISSUER_NOT_FOUND,
+                    Botan::Certificate_Status_Code::OCSP_ISSUER_NOT_TRUSTED,
                     Botan::Certificate_Status_Code::OCSP_ISSUER_NOT_TRUSTED);
          check_path("x509/ocsp/randombit_ocsp_forged_revoked.der",
-                    Botan::Certificate_Status_Code::CERT_ISSUER_NOT_FOUND,
+                    Botan::Certificate_Status_Code::OCSP_ISSUER_NOT_TRUSTED,
                     Botan::Certificate_Status_Code::OCSP_ISSUER_NOT_TRUSTED);
 
          return result;
