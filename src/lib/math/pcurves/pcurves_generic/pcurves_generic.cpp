@@ -1457,6 +1457,7 @@ PrimeOrderCurve::Scalar GenericPrimeOrderCurve::base_point_mul_x_mod_order(const
                                                                            RandomNumberGenerator& rng) const {
    BOTAN_STATE_CHECK(m_basemul != nullptr);
    auto pt_s = m_basemul->mul(from_stash(scalar), rng);
+   BOTAN_STATE_CHECK(!pt_s.is_identity().as_bool());
    const auto x_bytes = to_affine_x<GenericCurve>(pt_s).serialize<secure_vector<uint8_t>>();
    if(auto s = GenericScalar::from_wide_bytes(this, x_bytes)) {
       return stash(*s);
