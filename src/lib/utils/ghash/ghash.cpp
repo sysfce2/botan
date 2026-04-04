@@ -158,6 +158,8 @@ void GHASH::start(std::span<const uint8_t> nonce) {
    auto& n = m_nonce.emplace();
    copy_mem(n, nonce);
    copy_mem(m_ghash, m_H_ad);
+   m_buffer.clear();
+   m_text_len = 0;
 }
 
 void GHASH::set_associated_data(std::span<const uint8_t> input) {
