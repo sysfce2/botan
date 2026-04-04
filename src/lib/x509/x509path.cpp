@@ -518,7 +518,7 @@ std::set<Certificate_Status_Code> evaluate_ocsp_response(const OCSP::Response& o
    // Verify the signing certificate is trusted
    auto cert_status = verify_ocsp_signing_cert(
       signing_cert.value(), ca, concat(ocsp_response.certificates(), cert_path), certstores, ref_time, restrictions);
-   if(cert_status > Certificate_Status_Code::FIRST_ERROR_STATUS) {
+   if(cert_status >= Certificate_Status_Code::FIRST_ERROR_STATUS) {
       return {cert_status, Certificate_Status_Code::OCSP_ISSUER_NOT_TRUSTED};
    }
 
