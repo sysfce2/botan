@@ -80,7 +80,7 @@ GeneralName GeneralName::ipv4_address(uint32_t ipv4) {
 }
 
 GeneralName GeneralName::ipv4_address(uint32_t ipv4, uint32_t mask) {
-   return GeneralName::make<IPV4_IDX>(std::pair{ipv4, mask});
+   return GeneralName::make<IPV4_IDX>(std::pair{ipv4 & mask, mask});
 }
 
 std::string GeneralName::name() const {
@@ -155,7 +155,7 @@ void GeneralName::decode_from(BER_Decoder& ber) {
          const uint32_t mask = load_be<uint32_t>(obj.bits(), 1);
 
          m_type = NameType::IPv4;
-         m_name.emplace<IPV4_IDX>(std::make_pair(net, mask));
+         m_name.emplace<IPV4_IDX>(std::make_pair(net & mask, mask));
       } else if(obj.length() == 32) {
          // IPv6 name constraints are not implemented
          m_type = NameType::Unknown;
@@ -178,7 +178,7 @@ bool GeneralName::matches_dns(const std::string& dns_name) const {
 bool GeneralName::matches_ipv4(uint32_t ip) const {
    if(m_type == NameType::IPv4) {
       auto [net, mask] = std::get<IPV4_IDX>(m_name);
-      return (ip & mask) == net;
+      return (ip & mask) == (net & mask);
    }
    return false;
 }
@@ -256,13 +256,13 @@ GeneralName::MatchResult GeneralName::matches(const X509_Certificate& cert) cons
          // Check CN instead...
          for(const std::string& cn : dn.get_attribute("CN")) {
             if(auto ipv4 = string_to_ipv4(cn)) {
-               const bool match = (ipv4.value() & mask) == net;
+               const bool match = (ipv4.value() & mask) == (net & mask);
                score.add(match);
             }
          }
       } else {
          for(const uint32_t ipv4 : alt_name.ipv4_address()) {
-            const bool match = (ipv4 & mask) == net;
+            const bool match = (ipv4 & mask) == (net & mask);
             score.add(match);
          }
       }
