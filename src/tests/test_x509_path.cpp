@@ -41,8 +41,6 @@ namespace {
 
 #if defined(BOTAN_HAS_X509_CERTIFICATES) && defined(BOTAN_TARGET_OS_HAS_FILESYSTEM)
 
-   #if defined(BOTAN_HAS_RSA) && defined(BOTAN_HAS_EMSA_PKCS1)
-
 std::map<std::string, std::string> read_results(const std::string& results_file, const char delim = ':') {
    std::ifstream in(results_file);
    if(!in.good()) {
@@ -118,6 +116,8 @@ std::vector<Botan::Path_Validation_Restrictions> restrictions_to_test(bool req_r
       get_allow_non_self_signed_anchors_restrictions(req_revocation_info, ocsp_all_intermediates));
    return restrictions;
 }
+
+   #if defined(BOTAN_HAS_RSA) && defined(BOTAN_HAS_EMSA_PKCS1)
 
 class X509test_Path_Validation_Tests final : public Test {
    public:
@@ -1827,6 +1827,62 @@ class CVE_2026_35580_Test final : public Test {
 };
 
 BOTAN_REGISTER_TEST("x509", "x509_cve_2026_35580", CVE_2026_35580_Test);
+
+   #endif
+
+   #if defined(BOTAN_HAS_ECDSA)
+
+/**
+* Test that the certificate path building DFS correctly handles constructing
+* paths with many possible intermediates.
+*/
+class Path_Building_Tests final : public Test {
+   public:
+      std::vector<Test::Result> run() override {
+         if(Botan::has_filesystem_impl() == false) {
+            return {Test::Result::Note("X509 path building", "Skipping due to missing filesystem access")};
+         }
+
+         const std::string base_dir = "x509/path_building";
+         auto validation_time = Botan::calendar_point(2026, 4, 1, 4, 20, 0).to_std_timepoint();
+
+         // Load root into trust store
+         Botan::Certificate_Store_In_Memory trust_store;
+         trust_store.add_certificate(Botan::X509_Certificate(Test::data_file(base_dir + "/root.pem")));
+
+         // Load the intermediates
+         std::vector<Botan::X509_Certificate> intermediates;
+         for(const auto& file : Test::files_in_data_dir(base_dir)) {
+            if(file.find("level1_") != std::string::npos || file.find("level2_") != std::string::npos) {
+               intermediates.emplace_back(file);
+            }
+         }
+
+         Test::Result result("X509 path building DFS");
+         result.start_timer();
+
+         const Botan::Path_Validation_Restrictions restrictions(false, 80, false);
+
+         for(const auto& [test_name, expected_result] : read_results(Test::data_file(base_dir + "/expected.txt"))) {
+            const Botan::X509_Certificate end_entity(Test::data_file(Botan::fmt("{}/{}", base_dir, test_name)));
+
+            std::vector<Botan::X509_Certificate> end_certs;
+            end_certs.push_back(end_entity);
+            end_certs.insert(end_certs.end(), intermediates.begin(), intermediates.end());
+
+            const Botan::Path_Validation_Result validation_result = Botan::x509_path_validate(
+               end_certs, restrictions, {&trust_store}, "", Botan::Usage_Type::UNSPECIFIED, validation_time);
+
+            result.test_str_eq(
+               test_name + " path validation result", validation_result.result_string(), expected_result);
+         }
+
+         result.end_timer();
+         return {result};
+      }
+};
+
+BOTAN_REGISTER_TEST("x509", "x509_path_building", Path_Building_Tests);
 
    #endif
 
