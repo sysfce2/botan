@@ -946,16 +946,19 @@ Path_Validation_Result x509_path_validate(const std::vector<X509_Certificate>& e
 
    CertificatePathBuilder builder(trusted_roots, end_entity, end_entity_extra, require_self_signed);
 
-   constexpr size_t max_paths = 128;
+   constexpr size_t max_paths = 50;
+   constexpr size_t max_verifications = 200;
 
    std::optional<Path_Validation_Result> first_path_error;
    size_t paths_checked = 0;
+   size_t certs_checked = 0;
 
    while(auto cert_path = builder.next()) {
       BOTAN_ASSERT_NOMSG(cert_path->empty() == false);
 
       paths_checked += 1;
-      if(paths_checked > max_paths) {
+      certs_checked += cert_path->size();
+      if(paths_checked > max_paths || certs_checked > max_verifications) {
          break;
       }
 
