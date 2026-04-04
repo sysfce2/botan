@@ -248,6 +248,12 @@ auto current_nonce(const uint64_t seq_no, std::span<const uint8_t> iv) {
 uint64_t Cipher_State::encrypt_record_fragment(const std::vector<uint8_t>& header, secure_vector<uint8_t>& fragment) {
    BOTAN_ASSERT_NONNULL(m_encrypt);
 
+   // RFC 8446 5.3
+   //    Sequence numbers MUST NOT wrap.
+   if(m_write_seq_no == std::numeric_limits<uint64_t>::max()) {
+      throw Invalid_State("TLS write sequence number overflow");
+   }
+
    m_encrypt->set_key(m_write_key);
    m_encrypt->set_associated_data(header);
    m_encrypt->start(current_nonce(m_write_seq_no, m_write_iv));
@@ -260,6 +266,12 @@ uint64_t Cipher_State::decrypt_record_fragment(const std::vector<uint8_t>& heade
                                                secure_vector<uint8_t>& encrypted_fragment) {
    BOTAN_ASSERT_NONNULL(m_decrypt);
    BOTAN_ARG_CHECK(encrypted_fragment.size() >= m_decrypt->minimum_final_size(), "fragment too short to decrypt");
+
+   // RFC 8446 5.3
+   //    Sequence numbers MUST NOT wrap.
+   if(m_read_seq_no == std::numeric_limits<uint64_t>::max()) {
+      throw Invalid_State("TLS read sequence number overflow");
+   }
 
    m_decrypt->set_key(m_read_key);
    m_decrypt->set_associated_data(header);
