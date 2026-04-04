@@ -945,24 +945,27 @@ Path_Validation_Result x509_path_validate(const std::vector<X509_Certificate>& e
 
       CertificatePathStatusCodes status = PKIX::check_chain(*cert_path, ref_time, hostname, usage, restrictions);
 
-      const CertificatePathStatusCodes crl_status = PKIX::check_crl(*cert_path, trusted_roots, ref_time);
+      // Skip revocation checks if the chain already has fatal errors.
+      if(PKIX::overall_status(status) < Certificate_Status_Code::FIRST_ERROR_STATUS_TO_SKIP_REVOCATION) {
+         const CertificatePathStatusCodes crl_status = PKIX::check_crl(*cert_path, trusted_roots, ref_time);
 
-      CertificatePathStatusCodes ocsp_status;
+         CertificatePathStatusCodes ocsp_status;
 
-      if(!ocsp_resp.empty()) {
-         ocsp_status = PKIX::check_ocsp(*cert_path, ocsp_resp, trusted_roots, ref_time, restrictions);
-      }
+         if(!ocsp_resp.empty()) {
+            ocsp_status = PKIX::check_ocsp(*cert_path, ocsp_resp, trusted_roots, ref_time, restrictions);
+         }
 
-      if(ocsp_status.empty() && ocsp_timeout != std::chrono::milliseconds(0)) {
+         if(ocsp_status.empty() && ocsp_timeout != std::chrono::milliseconds(0)) {
 #if defined(BOTAN_TARGET_OS_HAS_THREADS) && defined(BOTAN_HAS_HTTP_UTIL)
-         ocsp_status = PKIX::check_ocsp_online(*cert_path, trusted_roots, ref_time, ocsp_timeout, restrictions);
+            ocsp_status = PKIX::check_ocsp_online(*cert_path, trusted_roots, ref_time, ocsp_timeout, restrictions);
 #else
-         ocsp_status.resize(1);
-         ocsp_status[0].insert(Certificate_Status_Code::OCSP_NO_HTTP);
+            ocsp_status.resize(1);
+            ocsp_status[0].insert(Certificate_Status_Code::OCSP_NO_HTTP);
 #endif
-      }
+         }
 
-      PKIX::merge_revocation_status(status, crl_status, ocsp_status, restrictions);
+         PKIX::merge_revocation_status(status, crl_status, ocsp_status, restrictions);
+      }
 
       Path_Validation_Result pvd(status, std::move(*cert_path));
       if(pvd.successful_validation()) {
