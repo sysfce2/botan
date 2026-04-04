@@ -107,6 +107,7 @@ std::pair<BigInt, SymmetricKey> srp6_client_agree(std::string_view identifier,
    const BigInt A = group.power_g_p(a, a_bits);
 
    const BigInt u = hash_seq(*hash_fn, p_bytes, A, B);
+   BOTAN_ASSERT_NOMSG(!u.is_zero());
 
    const BigInt x = compute_x(*hash_fn, identifier, password, salt);
 
@@ -196,6 +197,7 @@ SymmetricKey SRP6_Server_Session::step2(const BigInt& A) {
    }
 
    const BigInt u = hash_seq(*hash_fn, m_group->p_bytes(), A, m_B);
+   BOTAN_ASSERT_NOMSG(!u.is_zero());
 
    const BigInt vup = m_group->power_b_p(m_v, u, m_group->p_bits());
    const BigInt S = m_group->power_b_p(m_group->multiply_mod_p(A, vup), m_b, m_group->p_bits());
