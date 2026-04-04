@@ -66,6 +66,10 @@ size_t decode_tag(DataSource* ber, ASN1_Type& type_tag, ASN1_Class& class_tag, b
       throw BER_Decoding_Error("Detected long-form tag for small tag value in DER structure");
    }
 
+   if(tag_buf == static_cast<uint32_t>(ASN1_Type::NoObject)) {
+      throw BER_Decoding_Error("Tag value collides with internal sentinel");
+   }
+
    type_tag = ASN1_Type(tag_buf);
    return tag_bytes;
 }
