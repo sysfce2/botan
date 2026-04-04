@@ -181,7 +181,7 @@ class BitMap final {
       std::optional<size_t> find_free();
 
       void free(size_t bit) {
-         BOTAN_ASSERT_NOMSG(bit <= m_len);
+         BOTAN_ASSERT_NOMSG(bit < m_len);
          const size_t w = bit / BITMASK_BITS;
          BOTAN_ASSERT_NOMSG(w < m_bits.size());
          const bitmask_type mask = static_cast<bitmask_type>(1) << (bit % BITMASK_BITS);
