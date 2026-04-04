@@ -427,7 +427,7 @@ BER_Decoder& BER_Decoder::decode(size_t& out, ASN1_Type type_tag, ASN1_Class cla
    BigInt integer;
    decode(integer, type_tag, class_tag);
 
-   if(integer.is_negative()) {
+   if(integer.signum() < 0) {
       throw BER_Decoding_Error("Decoded small integer value was negative");
    }
 

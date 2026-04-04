@@ -16,7 +16,7 @@
 namespace Botan {
 
 bool is_lucas_probable_prime(const BigInt& C, const Barrett_Reduction& mod_C) {
-   BOTAN_ARG_CHECK(C.is_positive(), "Argument should be a positive integer");
+   BOTAN_ARG_CHECK(C.signum() >= 0, "Argument must be non-negative");
 
    if(C == 2 || C == 3 || C == 5 || C == 7 || C == 11 || C == 13) {
       return true;
@@ -39,7 +39,7 @@ bool is_lucas_probable_prime(const BigInt& C, const Barrett_Reduction& mod_C) {
       }
 
       // Check 5, -7, 9, -11, 13, -15, 17, ...
-      if(D.is_negative()) {
+      if(D.signum() < 0) {
          D.flip_sign();
          D += 2;
       } else {
@@ -47,12 +47,12 @@ bool is_lucas_probable_prime(const BigInt& C, const Barrett_Reduction& mod_C) {
          D.flip_sign();
       }
 
-      if(D == 17 && is_perfect_square(C).is_nonzero()) {
+      if(D == 17 && is_perfect_square(C).signum() != 0) {
          return false;
       }
    }
 
-   if(D.is_negative()) {
+   if(D.signum() < 0) {
       D += C;
    }
 

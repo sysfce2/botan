@@ -320,7 +320,7 @@ class BOTAN_PUBLIC_API(2, 0) BigInt final {
        * ! operator
        * @return true iff this is zero, otherwise false
        */
-      bool operator!() const { return (!is_nonzero()); }
+      bool operator!() const { return is_zero(); }
 
       //BOTAN_DEPRECATED("Just use operator+/operator-")
       static BigInt add2(const BigInt& x, const word y[], size_t y_words, Sign y_sign);
@@ -461,16 +461,27 @@ class BOTAN_PUBLIC_API(2, 0) BigInt final {
       bool is_odd() const { return get_bit(0); }
 
       /**
+       * Return the signum of this integer
+       * @result -1 if negative, 0 if zero, 1 if positive
+       */
+      int signum() const {
+         if(sig_words() == 0) {
+            return 0;
+         }
+         return (sign() == Negative) ? -1 : 1;
+      }
+
+      /**
        * Test if the integer is not zero
        * @result true if the integer is non-zero, false otherwise
        */
-      bool is_nonzero() const { return (!is_zero()); }
+      BOTAN_DEPRECATED("Use signum() != 0") bool is_nonzero() const { return signum() != 0; }
 
       /**
        * Test if the integer is zero
        * @result true if the integer is zero, false otherwise
        */
-      bool is_zero() const { return (sig_words() == 0); }
+      bool is_zero() const { return sig_words() == 0; }
 
       /**
        * Set bit at specified position
@@ -572,13 +583,19 @@ class BOTAN_PUBLIC_API(2, 0) BigInt final {
        * Tests if the sign of the integer is negative
        * @result true, iff the integer has a negative sign
        */
-      bool is_negative() const { return (sign() == Negative); }
+      BOTAN_DEPRECATED("Use signum() < 0") bool is_negative() const { return signum() < 0; }
 
       /**
        * Tests if the sign of the integer is positive
+       *
+       * Note that this is testing the sign, thus it returns true also for zero
+       * Prefer signum which is unambiguous
+       *
        * @result true, iff the integer has a positive sign
        */
-      bool is_positive() const { return (sign() == Positive); }
+      BOTAN_DEPRECATED("Use signum() >= 0 or signum() > 0 as appropriate") bool is_positive() const {
+         return signum() >= 0;
+      }
 
       /**
        * Return the sign of the integer

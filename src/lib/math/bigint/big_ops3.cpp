@@ -104,7 +104,7 @@ BigInt operator*(const BigInt& x, word y) {
 * Division Operator
 */
 BigInt operator/(const BigInt& x, const BigInt& y) {
-   if(y.sig_words() == 1 && y.is_positive()) {
+   if(y.sig_words() == 1 && y.signum() >= 0) {
       return x / y.word_at(0);
    }
 
@@ -135,10 +135,10 @@ BigInt operator%(const BigInt& n, const BigInt& mod) {
    if(mod.is_zero()) {
       throw Invalid_Argument("BigInt::operator% divide by zero");
    }
-   if(mod.is_negative()) {
+   if(mod.signum() < 0) {
       throw Invalid_Argument("BigInt::operator% modulus must be > 0");
    }
-   if(n.is_positive() && mod.is_positive() && n < mod) {
+   if(n.signum() >= 0 && mod.signum() >= 0 && n < mod) {
       return n;
    }
 
@@ -166,7 +166,7 @@ word operator%(const BigInt& n, word mod) {
 
    word remainder = 0;
 
-   if(n.is_positive() && is_power_of_2(mod)) {
+   if(n.signum() >= 0 && is_power_of_2(mod)) {
       remainder = (n.word_at(0) & (mod - 1));
    } else {
       const divide_precomp redc_mod(mod);
@@ -213,7 +213,7 @@ BigInt operator>>(const BigInt& x, size_t shift) {
    BigInt y = BigInt::with_capacity(x_sw - shift_words);
    bigint_shr2(y.mutable_data(), x._data(), x_sw, shift);
 
-   if(x.is_negative() && y.is_zero()) {
+   if(x.signum() < 0 && y.is_zero()) {
       y.set_sign(BigInt::Positive);
    } else {
       y.set_sign(x.sign());

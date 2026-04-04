@@ -380,7 +380,7 @@ class BigInt_Div_Test final : public Text_Based_Test {
          e /= b;
          result.test_bn_eq("a /= b", e, c);
 
-         if(b.sig_words() == 1 && b.is_positive()) {
+         if(b.sig_words() == 1 && b.signum() >= 0) {
             const Botan::word bw = b.word_at(0);
             result.test_bn_eq("Low word correct", Botan::BigInt::from_word(bw), b);
 
@@ -460,7 +460,7 @@ class BigInt_Mod_Test final : public Text_Based_Test {
          e %= b;
          result.test_bn_eq("a %= b", e, expected);
 
-         if(a.is_positive() && a < (b * b)) {
+         if(a.signum() >= 0 && a < (b * b)) {
             auto mod_b_pub = Botan::Barrett_Reduction::for_public_modulus(b);
             result.test_bn_eq("Barrett public", mod_b_pub.reduce(a), expected);
 
