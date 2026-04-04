@@ -63,7 +63,8 @@ class Handshake_IO {
       /**
       * Returns (HANDSHAKE_NONE, std::vector<>()) if no message currently available
       */
-      virtual std::pair<Handshake_Type, std::vector<uint8_t>> get_next_record(bool expecting_ccs) = 0;
+      virtual std::pair<Handshake_Type, std::vector<uint8_t>> get_next_record(bool expecting_ccs,
+                                                                              size_t max_message_size) = 0;
 
       Handshake_IO() = default;
 
@@ -99,7 +100,8 @@ class Stream_Handshake_IO final : public Handshake_IO {
 
       void add_record(const uint8_t record[], size_t record_len, Record_Type type, uint64_t sequence_number) override;
 
-      std::pair<Handshake_Type, std::vector<uint8_t>> get_next_record(bool expecting_ccs) override;
+      std::pair<Handshake_Type, std::vector<uint8_t>> get_next_record(bool expecting_ccs,
+                                                                      size_t max_message_size) override;
 
    private:
       std::deque<uint8_t> m_queue;
@@ -117,13 +119,15 @@ class Datagram_Handshake_IO final : public Handshake_IO {
                             class Connection_Sequence_Numbers& seq,
                             uint16_t mtu,
                             uint64_t initial_timeout_ms,
-                            uint64_t max_timeout_ms) :
+                            uint64_t max_timeout_ms,
+                            size_t max_handshake_msg_size) :
             m_seqs(seq),
             m_flights(1),
             m_initial_timeout(initial_timeout_ms),
             m_max_timeout(max_timeout_ms),
             m_send_hs(std::move(writer)),
-            m_mtu(mtu) {}
+            m_mtu(mtu),
+            m_max_handshake_msg_size(max_handshake_msg_size) {}
 
       Protocol_Version initial_record_version() const override;
 
@@ -140,7 +144,8 @@ class Datagram_Handshake_IO final : public Handshake_IO {
 
       void add_record(const uint8_t record[], size_t record_len, Record_Type type, uint64_t sequence_number) override;
 
-      std::pair<Handshake_Type, std::vector<uint8_t>> get_next_record(bool expecting_ccs) override;
+      std::pair<Handshake_Type, std::vector<uint8_t>> get_next_record(bool expecting_ccs,
+                                                                      size_t max_message_size) override;
 
    private:
       void retransmit_flight(size_t flight);
@@ -216,6 +221,7 @@ class Datagram_Handshake_IO final : public Handshake_IO {
 
       writer_fn m_send_hs;
       uint16_t m_mtu;
+      size_t m_max_handshake_msg_size;
 };
 
 }  // namespace Botan::TLS

@@ -515,6 +515,13 @@ class BOTAN_PUBLIC_API(2, 0) Policy /* NOLINT(*-special-member-functions) */ {
       virtual size_t dtls_maximum_timeout() const;
 
       /**
+      * @return the maximum size of a single handshake message, in bytes.
+      * Messages larger than this will be rejected prior to processing.
+      * Return 0 to disable this and accept any size.
+      */
+      virtual size_t maximum_handshake_message_size() const;
+
+      /**
       * @return the maximum size of the certificate chain, in bytes.
       * Return 0 to disable this and accept any size.
       */

@@ -10,7 +10,9 @@
 
 #include <botan/tls_alert.h>
 #include <botan/tls_exceptn.h>
+#include <botan/tls_policy.h>
 #include <botan/internal/concat_util.h>
+#include <botan/internal/fmt.h>
 #include <botan/internal/stl_util.h>
 #include <botan/internal/tls_reader.h>
 #include <botan/internal/tls_transcript_hash_13.h>
@@ -62,6 +64,13 @@ Handshake_Type handshake_type_from_byte(uint8_t byte_value) {
    }
 }
 
+void verify_handshake_message_size(size_t msg_len, size_t max_size) {
+   if(max_size > 0 && msg_len > max_size) {
+      throw TLS_Exception(Alert::HandshakeFailure,
+                          Botan::fmt("Handshake message is {} bytes, policy maximum is {}", msg_len, max_size));
+   }
+}
+
 template <typename Msg_Type>
 std::optional<Msg_Type> parse_message(TLS::TLS_Data_Reader& reader,
                                       const Policy& policy,
@@ -76,6 +85,10 @@ std::optional<Msg_Type> parse_message(TLS::TLS_Data_Reader& reader,
 
    // make sure we have received the full message
    const size_t msg_len = reader.get_uint24_t();
+
+   // TODO(Botan4) this is split out due to a GCC 11 ICE, can be inlined
+   verify_handshake_message_size(msg_len, policy.maximum_handshake_message_size());
+
    if(reader.remaining_bytes() < msg_len) {
       return std::nullopt;
    }
@@ -135,6 +148,11 @@ std::optional<Handshake_Message_13> Handshake_Layer::next_message(const Policy& 
       transcript_hash.update(pending.first(reader.read_so_far()));
       m_read_offset += reader.read_so_far();
       BOTAN_ASSERT_NOMSG(m_read_offset <= m_read_buffer.size());
+
+      if(m_read_offset == m_read_buffer.size()) {
+         m_read_buffer.clear();
+         m_read_offset = 0;
+      }
    }
 
    return msg;
@@ -149,6 +167,11 @@ std::optional<Post_Handshake_Message_13> Handshake_Layer::next_post_handshake_me
    if(msg.has_value()) {
       m_read_offset += reader.read_so_far();
       BOTAN_ASSERT_NOMSG(m_read_offset <= m_read_buffer.size());
+
+      if(m_read_offset == m_read_buffer.size()) {
+         m_read_buffer.clear();
+         m_read_offset = 0;
+      }
    }
 
    return msg;

@@ -145,8 +145,12 @@ Handshake_State& Channel_Impl_12::create_handshake_state(Protocol_Version versio
       auto send_record_f = [this](uint16_t epoch, Record_Type record_type, const std::vector<uint8_t>& record) {
          send_record_under_epoch(epoch, record_type, record);
       };
-      io = std::make_unique<Datagram_Handshake_IO>(
-         send_record_f, sequence_numbers(), mtu, initial_timeout_ms, max_timeout_ms);
+      io = std::make_unique<Datagram_Handshake_IO>(send_record_f,
+                                                   sequence_numbers(),
+                                                   mtu,
+                                                   initial_timeout_ms,
+                                                   max_timeout_ms,
+                                                   policy().maximum_handshake_message_size());
    } else {
       auto send_record_f = [this](Record_Type rec_type, const std::vector<uint8_t>& record) {
          send_record(rec_type, record);
@@ -420,7 +424,7 @@ void Channel_Impl_12::process_handshake_ccs(const secure_vector<uint8_t>& record
       m_pending_state->handshake_io().add_record(record.data(), record.size(), record_type, record_sequence);
 
       while(auto* pending = m_pending_state.get()) {
-         auto msg = pending->get_next_handshake_msg();
+         auto msg = pending->get_next_handshake_msg(policy().maximum_handshake_message_size());
 
          if(msg.first == Handshake_Type::None) {  // no full handshake yet
             break;

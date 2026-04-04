@@ -459,8 +459,12 @@ bool Policy::allow_dtls_epoch0_restart() const {
    return false;
 }
 
+size_t Policy::maximum_handshake_message_size() const {
+   return 65536;
+}
+
 size_t Policy::maximum_certificate_chain_size() const {
-   return 0;
+   return 65536;
 }
 
 // 1 second initial timeout, 60 second max - see RFC 6347 sec 4.2.4.1

@@ -86,7 +86,7 @@ class Handshake_State {
       */
       void set_expected_next(Handshake_Type msg_type);
 
-      std::pair<Handshake_Type, std::vector<uint8_t>> get_next_handshake_msg();
+      std::pair<Handshake_Type, std::vector<uint8_t>> get_next_handshake_msg(size_t max_handshake_msg_size);
 
       Session_Ticket session_ticket() const;
 
