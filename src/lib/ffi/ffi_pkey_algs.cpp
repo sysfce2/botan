@@ -1146,7 +1146,7 @@ int botan_pubkey_x448_get_pubkey(botan_pubkey_t key, uint8_t output[56]) {
 
 int botan_privkey_load_kyber(botan_privkey_t* key, const uint8_t privkey[], size_t key_len) {
 #if defined(BOTAN_HAS_KYBER)
-   if(key == nullptr) {
+   if(key == nullptr || privkey == nullptr) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
    *key = nullptr;
@@ -1179,7 +1179,7 @@ int botan_privkey_load_kyber(botan_privkey_t* key, const uint8_t privkey[], size
 
 int botan_pubkey_load_kyber(botan_pubkey_t* key, const uint8_t pubkey[], size_t key_len) {
 #if defined(BOTAN_HAS_KYBER)
-   if(key == nullptr) {
+   if(key == nullptr || pubkey == nullptr) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
    *key = nullptr;
@@ -1197,8 +1197,10 @@ int botan_pubkey_load_kyber(botan_pubkey_t* key, const uint8_t pubkey[], size_t 
    }(key_len);
 
    if(mode.has_value()) {
-      auto kyber = std::make_unique<Botan::Kyber_PublicKey>(std::span{pubkey, key_len}, *mode);
-      return ffi_new_object(key, std::move(kyber));
+      return ffi_guard_thunk(__func__, [=]() -> int {
+         auto kyber = std::make_unique<Botan::Kyber_PublicKey>(std::span{pubkey, key_len}, *mode);
+         return ffi_new_object(key, std::move(kyber));
+      });
    } else {
       return BOTAN_FFI_ERROR_BAD_PARAMETER;
    }
