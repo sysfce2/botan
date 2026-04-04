@@ -297,22 +297,30 @@ DER_Encoder& DER_Encoder::encode(const BigInt& n, ASN1_Type type_tag, ASN1_Class
       return add_object(type_tag, class_tag, 0);
    }
 
-   const size_t extra_zero = (n.bits() % 8 == 0) ? 1 : 0;
+   // Serialize magnitude with one extra leading byte
+   auto contents = n.serialize(n.bytes() + 1);
 
-   auto contents = n.serialize(n.bytes() + extra_zero);
-   if(n < 0) {
-      for(unsigned char& content : contents) {
-         content = ~content;
+   if(n.signum() < 0) {
+      // Two's complement: bitwise NOT then increment
+      for(auto& byte : contents) {
+         byte = ~byte;
       }
       for(size_t i = contents.size(); i > 0; --i) {
-         contents[i - 1] += 1;
-         if(contents[i - 1] != 0) {
+         if(++contents[i - 1] != 0) {
             break;
          }
       }
    }
 
-   return add_object(type_tag, class_tag, contents);
+   /*
+   * DER requires the leading byte be emitted only if it required
+   */
+   BOTAN_ASSERT_NOMSG(contents.size() >= 2);
+   const bool leading_byte_redundant =
+      (contents[0] == 0x00 && (contents[1] & 0x80) == 0) || (contents[0] == 0xFF && (contents[1] & 0x80) != 0);
+   auto encoding = std::span{contents}.subspan(leading_byte_redundant ? 1 : 0);
+
+   return add_object(type_tag, class_tag, encoding);
 }
 
 /*
