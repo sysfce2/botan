@@ -35,7 +35,7 @@ class L_computer final {
          // memory overhead is negligible.
          //
          // See also https://github.com/randombit/botan/issues/3812
-         m_L.reserve(31);
+         m_L.reserve(65);
          m_L.push_back(poly_double(dollar()));
 
          while(m_L.size() < 8) {
@@ -63,7 +63,7 @@ class L_computer final {
          return m_L[i];
       }
 
-      const uint8_t* compute_offsets(size_t block_index, size_t blocks) {
+      const uint8_t* compute_offsets(uint64_t block_index, size_t blocks) {
          BOTAN_ASSERT(blocks <= m_max_blocks, "OCB offsets");
 
          uint8_t* offsets = m_offset_buf.data();
@@ -77,7 +77,7 @@ class L_computer final {
                // ntz(4*i+2) == 1
                // ntz(4*i+3) == 0
                block_index += 4;
-               const size_t ntz4 = var_ctz32(static_cast<uint32_t>(block_index));
+               const size_t ntz4 = var_ctz64(block_index);
 
                xor_buf(offsets, m_offset.data(), L0.data(), m_BS);
                offsets += m_BS;
@@ -98,7 +98,7 @@ class L_computer final {
          }
 
          for(size_t i = 0; i != blocks; ++i) {  // could be done in parallel
-            const size_t ntz = var_ctz32(static_cast<uint32_t>(block_index + i + 1));
+            const size_t ntz = var_ctz64(block_index + i + 1);
             xor_buf(m_offset.data(), get(ntz).data(), m_BS);
             copy_mem(offsets, m_offset.data(), m_BS);
             offsets += m_BS;
@@ -138,7 +138,7 @@ secure_vector<uint8_t> ocb_hash(const L_computer& L, const BlockCipher& cipher, 
 
    for(size_t i = 0; i != ad_blocks; ++i) {
       // this loop could run in parallel
-      offset ^= L.get(var_ctz32(static_cast<uint32_t>(i + 1)));
+      offset ^= L.get(var_ctz64(i + 1));
       buf = offset;
       xor_buf(buf.data(), &ad[BS * i], BS);
       cipher.encrypt(buf);
