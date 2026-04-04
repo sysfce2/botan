@@ -187,6 +187,48 @@ class Cipher_Mode_Tests final : public Text_Based_Test {
          mode.finish(buf);
          result.test_bin_eq(direction + " all-in-one", buf, expected);
 
+         // Test finish() with non-zero offset
+         {
+            const size_t test_offset = 1 + rng.next_byte() % 32;
+            buf.assign(test_offset, 0xAB);
+            buf.insert(buf.end(), input.begin(), input.end());
+
+            mode.start(nonce);
+            mode.finish(buf, test_offset);
+
+            for(size_t i = 0; i < test_offset; ++i) {
+               result.test_u8_eq(direction + " prefix byte", buf[i], 0xAB);
+            }
+            result.test_bin_eq(direction + " finish with offset", std::span{buf}.subspan(test_offset), expected);
+         }
+
+         // Test update() + finish() with non-zero offset
+         if(input.size() >= update_granularity + min_final_bytes) {
+            const size_t test_offset = 1 + rng.next_byte() % 32;
+            const size_t max_blocks = (input.size() - min_final_bytes) / update_granularity;
+            const size_t bytes_to_update = max_blocks * update_granularity;
+
+            buf.assign(test_offset, 0xAB);
+            buf.insert(buf.end(), input.begin(), input.begin() + bytes_to_update);
+
+            Botan::secure_vector<uint8_t> final_buf(test_offset, 0xAB);
+            final_buf.insert(final_buf.end(), input.begin() + bytes_to_update, input.end());
+
+            mode.start(nonce);
+            mode.update(buf, test_offset);
+            mode.finish(final_buf, test_offset);
+
+            for(size_t i = 0; i < test_offset; ++i) {
+               result.test_u8_eq(direction + " update offset prefix byte", buf[i], 0xAB);
+               result.test_u8_eq(direction + " finish offset prefix byte", final_buf[i], 0xAB);
+            }
+
+            Botan::secure_vector<uint8_t> combined;
+            combined.insert(combined.end(), buf.begin() + test_offset, buf.end());
+            combined.insert(combined.end(), final_buf.begin() + test_offset, final_buf.end());
+            result.test_bin_eq(direction + " update+finish with offset", combined, expected);
+         }
+
          // additionally test update() and process() if possible
          if(input.size() >= update_granularity + min_final_bytes) {
             const size_t max_blocks_to_process = (input.size() - min_final_bytes) / update_granularity;
