@@ -539,6 +539,22 @@ class BOTAN_PUBLIC_API(2, 0) Policy /* NOLINT(*-special-member-functions) */ {
       virtual size_t maximum_certificate_chain_size() const;
 
       /**
+      * @return the minimum number of milliseconds that must elapse between
+      * two received KeyUpdate messages. If a KeyUpdate arrives sooner than
+      * this interval after the previous one, the connection is terminated.
+      * Return 0 to disable rate limiting.
+      * @note Only applies to TLS 1.3 connections.
+      */
+      virtual uint64_t minimum_key_update_interval_ms() const;
+
+      /**
+      * @return the maximum number of NewSessionTicket messages to accept
+      * from a server on a single connection. Return 0 to disable the limit.
+      * @note Only applies to TLS 1.3 client connections.
+      */
+      virtual size_t maximum_session_tickets_per_connection() const;
+
+      /**
       * @note Has no effect for TLS 1.3 connections.
       */
       virtual bool allow_resumption_for_renegotiation() const;

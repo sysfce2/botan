@@ -471,6 +471,14 @@ size_t Policy::maximum_certificate_chain_size() const {
    return 65536;
 }
 
+uint64_t Policy::minimum_key_update_interval_ms() const {
+   return 1000;
+}
+
+size_t Policy::maximum_session_tickets_per_connection() const {
+   return 10;
+}
+
 // 1 second initial timeout, 60 second max - see RFC 6347 sec 4.2.4.1
 size_t Policy::dtls_initial_timeout() const {
    return 1 * 1000;

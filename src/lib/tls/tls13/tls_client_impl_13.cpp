@@ -607,6 +607,14 @@ void Client_Impl_13::handle(const Finished_13& finished_msg) {
 }
 
 void TLS::Client_Impl_13::handle(const New_Session_Ticket_13& new_session_ticket) {
+   if(const size_t max_tickets = policy().maximum_session_tickets_per_connection();
+      max_tickets > 0 && m_session_tickets_received >= max_tickets) {
+      // Silently ignore excess tickets rather than terminating the connection,
+      // since the server may have legitimate reasons to send many tickets.
+      return;
+   }
+   ++m_session_tickets_received;
+
    callbacks().tls_examine_extensions(
       new_session_ticket.extensions(), Connection_Side::Server, Handshake_Type::NewSessionTicket);
 

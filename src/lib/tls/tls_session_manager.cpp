@@ -212,11 +212,16 @@ std::optional<std::pair<Session, uint16_t>> Session_Manager::choose_from_offered
    // Note that the TLS server currently does not ensure that tickets aren't
    // reused. As a result, no locking is required on this level.
 
-   for(uint16_t i = 0; const auto& ticket : tickets) {
+   // Limit how many identities we attempt to look up to prevent a client
+   // from forcing excessive session store queries.
+   const size_t max_attempts = std::min<size_t>(tickets.size(), 5);
+
+   for(size_t i = 0; i < max_attempts; ++i) {
+      const auto& ticket = tickets[i];
       auto session = retrieve(Session_Handle(Opaque_Session_Handle(ticket.identity())), callbacks, policy);
       if(session.has_value() && session->ciphersuite().prf_algo() == hash_function &&
          session->version().is_tls_13_or_later()) {
-         return std::pair{std::move(session.value()), i};
+         return std::pair{std::move(session.value()), static_cast<uint16_t>(i)};
       }
 
       // RFC 8446 4.2.10
@@ -230,8 +235,6 @@ std::optional<std::pair<Session, uint16_t>> Session_Manager::choose_from_offered
       // TODO: The ticket-age is currently not checked (as 0-RTT is not
       //       implemented) and we simply take the SHOULD at face value.
       //       Instead we could add a policy check letting the user decide.
-
-      ++i;
    }
 
    return std::nullopt;
