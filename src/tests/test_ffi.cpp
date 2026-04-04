@@ -3481,10 +3481,8 @@ class FFI_RSA_Test final : public FFI_Test {
             botan_mp_destroy(x);
 
             botan_privkey_t loaded_privkey;
-            // First try loading a bogus key and verify check_key fails
-            TEST_FFI_OK(botan_privkey_load_rsa, (&loaded_privkey, n, d, q));
-            TEST_FFI_RC(-1, botan_privkey_check_key, (loaded_privkey, rng, 0));
-            botan_privkey_destroy(loaded_privkey);
+            // First try loading a bogus key and verify it is rejected
+            TEST_FFI_RC(-1, botan_privkey_load_rsa, (&loaded_privkey, n, d, q));
 
             TEST_FFI_OK(botan_privkey_load_rsa, (&loaded_privkey, p, q, e));
             TEST_FFI_OK(botan_privkey_check_key, (loaded_privkey, rng, 0));

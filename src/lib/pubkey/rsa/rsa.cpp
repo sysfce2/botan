@@ -154,8 +154,11 @@ const BigInt& RSA_PublicKey::get_e() const {
 }
 
 void RSA_PublicKey::init(BigInt&& n, BigInt&& e) {
-   if(n.signum() < 0 || n.is_even() || n.bits() < 5 /* n >= 3*5 */ || e.signum() < 0 || e.is_even()) {
-      throw Decoding_Error("Invalid RSA public key parameters");
+   if(n.signum() <= 0 || n.is_even() || n.bits() < 384 || n.bits() > 16384) {
+      throw Decoding_Error("Invalid RSA public key modulus");
+   }
+   if(e.is_even() || e <= 1 || e >= n || e.bits() > 256) {
+      throw Decoding_Error("Invalid RSA public key exponent");
    }
    m_public = std::make_shared<RSA_Public_Data>(std::move(n), std::move(e));
 }
@@ -325,8 +328,18 @@ RSA_PrivateKey::RSA_PrivateKey(
 * Create a RSA private key
 */
 RSA_PrivateKey::RSA_PrivateKey(RandomNumberGenerator& rng, size_t bits, size_t exp) {
-   if(bits < 1024) {
-      throw Invalid_Argument(fmt("Cannot create an RSA key only {} bits long", bits));
+   constexpr size_t MIN_RSA_BITS = 1024;
+   constexpr size_t MAX_RSA_BITS = 16384;
+   constexpr size_t MOD_RSA_BITS = 8;
+
+   if(bits < MIN_RSA_BITS) {
+      throw Invalid_Argument(fmt("Cannot create an RSA key of {} bits: must be at least {} bits", bits, MIN_RSA_BITS));
+   } else if(bits > MAX_RSA_BITS) {
+      throw Invalid_Argument(
+         fmt("Cannot create an RSA key of {} bits: must be no more than {} bits", bits, MAX_RSA_BITS));
+   } else if(bits % MOD_RSA_BITS != 0) {
+      throw Invalid_Argument(
+         fmt("Cannot create an RSA key of {} bits: must be a multiple of {} bits", bits, MOD_RSA_BITS));
    }
 
    if(exp < 3 || exp % 2 == 0) {

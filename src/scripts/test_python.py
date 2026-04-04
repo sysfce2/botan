@@ -558,8 +558,7 @@ ofvkP1EDmpx50fHLawIDAQAB
         self.assertEqual(remaining, 1024)
 
     def test_check_key(self):
-        # valid (if rather small) RSA key
-        n = 273279220906618527352827457840955116141
+        n = 0xc64bad5b1c8ec30ba72ed8b5374ef8989fefb771c7c9e68c3598d73170df75403f7571f5ebd2f69008741fcd04319a7f10a296b2fbd1038bbfc5e4d83ef17d6a495cfeef9d779b9910bfb48bd891860f85fa26ac9a420d2d3c6c2ec30636fea3fbdb5ef3a372e5f217b211deb59229b01d43ee71b1e87e5ffe185a9eb3ec696f
         e = 0x10001
 
         rng = botan.RandomNumberGenerator()
@@ -571,7 +570,7 @@ ofvkP1EDmpx50fHLawIDAQAB
         try:
             rsapub = botan.PublicKey.load_rsa(n - 1, e)
         except botan.BotanException as e:
-            self.assertEqual(str(e), "botan_pubkey_load_rsa failed: -1 (Invalid input): Invalid RSA public key parameters")
+            self.assertEqual(str(e), "botan_pubkey_load_rsa failed: -1 (Invalid input): Invalid RSA public key modulus")
 
     def _pksign_roundtrips(self, sk, pk, param_str):
         def verify_positive_and_negative(verifier, sig):
