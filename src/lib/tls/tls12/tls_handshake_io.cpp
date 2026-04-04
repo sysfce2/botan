@@ -23,6 +23,18 @@ inline size_t load_be24(const uint8_t q[3]) {
    return make_uint32(0, q[0], q[1], q[2]);
 }
 
+// Reject handshake type values that are internal sentinels, not wire values
+void verify_is_expected_wire_handshake_type(Handshake_Type type) {
+   switch(type) {
+      case Handshake_Type::HelloRetryRequest:
+      case Handshake_Type::HandshakeCCS:
+      case Handshake_Type::None:
+         throw TLS_Exception(Alert::UnexpectedMessage, "Invalid handshake message type");
+      default:
+         break;
+   }
+}
+
 void store_be24(uint8_t out[3], size_t val) {
    out[0] = get_byte<1>(static_cast<uint32_t>(val));
    out[1] = get_byte<2>(static_cast<uint32_t>(val));
@@ -64,10 +76,6 @@ std::pair<Handshake_Type, std::vector<uint8_t>> Stream_Handshake_IO::get_next_re
    if(m_queue.size() >= 4) {
       const Handshake_Type type = static_cast<Handshake_Type>(m_queue[0]);
 
-      if(type == Handshake_Type::None) {
-         throw Decoding_Error("Invalid handshake message type");
-      }
-
       const size_t rec_length = make_uint32(0, m_queue[1], m_queue[2], m_queue[3]);
 
       // If we are expecting a CCS but the next queued message is not a CCS,
@@ -79,6 +87,8 @@ std::pair<Handshake_Type, std::vector<uint8_t>> Stream_Handshake_IO::get_next_re
          if(!is_ccs) {
             throw TLS_Exception(Alert::UnexpectedMessage, "Expected ChangeCipherSpec but got a handshake message");
          }
+      } else {
+         verify_is_expected_wire_handshake_type(type);
       }
 
       const size_t length = 4 + rec_length;
@@ -207,6 +217,9 @@ void Datagram_Handshake_IO::add_record(const uint8_t record[],
       }
 
       const Handshake_Type msg_type = static_cast<Handshake_Type>(record[0]);
+
+      verify_is_expected_wire_handshake_type(msg_type);
+
       const size_t msg_len = load_be24(&record[1]);
       const uint16_t message_seq = load_be<uint16_t>(&record[4], 0);
       const size_t fragment_offset = load_be24(&record[6]);

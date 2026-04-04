@@ -192,6 +192,7 @@ std::string map_to_bogo_error(const std::string& e) noexcept {
       {"Invalid authentication tag: ChaCha20Poly1305 tag check failed", ":DECRYPTION_FAILED_OR_BAD_RECORD_MAC:"},
       {"Invalid authentication tag: GCM tag check failed", ":DECRYPTION_FAILED_OR_BAD_RECORD_MAC:"},
       {"Invalid encapsulated key length", ":BAD_ECPOINT:"},
+      {"Invalid handshake message type", ":UNEXPECTED_RECORD:"},
       {"Invalid hybrid KEM ciphertext", ":BAD_ECPOINT:"},
       {"Invalid size 31 for X25519 public key", ":BAD_ECPOINT:"},
       {"Invalid size 33 for X25519 public key", ":BAD_ECPOINT:"},
