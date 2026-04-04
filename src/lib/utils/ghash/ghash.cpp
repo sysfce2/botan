@@ -9,6 +9,7 @@
 
 #include <botan/internal/ghash.h>
 
+#include <botan/exceptn.h>
 #include <botan/internal/ct_utils.h>
 #include <botan/internal/loadstor.h>
 
@@ -191,6 +192,12 @@ void GHASH::update(std::span<const uint8_t> input) {
    BOTAN_STATE_CHECK(m_nonce);
    ghash_update(m_ghash, input);
    m_text_len += input.size();
+
+   // NIST SP 800-38D limits plaintext/ciphertext to 2^39 - 256 bits
+   constexpr uint64_t GHASH_MAX_BYTES = (((static_cast<uint64_t>(1) << 39)) - 256) / 8;
+   if(m_text_len > GHASH_MAX_BYTES) {
+      throw Invalid_State("GCM message length limit exceeded");
+   }
 }
 
 void GHASH::final(std::span<uint8_t> mac) {
@@ -231,7 +238,8 @@ void GHASH::reset_state() {
       m_nonce.reset();
    }
    m_buffer.clear();
-   m_text_len = m_ad_len = 0;
+   m_text_len = 0;
+   m_ad_len = 0;
 }
 
 void GHASH::ghash_update(std::span<uint8_t, GCM_BS> x, std::span<const uint8_t> input) {

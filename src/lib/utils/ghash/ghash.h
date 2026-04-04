@@ -93,8 +93,8 @@ class GHASH final : public SymmetricAlgorithm {
       secure_vector<uint64_t> m_H_pow;
 
       std::optional<std::array<uint8_t, GCM_BS>> m_nonce;
-      size_t m_ad_len = 0;
-      size_t m_text_len = 0;
+      uint64_t m_ad_len = 0;
+      uint64_t m_text_len = 0;
 };
 
 }  // namespace Botan
