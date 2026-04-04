@@ -18,6 +18,13 @@
 namespace Botan::TLS {
 
 void Handshake_Layer::copy_data(std::span<const uint8_t> data_from_peer) {
+   // Compact consumed data before appending new data
+   BOTAN_ASSERT_NOMSG(m_read_offset <= m_read_buffer.size());
+   if(m_read_offset > 0) {
+      m_read_buffer.erase(m_read_buffer.begin(), m_read_buffer.begin() + m_read_offset);
+      m_read_offset = 0;
+   }
+
    m_read_buffer.insert(m_read_buffer.end(), data_from_peer.begin(), data_from_peer.end());
 }
 
@@ -119,24 +126,29 @@ std::optional<Msg_Type> parse_message(TLS::TLS_Data_Reader& reader,
 
 std::optional<Handshake_Message_13> Handshake_Layer::next_message(const Policy& policy,
                                                                   Transcript_Hash_State& transcript_hash) {
-   TLS::TLS_Data_Reader reader("handshake message", m_read_buffer);
+   BOTAN_ASSERT_NOMSG(m_read_offset <= m_read_buffer.size());
+   auto pending = std::span<const uint8_t>{m_read_buffer}.subspan(m_read_offset);
+   TLS::TLS_Data_Reader reader("handshake message", pending);
 
    auto msg = parse_message<Handshake_Message_13>(reader, policy, m_peer, m_certificate_type);
    if(msg.has_value()) {
-      BOTAN_ASSERT_NOMSG(m_read_buffer.size() >= reader.read_so_far());
-      transcript_hash.update(std::span{m_read_buffer.data(), reader.read_so_far()});
-      m_read_buffer.erase(m_read_buffer.cbegin(), m_read_buffer.cbegin() + reader.read_so_far());
+      transcript_hash.update(pending.first(reader.read_so_far()));
+      m_read_offset += reader.read_so_far();
+      BOTAN_ASSERT_NOMSG(m_read_offset <= m_read_buffer.size());
    }
 
    return msg;
 }
 
 std::optional<Post_Handshake_Message_13> Handshake_Layer::next_post_handshake_message(const Policy& policy) {
-   TLS::TLS_Data_Reader reader("post handshake message", m_read_buffer);
+   BOTAN_ASSERT_NOMSG(m_read_offset <= m_read_buffer.size());
+   auto pending = std::span<const uint8_t>{m_read_buffer}.subspan(m_read_offset);
+   TLS::TLS_Data_Reader reader("post handshake message", pending);
 
    auto msg = parse_message<Post_Handshake_Message_13>(reader, policy, m_peer, m_certificate_type);
    if(msg.has_value()) {
-      m_read_buffer.erase(m_read_buffer.cbegin(), m_read_buffer.cbegin() + reader.read_so_far());
+      m_read_offset += reader.read_so_far();
+      BOTAN_ASSERT_NOMSG(m_read_offset <= m_read_buffer.size());
    }
 
    return msg;
