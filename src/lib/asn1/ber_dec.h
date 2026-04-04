@@ -25,28 +25,64 @@ class DataSource;
 class BOTAN_PUBLIC_API(2, 0) BER_Decoder final {
    public:
       /**
+      * Controls what encoding rules the decoder accepts.
+      */
+      class BOTAN_PUBLIC_API(3, 12) Limits final {
+         public:
+            /**
+            * Accept only DER encodings
+            */
+            static Limits DER() { return Limits(false, 0); }
+
+            /**
+            * Accept non-canonical BER encodings.
+            *
+            * @param max_nested_indef maximum number of nested indefinite-length encodings accepted
+            */
+            static Limits BER(size_t max_nested_indef = 16) { return Limits(true, max_nested_indef); }
+
+            bool allow_ber_encoding() const { return m_allow_ber; }
+
+            bool require_der_encoding() const { return !allow_ber_encoding(); }
+
+            size_t max_nested_indefinite_length() const { return m_max_nested_indef; }
+
+            bool operator==(const Limits&) const = default;
+
+         private:
+            Limits(bool allow_ber, size_t max_nested_indef) :
+                  m_allow_ber(allow_ber), m_max_nested_indef(max_nested_indef) {}
+
+            bool m_allow_ber;
+            size_t m_max_nested_indef;
+      };
+
+      /**
       * Set up to BER decode the data in buf of length len
       */
       BOTAN_DEPRECATED("Use BER_Decoder(span) constructor")
-      BER_Decoder(const uint8_t buf[], size_t len) : BER_Decoder(std::span{buf, len}) {}
+      BER_Decoder(const uint8_t buf[], size_t len, Limits limits = Limits::BER()) :
+            BER_Decoder(std::span{buf, len}, limits) {}
 
       /**
       * Set up to BER decode the data in buf
       */
-      explicit BER_Decoder(std::span<const uint8_t> buf);
+      explicit BER_Decoder(std::span<const uint8_t> buf, Limits limits = Limits::BER());
 
       /**
       * Set up to BER decode the data in src
       */
-      explicit BER_Decoder(DataSource& src);
+      explicit BER_Decoder(DataSource& src, Limits limits = Limits::BER());
 
       /**
       * Set up to BER decode the data in obj
       */
-      BOTAN_FUTURE_EXPLICIT BER_Decoder(const BER_Object& obj) : BER_Decoder(obj.data()) {}
+      BOTAN_FUTURE_EXPLICIT BER_Decoder(const BER_Object& obj, Limits limits = Limits::BER()) :
+            BER_Decoder(obj.data(), limits) {}
 
       /**
       * Set up to BER decode the data in obj
+      * TODO(Botan4) remove this?
       */
       BOTAN_FUTURE_EXPLICIT BER_Decoder(BER_Object&& obj) : BER_Decoder(std::move(obj), nullptr) {}
 
@@ -55,6 +91,11 @@ class BOTAN_PUBLIC_API(2, 0) BER_Decoder final {
 
       BER_Decoder& operator=(const BER_Decoder&) = delete;
       BER_Decoder& operator=(BER_Decoder&&) noexcept;
+
+      /**
+      * Returns the limits currently applied to this decoder
+      */
+      Limits limits() const { return m_limits; }
 
       /**
       * Get the next object in the data stream.
@@ -295,7 +336,7 @@ class BOTAN_PUBLIC_API(2, 0) BER_Decoder final {
 
          if(obj.is_a(type_tag, class_tag)) {
             if(class_tag == ASN1_Class::ExplicitContextSpecific) {
-               BER_Decoder(std::move(obj)).decode(out, real_type).verify_end();
+               BER_Decoder(obj, m_limits).decode(out, real_type).verify_end();
             } else {
                push_back(std::move(obj));
                decode(out, real_type, type_tag, class_tag);
@@ -325,6 +366,7 @@ class BOTAN_PUBLIC_API(2, 0) BER_Decoder final {
 
       BER_Object get_next_value(size_t sizeofT, ASN1_Type type_tag, ASN1_Class class_tag);
 
+      Limits m_limits;
       BER_Decoder* m_parent = nullptr;
       BER_Object m_pushed;
       // either m_data_src.get() or an unowned pointer
@@ -342,7 +384,7 @@ BER_Decoder& BER_Decoder::decode_optional(std::optional<T>& optval, ASN1_Type ty
    if(obj.is_a(type_tag, class_tag)) {
       T out{};
       if(class_tag == ASN1_Class::ExplicitContextSpecific) {
-         BER_Decoder(std::move(obj)).decode(out).verify_end();
+         BER_Decoder(obj, m_limits).decode(out).verify_end();
       } else {
          this->push_back(std::move(obj));
          this->decode(out, type_tag, class_tag);

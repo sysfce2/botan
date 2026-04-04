@@ -31,7 +31,11 @@ namespace {
 secure_vector<uint8_t> PKCS8_extract(DataSource& source, AlgorithmIdentifier& pbe_alg_id) {
    secure_vector<uint8_t> key_data;
 
-   BER_Decoder(source).start_sequence().decode(pbe_alg_id).decode(key_data, ASN1_Type::OctetString).verify_end();
+   BER_Decoder(source, BER_Decoder::Limits::DER())
+      .start_sequence()
+      .decode(pbe_alg_id)
+      .decode(key_data, ASN1_Type::OctetString)
+      .verify_end();
 
    return key_data;
 }
@@ -95,7 +99,7 @@ secure_vector<uint8_t> PKCS8_decode(DataSource& source,
          key = key_data;
       }
 
-      BER_Decoder(key)
+      BER_Decoder(key, BER_Decoder::Limits::DER())
          .start_sequence()
          .decode_and_check<size_t>(0, "Unknown PKCS #8 version number")
          .decode(pk_alg_id)

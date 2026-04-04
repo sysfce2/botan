@@ -145,7 +145,7 @@ void GeneralName::decode_from(BER_Decoder& ber) {
       m_name.emplace<URI_IDX>(ASN1::to_string(obj));
    } else if(obj.is_a(4, ASN1_Class::ContextSpecific | ASN1_Class::Constructed)) {
       X509_DN dn;
-      BER_Decoder dec(obj);
+      BER_Decoder dec(obj, ber.limits());
       dn.decode_from(dec);
       m_type = NameType::DN;
       m_name.emplace<DN_IDX>(dn);

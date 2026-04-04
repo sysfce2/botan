@@ -343,6 +343,57 @@ class ASN1_Printer_Tests final : public Test {
 
 BOTAN_REGISTER_TEST("asn1", "asn1_printer", ASN1_Printer_Tests);
 
+class ASN1_Decoding_Tests final : public Text_Based_Test {
+   public:
+      ASN1_Decoding_Tests() : Text_Based_Test("asn1_decoding.vec", "Input,ResultBER", "ResultDER") {}
+
+      Test::Result run_one_test(const std::string& /*header*/, const VarMap& vars) override {
+         const auto input = vars.get_req_bin("Input");
+         const std::string expected_ber = vars.get_req_str("ResultBER");
+         const std::string expected_der = vars.get_opt_str("ResultDER", expected_ber);
+
+         Test::Result result("ASN1 decoding");
+
+         decoding_test(result, input, expected_ber, false);
+         decoding_test(result, input, expected_der, true);
+
+         return result;
+      }
+
+   private:
+      static void decoding_test(Test::Result& result,
+                                std::span<const uint8_t> input,
+                                std::string_view expected,
+                                bool require_der) {
+         const Botan::ASN1_Pretty_Printer printer(4096, 2048, true, 0, 60, 64, require_der);
+         const std::string mode = require_der ? "DER" : "BER";
+         std::ostringstream sink;
+
+         try {
+            printer.print_to_stream(sink, input.data(), input.size());
+
+            if(expected == "OK") {
+               result.test_success();
+            } else {
+               result.test_failure(Botan::fmt("Accepted invalid {} input, expected error {}", mode, expected));
+            }
+         } catch(const std::exception& e) {
+            if(expected == "OK") {
+               result.test_failure(Botan::fmt("Rejected valid {} input with {}", mode, e.what()));
+            } else {
+               // BER_Decoding_Error prepends "BER: " to the message
+               std::string msg = e.what();
+               if(msg.starts_with("BER: ")) {
+                  msg = msg.substr(5);
+               }
+               result.test_str_eq("error message", msg, expected);
+            }
+         }
+      }
+};
+
+BOTAN_REGISTER_TEST("asn1", "asn1_decoding", ASN1_Decoding_Tests);
+
 #endif
 
 }  // namespace

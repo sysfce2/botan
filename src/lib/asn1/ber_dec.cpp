@@ -1,6 +1,6 @@
 /*
 * BER Decoder
-* (C) 1999-2008,2015,2017,2018 Jack Lloyd
+* (C) 1999-2008,2015,2017,2018,2026 Jack Lloyd
 *
 * Botan is released under the Simplified BSD License (see license.txt)
 */
@@ -17,17 +17,14 @@ namespace Botan {
 
 namespace {
 
-/*
-* This value is somewhat arbitrary. OpenSSL allows up to 128 nested
-* indefinite length sequences. If you increase this, also increase the
-* limit in the test in test_asn1.cpp
-*/
-const size_t ALLOWED_EOC_NESTINGS = 16;
+bool is_constructed(ASN1_Class class_tag) {
+   return (static_cast<uint32_t>(class_tag) & static_cast<uint32_t>(ASN1_Class::Constructed)) != 0;
+}
 
 /*
 * BER decode an ASN.1 type tag
 */
-size_t decode_tag(DataSource* ber, ASN1_Type& type_tag, ASN1_Class& class_tag) {
+size_t decode_tag(DataSource* ber, ASN1_Type& type_tag, ASN1_Class& class_tag, bool der_mode) {
    auto b = ber->read_byte();
 
    if(!b) {
@@ -55,7 +52,7 @@ size_t decode_tag(DataSource* ber, ASN1_Type& type_tag, ASN1_Class& class_tag) {
          throw BER_Decoding_Error("Long-form tag overflowed 32 bits");
       }
       // This is required even by BER (see X.690 section 8.1.2.4.2 sentence c)
-      if(tag_bytes == 0 && b == 0x80) {
+      if(tag_bytes == 1 && b == 0x80) {
          throw BER_Decoding_Error("Long form tag with leading zero");
       }
       ++tag_bytes;
@@ -64,6 +61,11 @@ size_t decode_tag(DataSource* ber, ASN1_Type& type_tag, ASN1_Class& class_tag) {
          break;
       }
    }
+   // DER requires short form for tag values that fit (0-30)
+   if(der_mode && tag_buf <= 30) {
+      throw BER_Decoding_Error("Detected long-form tag for small tag value in DER structure");
+   }
+
    type_tag = ASN1_Type(tag_buf);
    return tag_bytes;
 }
@@ -76,7 +78,7 @@ size_t find_eoc(DataSource* src, size_t allow_indef);
 /*
 * BER decode an ASN.1 length field
 */
-size_t decode_length(DataSource* ber, size_t& field_size, size_t allow_indef) {
+size_t decode_length(DataSource* ber, size_t& field_size, size_t allow_indef, bool der_mode, bool constructed) {
    uint8_t b = 0;
    if(ber->read_byte(b) == 0) {
       throw BER_Decoding_Error("Length field not found");
@@ -86,13 +88,20 @@ size_t decode_length(DataSource* ber, size_t& field_size, size_t allow_indef) {
       return b;
    }
 
-   field_size += (b & 0x7F);
+   const size_t num_length_bytes = (b & 0x7F);
+
+   field_size += num_length_bytes;
    if(field_size > 5) {
       throw BER_Decoding_Error("Length field is too large");
    }
 
-   if(field_size == 1) {
-      if(allow_indef == 0) {
+   if(num_length_bytes == 0) {
+      if(der_mode) {
+         throw BER_Decoding_Error("Detected indefinite-length encoding in DER structure");
+      } else if(!constructed) {
+         // Indefinite length is only valid for constructed types (X.690 8.1.3.2)
+         throw BER_Decoding_Error("Indefinite-length encoding used with non-constructed type");
+      } else if(allow_indef == 0) {
          throw BER_Decoding_Error("Nested EOC markers too deep, rejecting to avoid stack exhaustion");
       } else {
          return find_eoc(ber, allow_indef - 1);
@@ -101,7 +110,7 @@ size_t decode_length(DataSource* ber, size_t& field_size, size_t allow_indef) {
 
    size_t length = 0;
 
-   for(size_t i = 0; i != field_size - 1; ++i) {
+   for(size_t i = 0; i != num_length_bytes; ++i) {
       if(get_byte<0>(length) != 0) {
          throw BER_Decoding_Error("Field length overflow");
       }
@@ -110,6 +119,17 @@ size_t decode_length(DataSource* ber, size_t& field_size, size_t allow_indef) {
       }
       length = (length << 8) | b;
    }
+
+   // DER requires shortest possible length encoding
+   if(der_mode) {
+      if(length < 128) {
+         throw BER_Decoding_Error("Detected non-canonical length encoding in DER structure");
+      }
+      if(num_length_bytes > 1 && length < (size_t(1) << ((num_length_bytes - 1) * 8))) {
+         throw BER_Decoding_Error("Detected non-canonical length encoding in DER structure");
+      }
+   }
+
    return length;
 }
 
@@ -136,13 +156,15 @@ size_t find_eoc(DataSource* ber, size_t allow_indef) {
    while(true) {
       ASN1_Type type_tag = ASN1_Type::NoObject;
       ASN1_Class class_tag = ASN1_Class::NoObject;
-      const size_t tag_size = decode_tag(&source, type_tag, class_tag);
+      // der_mode is false because if we're in this function at all it's BER
+      const size_t tag_size = decode_tag(&source, type_tag, class_tag, false);
       if(type_tag == ASN1_Type::NoObject) {
          break;
       }
 
       size_t length_size = 0;
-      const size_t item_size = decode_length(&source, length_size, allow_indef);
+      const size_t item_size =
+         decode_length(&source, length_size, allow_indef, /*der_mode=*/false, is_constructed(class_tag));
       source.discard_next(item_size);
 
       if(auto new_len = checked_add(length, item_size, tag_size, length_size)) {
@@ -269,14 +291,16 @@ BER_Object BER_Decoder::get_next_object() {
    for(;;) {
       ASN1_Type type_tag = ASN1_Type::NoObject;
       ASN1_Class class_tag = ASN1_Class::NoObject;
-      decode_tag(m_source, type_tag, class_tag);
+      decode_tag(m_source, type_tag, class_tag, m_limits.require_der_encoding());
       next.set_tagging(type_tag, class_tag);
       if(next.is_set() == false) {  // no more objects
          return next;
       }
 
       size_t field_size = 0;
-      const size_t length = decode_length(m_source, field_size, ALLOWED_EOC_NESTINGS);
+      const size_t allow_indef = m_limits.allow_ber_encoding() ? m_limits.max_nested_indefinite_length() : 0;
+      const bool der_mode = m_limits.require_der_encoding();
+      const size_t length = decode_length(m_source, field_size, allow_indef, der_mode, is_constructed(class_tag));
       if(!m_source->check_available(length)) {
          throw BER_Decoding_Error("Value truncated");
       }
@@ -287,6 +311,9 @@ BER_Object BER_Decoder::get_next_object() {
       }
 
       if(next.tagging() == static_cast<uint32_t>(ASN1_Type::Eoc)) {
+         if(m_limits.require_der_encoding()) {
+            throw BER_Decoding_Error("Detected EOC marker in DER structure");
+         }
          continue;
       } else {
          break;
@@ -328,7 +355,8 @@ void BER_Decoder::push_back(BER_Object&& obj) {
 BER_Decoder BER_Decoder::start_cons(ASN1_Type type_tag, ASN1_Class class_tag) {
    BER_Object obj = get_next_object();
    obj.assert_is_a(type_tag, class_tag | ASN1_Class::Constructed);
-   return BER_Decoder(std::move(obj), this);
+   BER_Decoder child(std::move(obj), this);
+   return child;
 }
 
 /*
@@ -344,7 +372,8 @@ BER_Decoder& BER_Decoder::end_cons() {
    return (*m_parent);
 }
 
-BER_Decoder::BER_Decoder(BER_Object&& obj, BER_Decoder* parent) : m_parent(parent) {
+BER_Decoder::BER_Decoder(BER_Object&& obj, BER_Decoder* parent) :
+      m_limits(parent != nullptr ? parent->limits() : BER_Decoder::Limits::BER()), m_parent(parent) {
    m_data_src = std::make_unique<DataSource_BERObject>(std::move(obj));
    m_source = m_data_src.get();
 }
@@ -352,12 +381,12 @@ BER_Decoder::BER_Decoder(BER_Object&& obj, BER_Decoder* parent) : m_parent(paren
 /*
 * BER_Decoder Constructor
 */
-BER_Decoder::BER_Decoder(DataSource& src) : m_source(&src) {}
+BER_Decoder::BER_Decoder(DataSource& src, Limits limits) : m_limits(limits), m_source(&src) {}
 
 /*
 * BER_Decoder Constructor
  */
-BER_Decoder::BER_Decoder(std::span<const uint8_t> buf) {
+BER_Decoder::BER_Decoder(std::span<const uint8_t> buf, Limits limits) : m_limits(limits) {
    m_data_src = std::make_unique<DataSource_Memory>(buf);
    m_source = m_data_src.get();
 }
@@ -365,7 +394,8 @@ BER_Decoder::BER_Decoder(std::span<const uint8_t> buf) {
 /*
 * BER_Decoder Copy Constructor
 */
-BER_Decoder::BER_Decoder(const BER_Decoder& other) : m_parent(other.m_parent), m_source(other.m_source) {
+BER_Decoder::BER_Decoder(const BER_Decoder& other) :
+      m_limits(other.m_limits), m_parent(other.m_parent), m_source(other.m_source) {
    // take ownership of other's data source
    std::swap(m_data_src, other.m_data_src);
 }
@@ -414,7 +444,11 @@ BER_Decoder& BER_Decoder::decode(bool& out, ASN1_Type type_tag, ASN1_Class class
 
    const uint8_t val = obj.bits()[0];
 
-   // TODO if decoding DER we should reject non-canonical booleans
+   // DER requires boolean values to be exactly 0x00 or 0xFF
+   if(m_limits.require_der_encoding() && val != 0x00 && val != 0xFF) {
+      throw BER_Decoding_Error("Detected non-canonical boolean encoding in DER structure");
+   }
+
    out = (val != 0) ? true : false;
 
    return (*this);
@@ -473,6 +507,21 @@ BER_Decoder& BER_Decoder::decode(BigInt& out, ASN1_Type type_tag, ASN1_Class cla
    const BER_Object obj = get_next_object();
    obj.assert_is_a(type_tag, class_tag);
 
+   // DER requires minimal INTEGER encoding (X.690 section 8.3.2)
+   if(m_limits.require_der_encoding()) {
+      if(obj.length() == 0) {
+         throw BER_Decoding_Error("Detected empty INTEGER encoding in DER structure");
+      }
+      if(obj.length() > 1) {
+         if(obj.bits()[0] == 0x00 && (obj.bits()[1] & 0x80) == 0) {
+            throw BER_Decoding_Error("Detected non-minimal INTEGER encoding in DER structure");
+         }
+         if(obj.bits()[0] == 0xFF && (obj.bits()[1] & 0x80) != 0) {
+            throw BER_Decoding_Error("Detected non-minimal INTEGER encoding in DER structure");
+         }
+      }
+   }
+
    if(obj.length() == 0) {
       out.clear();
    } else {
@@ -503,13 +552,23 @@ BER_Decoder& BER_Decoder::decode(BigInt& out, ASN1_Type type_tag, ASN1_Class cla
 
 namespace {
 
+bool is_constructed(const BER_Object& obj) {
+   return is_constructed(obj.class_tag());
+}
+
 template <typename Alloc>
 void asn1_decode_binary_string(std::vector<uint8_t, Alloc>& buffer,
                                const BER_Object& obj,
                                ASN1_Type real_type,
                                ASN1_Type type_tag,
-                               ASN1_Class class_tag) {
+                               ASN1_Class class_tag,
+                               bool require_der) {
    obj.assert_is_a(type_tag, class_tag);
+
+   // DER requires BIT STRING and OCTET STRING to use primitive encoding
+   if(require_der && is_constructed(obj)) {
+      throw BER_Decoding_Error("Detected constructed string encoding in DER structure");
+   }
 
    if(real_type == ASN1_Type::OctetString) {
       buffer.assign(obj.bits(), obj.bits() + obj.length());
@@ -517,8 +576,24 @@ void asn1_decode_binary_string(std::vector<uint8_t, Alloc>& buffer,
       if(obj.length() == 0) {
          throw BER_Decoding_Error("Invalid BIT STRING");
       }
-      if(obj.bits()[0] >= 8) {
+
+      const uint8_t unused_bits = obj.bits()[0];
+
+      if(unused_bits >= 8) {
          throw BER_Decoding_Error("Bad number of unused bits in BIT STRING");
+      }
+
+      // Empty BIT STRING with unused bits > 0 ...
+      if(unused_bits > 0 && obj.length() < 2) {
+         throw BER_Decoding_Error("Invalid BIT STRING");
+      }
+
+      // DER requires unused bits in BIT STRING to be zero (X.690 section 11.2.2)
+      if(require_der && unused_bits > 0) {
+         const uint8_t last_byte = obj.bits()[obj.length() - 1];
+         if((last_byte & ((1 << unused_bits) - 1)) != 0) {
+            throw BER_Decoding_Error("Detected non-zero padding bits in BIT STRING in DER structure");
+         }
       }
 
       buffer.resize(obj.length() - 1);
@@ -542,7 +617,8 @@ BER_Decoder& BER_Decoder::decode(secure_vector<uint8_t>& buffer,
       throw BER_Bad_Tag("Bad tag for {BIT,OCTET} STRING", static_cast<uint32_t>(real_type));
    }
 
-   asn1_decode_binary_string(buffer, get_next_object(), real_type, type_tag, class_tag);
+   asn1_decode_binary_string(
+      buffer, get_next_object(), real_type, type_tag, class_tag, m_limits.require_der_encoding());
    return (*this);
 }
 
@@ -554,7 +630,8 @@ BER_Decoder& BER_Decoder::decode(std::vector<uint8_t>& buffer,
       throw BER_Bad_Tag("Bad tag for {BIT,OCTET} STRING", static_cast<uint32_t>(real_type));
    }
 
-   asn1_decode_binary_string(buffer, get_next_object(), real_type, type_tag, class_tag);
+   asn1_decode_binary_string(
+      buffer, get_next_object(), real_type, type_tag, class_tag, m_limits.require_der_encoding());
    return (*this);
 }
 

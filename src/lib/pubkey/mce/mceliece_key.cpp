@@ -104,7 +104,7 @@ size_t McEliece_PublicKey::estimated_strength() const {
 }
 
 McEliece_PublicKey::McEliece_PublicKey(std::span<const uint8_t> key_bits) {
-   BER_Decoder dec(key_bits);
+   BER_Decoder dec(key_bits, BER_Decoder::Limits::DER());
    size_t n = 0;
    size_t t = 0;
    dec.start_sequence()
@@ -173,7 +173,7 @@ McEliece_PrivateKey::McEliece_PrivateKey(std::span<const uint8_t> key_bits) {
    size_t n = 0;
    size_t t = 0;
    secure_vector<uint8_t> enc_g;
-   BER_Decoder dec_base(key_bits);
+   BER_Decoder dec_base(key_bits, BER_Decoder::Limits::DER());
    BER_Decoder dec = dec_base.start_sequence()
                         .start_sequence()
                         .decode(n)

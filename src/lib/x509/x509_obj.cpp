@@ -24,7 +24,7 @@ namespace Botan {
 void X509_Object::load_data(DataSource& in) {
    try {
       if(ASN1::maybe_BER(in) && !PEM_Code::matches(in)) {
-         BER_Decoder dec(in);
+         BER_Decoder dec(in, BER_Decoder::Limits::DER());
          decode_from(dec);
       } else {
          std::string got_label;
@@ -44,7 +44,7 @@ void X509_Object::load_data(DataSource& in) {
             }
          }
 
-         BER_Decoder dec(ber);
+         BER_Decoder dec(ber, BER_Decoder::Limits::DER());
          decode_from(dec);
       }
    } catch(Decoding_Error& e) {

@@ -34,7 +34,7 @@ secure_vector<uint8_t> derive_key(std::string_view passphrase,
       size_t key_length = 0;
 
       AlgorithmIdentifier prf_algo;
-      BER_Decoder(kdf_algo.parameters())
+      BER_Decoder(kdf_algo.parameters(), BER_Decoder::Limits::DER())
          .start_sequence()
          .decode(salt, ASN1_Type::OctetString)
          .decode(iterations)
@@ -43,7 +43,8 @@ secure_vector<uint8_t> derive_key(std::string_view passphrase,
                           ASN1_Type::Sequence,
                           ASN1_Class::Constructed,
                           AlgorithmIdentifier("HMAC(SHA-1)", AlgorithmIdentifier::USE_NULL_PARAM))
-         .end_cons();
+         .end_cons()
+         .verify_end();
 
       if(salt.size() < 8) {
          throw Decoding_Error("PBE-PKCS5 v2.0: Encoded salt is too small");
@@ -72,14 +73,15 @@ secure_vector<uint8_t> derive_key(std::string_view passphrase,
       size_t key_length = 0;
 
       const AlgorithmIdentifier prf_algo;
-      BER_Decoder(kdf_algo.parameters())
+      BER_Decoder(kdf_algo.parameters(), BER_Decoder::Limits::DER())
          .start_sequence()
          .decode(salt, ASN1_Type::OctetString)
          .decode(N)
          .decode(r)
          .decode(p)
          .decode_optional(key_length, ASN1_Type::Integer, ASN1_Class::Universal)
-         .end_cons();
+         .end_cons()
+         .verify_end();
 
       if(key_length == 0) {
          key_length = default_key_size;
@@ -284,7 +286,12 @@ secure_vector<uint8_t> pbes2_decrypt(std::span<const uint8_t> key_bits,
    AlgorithmIdentifier kdf_algo;
    AlgorithmIdentifier enc_algo;
 
-   BER_Decoder(params).start_sequence().decode(kdf_algo).decode(enc_algo).end_cons();
+   BER_Decoder(params, BER_Decoder::Limits::DER())
+      .start_sequence()
+      .decode(kdf_algo)
+      .decode(enc_algo)
+      .end_cons()
+      .verify_end();
 
    const std::string cipher = enc_algo.oid().human_name_or_empty();
    const auto cipher_spec = split_on(cipher, '/');
@@ -293,7 +300,7 @@ secure_vector<uint8_t> pbes2_decrypt(std::span<const uint8_t> key_bits,
    }
 
    secure_vector<uint8_t> iv;
-   BER_Decoder(enc_algo.parameters()).decode(iv, ASN1_Type::OctetString).verify_end();
+   BER_Decoder(enc_algo.parameters(), BER_Decoder::Limits::DER()).decode(iv, ASN1_Type::OctetString).verify_end();
 
    auto dec = Cipher_Mode::create(cipher, Cipher_Dir::Decryption);
    if(!dec) {

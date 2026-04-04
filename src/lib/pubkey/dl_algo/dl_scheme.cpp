@@ -16,7 +16,7 @@ namespace {
 
 BigInt decode_single_bigint(std::span<const uint8_t> key_bits) {
    BigInt x;
-   BER_Decoder(key_bits).decode(x);
+   BER_Decoder(key_bits, BER_Decoder::Limits::DER()).decode(x).verify_end();
    return x;
 }
 

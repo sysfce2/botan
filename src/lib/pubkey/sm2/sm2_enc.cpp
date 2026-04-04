@@ -125,7 +125,7 @@ class SM2_Decryption_Operation final : public PK_Ops::Decryption {
          secure_vector<uint8_t> C3;
          secure_vector<uint8_t> masked_msg;
 
-         BER_Decoder(ctext)
+         BER_Decoder(ctext, BER_Decoder::Limits::DER())
             .start_sequence()
             .decode(x1)
             .decode(y1)
@@ -136,19 +136,6 @@ class SM2_Decryption_Operation final : public PK_Ops::Decryption {
 
          // Wrong length so certainly invalid, reject immediately
          if(C3.size() != m_hash->output_length()) {
-            return secure_vector<uint8_t>();
-         }
-
-         std::vector<uint8_t> recode_ctext;
-         DER_Encoder(recode_ctext)
-            .start_sequence()
-            .encode(x1)
-            .encode(y1)
-            .encode(C3, ASN1_Type::OctetString)
-            .encode(masked_msg, ASN1_Type::OctetString)
-            .end_cons();
-
-         if(!CT::is_equal<uint8_t>(recode_ctext, ctext).as_bool()) {
             return secure_vector<uint8_t>();
          }
 

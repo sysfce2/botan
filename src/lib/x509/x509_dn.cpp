@@ -337,7 +337,7 @@ void X509_DN::decode_from(BER_Decoder& source) {
 
    source.start_sequence().raw_bytes(bits).end_cons();
 
-   BER_Decoder sequence(bits);
+   BER_Decoder sequence(bits, source.limits());
 
    m_rdn.clear();
 

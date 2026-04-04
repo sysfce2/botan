@@ -82,7 +82,8 @@ std::string ASN1_Formatter::print(const uint8_t in[], size_t len) const {
 }
 
 void ASN1_Formatter::print_to_stream(std::ostream& output, const uint8_t in[], size_t len) const {
-   BER_Decoder dec(std::span<const uint8_t>{in, len});
+   const auto decoder_limits = m_require_der ? BER_Decoder::Limits::DER() : BER_Decoder::Limits::BER();
+   BER_Decoder dec(std::span<const uint8_t>{in, len}, decoder_limits);
    decode(output, dec, 0);
 }
 
@@ -101,10 +102,10 @@ void ASN1_Formatter::decode(std::ostream& output, BER_Decoder& decoder, size_t l
       std::vector<uint8_t> bits;
       DER_Encoder(bits).add_object(type_tag, class_tag, obj.bits(), obj.length());
 
-      BER_Decoder data(bits);
+      BER_Decoder data(bits, decoder.limits());
 
       if(intersects(class_tag, ASN1_Class::Constructed)) {
-         BER_Decoder cons_info(obj);
+         BER_Decoder cons_info(obj, decoder.limits());
 
          if(recurse_deeper) {
             output << format(type_tag, class_tag, level, length, "");
@@ -124,7 +125,7 @@ void ASN1_Formatter::decode(std::ostream& output, BER_Decoder& decoder, size_t l
                   std::vector<uint8_t> inner_bits;
                   data.decode(inner_bits, type_tag);
 
-                  BER_Decoder inner(inner_bits);
+                  BER_Decoder inner(inner_bits, decoder.limits());
                   std::ostringstream inner_data;
                   decode(inner_data, inner, level + 1);  // recurse
                   output << inner_data.str();
@@ -171,7 +172,7 @@ void ASN1_Formatter::decode(std::ostream& output, BER_Decoder& decoder, size_t l
 
          if(recurse_deeper) {
             try {
-               BER_Decoder inner(decoded_bits);
+               BER_Decoder inner(decoded_bits, decoder.limits());
 
                std::ostringstream inner_data;
                decode(inner_data, inner, level + 1);  // recurse

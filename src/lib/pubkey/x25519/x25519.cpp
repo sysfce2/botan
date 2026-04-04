@@ -83,7 +83,7 @@ X25519_PrivateKey::X25519_PrivateKey(RandomNumberGenerator& rng) {
 }
 
 X25519_PrivateKey::X25519_PrivateKey(const AlgorithmIdentifier& /*unused*/, std::span<const uint8_t> key_bits) {
-   BER_Decoder(key_bits).decode(m_private, ASN1_Type::OctetString).discard_remaining();
+   BER_Decoder(key_bits, BER_Decoder::Limits::DER()).decode(m_private, ASN1_Type::OctetString).discard_remaining();
 
    size_check(m_private.size(), "private key");
    m_public.resize(32);

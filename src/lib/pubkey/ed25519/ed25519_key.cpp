@@ -112,7 +112,7 @@ Ed25519_PrivateKey::Ed25519_PrivateKey(RandomNumberGenerator& rng) {
 
 Ed25519_PrivateKey::Ed25519_PrivateKey(const AlgorithmIdentifier& /*unused*/, std::span<const uint8_t> key_bits) {
    secure_vector<uint8_t> bits;
-   BER_Decoder(key_bits).decode(bits, ASN1_Type::OctetString).discard_remaining();
+   BER_Decoder(key_bits, BER_Decoder::Limits::DER()).decode(bits, ASN1_Type::OctetString).discard_remaining();
 
    if(bits.size() != 32) {
       throw Decoding_Error("Invalid size for Ed25519 private key");
