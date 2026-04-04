@@ -18,6 +18,7 @@
 #include <botan/internal/stl_util.h>
 #include <botan/internal/tls_reader.h>
 #include <algorithm>
+#include <unordered_set>
 #include <utility>
 
 namespace Botan::TLS {
@@ -179,6 +180,7 @@ class Key_Share_ClientHello {
             return client_key_share_length - read_so_far;
          };
 
+         std::unordered_set<uint16_t> seen_groups;
          while(reader.has_remaining() && remaining() > 0) {
             if(remaining() < 4) {
                throw TLS_Exception(Alert::DecodeError, "Not enough data to read another KeyShareEntry");
@@ -191,9 +193,7 @@ class Key_Share_ClientHello {
             //    group. [...]
             //    Servers MAY check for violations of these rules and abort the
             //    handshake with an "illegal_parameter" alert if one is violated.
-            if(std::find_if(m_client_shares.begin(), m_client_shares.end(), [&](const auto& entry) {
-                  return entry.group() == new_entry.group();
-               }) != m_client_shares.end()) {
+            if(!seen_groups.insert(new_entry.group().wire_code()).second) {
                throw TLS_Exception(Alert::IllegalParameter, "Received multiple key share entries for the same group");
             }
 

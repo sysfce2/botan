@@ -19,6 +19,7 @@
 #include <botan/internal/stl_util.h>
 #include <botan/internal/tls_reader.h>
 #include <algorithm>
+#include <unordered_set>
 
 #if defined(BOTAN_HAS_TLS_13)
    #include <botan/tls_extensions_13.h>
@@ -585,10 +586,11 @@ Supported_Groups::Supported_Groups(TLS_Data_Reader& reader, uint16_t extension_s
 
    const size_t elems = len / 2;
 
+   std::unordered_set<uint16_t> seen;
    for(size_t i = 0; i != elems; ++i) {
       const auto group = static_cast<Group_Params>(reader.get_uint16_t());
       // Note: RFC 8446 does not explicitly enforce that groups must be unique.
-      if(!value_exists(m_groups, group)) {
+      if(seen.insert(group.wire_code()).second) {
          m_groups.push_back(group);
       }
    }
