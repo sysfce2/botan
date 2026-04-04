@@ -61,9 +61,9 @@ void ChaCha20Poly1305_Mode::set_associated_data_n(size_t idx, std::span<const ui
    m_ad.assign(ad.begin(), ad.end());
 }
 
-void ChaCha20Poly1305_Mode::update_len(size_t len) {
+void ChaCha20Poly1305_Mode::update_len(uint64_t len) {
    uint8_t len8[8] = {0};
-   store_le(static_cast<uint64_t>(len), len8);
+   store_le(len, len8);
    m_poly1305->update(len8, 8);
 }
 
@@ -100,6 +100,13 @@ size_t ChaCha20Poly1305_Encryption::process_msg(uint8_t buf[], size_t sz) {
    m_chacha->cipher1(buf, sz);
    m_poly1305->update(buf, sz);  // poly1305 of ciphertext
    m_ctext_len += sz;
+
+   // RFC 8439 limits messages to 2^38-64 bytes
+   constexpr uint64_t MAX_CHACHA20POLY1305_INPUT = (static_cast<uint64_t>(1) << 38) - 64;
+   if(cfrg_version() && m_ctext_len > MAX_CHACHA20POLY1305_INPUT) {
+      throw Invalid_State("ChaCha20Poly1305 message length limit exceeded");
+   }
+
    return sz;
 }
 
@@ -108,7 +115,8 @@ void ChaCha20Poly1305_Encryption::finish_msg(secure_vector<uint8_t>& buffer, siz
    if(cfrg_version()) {
       if(m_ctext_len % 16 != 0) {
          const uint8_t zeros[16] = {0};
-         m_poly1305->update(zeros, 16 - m_ctext_len % 16);
+         const size_t padding = static_cast<size_t>(16 - m_ctext_len % 16);
+         m_poly1305->update(zeros, padding);
       }
       update_len(m_ad.size());
    }
@@ -124,6 +132,12 @@ size_t ChaCha20Poly1305_Decryption::process_msg(uint8_t buf[], size_t sz) {
    m_poly1305->update(buf, sz);  // poly1305 of ciphertext
    m_chacha->cipher1(buf, sz);
    m_ctext_len += sz;
+
+   constexpr uint64_t MAX_CHACHA20POLY1305_INPUT = (static_cast<uint64_t>(1) << 38) - 64;
+   if(cfrg_version() && m_ctext_len > MAX_CHACHA20POLY1305_INPUT) {
+      throw Invalid_State("ChaCha20Poly1305 message length limit exceeded");
+   }
+
    return sz;
 }
 
@@ -145,7 +159,8 @@ void ChaCha20Poly1305_Decryption::finish_msg(secure_vector<uint8_t>& buffer, siz
    if(cfrg_version()) {
       if(m_ctext_len % 16 != 0) {
          const uint8_t zeros[16] = {0};
-         m_poly1305->update(zeros, 16 - m_ctext_len % 16);
+         const size_t padding = static_cast<size_t>(16 - m_ctext_len % 16);
+         m_poly1305->update(zeros, padding);
       }
       update_len(m_ad.size());
    }
