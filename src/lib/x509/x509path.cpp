@@ -68,7 +68,19 @@ class CertificatePathBuilder {
       }
 
       std::optional<std::vector<X509_Certificate>> next() {
+         size_t steps = 0;
+
          while(!m_stack.empty()) {
+            constexpr size_t MAX_DFS_STEPS = 1000;
+
+            steps++;
+
+            if(steps > MAX_DFS_STEPS) {
+               // Intentionally overwrite any previous builder error
+               m_error = Certificate_Status_Code::CERT_ISSUER_NOT_FOUND;
+               return std::nullopt;
+            }
+
             auto [last, trusted] = std::move(m_stack.back());  // move before pop_back
             m_stack.pop_back();
 
