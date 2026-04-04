@@ -305,6 +305,9 @@ class ECC_Scalar_Arithmetic_Tests final : public Test {
          result.test_bin_eq("Serialization of zero is expected value", zero.serialize(), ser_zero);
          result.test_bin_eq("Serialization of one is expected value", one.serialize(), ser_one);
 
+         result.test_is_false("EC_Scalar::deserialize rejects zero",
+                              Botan::EC_Scalar::deserialize(group, ser_zero).has_value());
+
          result.test_is_true("Zero is zero", zero.is_zero());
          result.test_is_true("Negation of zero is zero", zero.negate().is_zero());
          result.test_is_false("One is not zero", one.is_zero());

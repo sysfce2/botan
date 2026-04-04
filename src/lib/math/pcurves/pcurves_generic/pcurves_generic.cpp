@@ -1582,10 +1582,12 @@ void GenericPrimeOrderCurve::serialize_scalar(std::span<uint8_t> bytes, const Sc
 std::optional<PrimeOrderCurve::Scalar> GenericPrimeOrderCurve::deserialize_scalar(
    std::span<const uint8_t> bytes) const {
    if(auto s = GenericScalar::deserialize(this, bytes)) {
-      return stash(s.value());
-   } else {
-      return {};
+      if(s->is_nonzero().as_bool()) {
+         return stash(s.value());
+      }
    }
+
+   return {};
 }
 
 std::optional<PrimeOrderCurve::Scalar> GenericPrimeOrderCurve::scalar_from_wide_bytes(
