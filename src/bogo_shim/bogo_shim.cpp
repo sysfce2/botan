@@ -172,6 +172,7 @@ std::string map_to_bogo_error(const std::string& e) noexcept {
        ":NO_COMMON_SIGNATURE_ALGORITHMS:"},
       {"PSK extension was not at the very end of the Client Hello", ":PRE_SHARED_KEY_MUST_BE_LAST:"},
       {"Finished message didn't verify", ":DIGEST_CHECK_FAILED:"},
+      {"Handshake message is 2293760 bytes, policy maximum is 65536", ":BAD_HANDSHAKE_RECORD:"},
       {"Have data remaining in buffer after ClientHello", ":EXCESS_HANDSHAKE_DATA:"},
       {"Have data remaining in buffer after Finished", ":EXCESS_HANDSHAKE_DATA:"},
       {"Have data remaining in buffer after ServerHelloDone", ":EXCESS_HANDSHAKE_DATA:"},
@@ -252,6 +253,7 @@ std::string map_to_bogo_error(const std::string& e) noexcept {
       {"group was already offered", ":WRONG_CURVE:"},
       {"Server selected a key exchange group we didn't offer.", ":WRONG_CURVE:"},
       {"TLS 1.3 Server Hello selected a different version", ":SECOND_SERVERHELLO_VERSION_MISMATCH:"},
+      {"TLS signature extension did not allow for RSA_PSS_SHA256 signature", ":WRONG_SIGNATURE_TYPE:"},
       {"Version downgrade received after Hello Retry", ":SECOND_SERVERHELLO_VERSION_MISMATCH:"},
       {"protected change cipher spec received", ":UNEXPECTED_RECORD:"},
       {"Server sent an unsupported extension", ":UNEXPECTED_EXTENSION:"},
@@ -1053,6 +1055,8 @@ class Shim_Policy final : public Botan::TLS::Policy {
       bool allow_insecure_renegotiation() const override { return m_args.flag_set("expect-no-secure-renegotiation"); }
 
       //bool include_time_in_hello_random() const override;
+
+      uint64_t minimum_key_update_interval_ms() const override { return 0; }
 
       bool allow_client_initiated_renegotiation() const override {
          if(m_args.flag_set("renegotiate-freely")) {
