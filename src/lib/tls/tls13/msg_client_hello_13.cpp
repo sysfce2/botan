@@ -424,20 +424,31 @@ void Client_Hello_13::validate_updates(const Client_Hello_13& new_ch) {
       throw TLS_Exception(Alert::IllegalParameter, "Updated Client Hello indicates early data");
    }
 
-   // TODO: Contents of extensions are not checked for update compatibility, see:
-   //
    // RFC 8446 4.1.2
-   //    If a "key_share" extension was supplied in the HelloRetryRequest,
-   //    replacing the list of shares with a list containing a single
-   //    KeyShareEntry from the indicated group.
+   //    The client MUST send the same ClientHello without modification,
+   //    except as follows: [key_share, pre_shared_key, early_data, cookie, padding]
    //
-   //    Updating the "pre_shared_key" extension if present by recomputing
-   //    the "obfuscated_ticket_age" and binder values and (optionally)
-   //    removing any PSKs which are incompatible with the server's
-   //    indicated cipher suite.
-   //
-   //    Optionally adding, removing, or changing the length of the
-   //    "padding" extension.
+   // Verify that extensions whose content must not change between the
+   // initial and retried Client Hello have identical wire encodings.
+   const std::set<Extension_Code> extensions_allowed_to_change = {
+      Extension_Code::KeyShare, Extension_Code::PresharedKey, Extension_Code::EarlyData, Extension_Code::Cookie,
+      // TODO: add Padding extension code here once implemented
+   };
+
+   for(const auto ext_type : oldexts) {
+      if(extensions_allowed_to_change.contains(ext_type)) {
+         continue;
+      }
+
+      const auto old_bytes = extensions().extension_raw_bytes(ext_type);
+      const auto new_bytes = new_ch.extensions().extension_raw_bytes(ext_type);
+
+      // If both had wire bytes (i.e. both came from deserialization), compare them.
+      // Extensions that were added programmatically won't have raw bytes.
+      if(old_bytes.has_value() && new_bytes.has_value() && old_bytes.value() != new_bytes.value()) {
+         throw TLS_Exception(Alert::IllegalParameter, "Extension content changed in updated Client Hello");
+      }
+   }
 }
 
 void Client_Hello_13::calculate_psk_binders(Transcript_Hash_State transcript_hash) {

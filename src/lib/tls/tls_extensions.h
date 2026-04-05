@@ -21,6 +21,7 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 
 namespace Botan {
@@ -541,10 +542,24 @@ class BOTAN_UNSTABLE_API Extensions final {
          deserialize(reader, side, message_type);
       }
 
+      /**
+       * @returns the raw bytes of the extension with the given type as they
+       *          appeared on the wire during deserialization, or std::nullopt
+       *          if the extension was not present or was added programmatically.
+       */
+      std::optional<std::vector<uint8_t>> extension_raw_bytes(Extension_Code type) const {
+         auto it = m_raw_extension_data.find(type);
+         if(it != m_raw_extension_data.end()) {
+            return it->second;
+         }
+         return std::nullopt;
+      }
+
    private:
       // Kept in the order they were added
       std::vector<Extension_Code> m_extension_codes;
       std::map<Extension_Code, std::unique_ptr<Extension>> m_extensions;
+      std::map<Extension_Code, std::vector<uint8_t>> m_raw_extension_data;
 };
 
 }  // namespace TLS

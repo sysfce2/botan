@@ -179,6 +179,7 @@ void Extensions::deserialize(TLS_Data_Reader& reader, const Connection_Side from
          // TODO offer a function on reader that returns a byte range as a reference
          // to avoid this copy of the extension data
          const std::vector<uint8_t> extn_data = reader.get_fixed<uint8_t>(extension_size);
+         m_raw_extension_data[type] = extn_data;
          TLS_Data_Reader extn_reader("Extension", extn_data);
          this->add(make_extension(extn_reader, type, from, message_type));
          extn_reader.assert_done();
