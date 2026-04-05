@@ -23,6 +23,7 @@ class BOTAN_PUBLIC_API(2, 2) HOTP final {
       * @param key the secret key shared between client and server
       * @param hash_algo the hash algorithm to use, should be SHA-1 or SHA-256
       * @param digits the number of digits in the OTP (must be 6, 7, or 8)
+      * TODO(Botan4) remove the default hash param here
       */
       BOTAN_FUTURE_EXPLICIT HOTP(const SymmetricKey& key, std::string_view hash_algo = "SHA-1", size_t digits = 6) :
             HOTP(key.begin(), key.size(), hash_algo, digits) {}
@@ -32,6 +33,7 @@ class BOTAN_PUBLIC_API(2, 2) HOTP final {
       * @param key_len length of key param
       * @param hash_algo the hash algorithm to use, should be SHA-1 or SHA-256
       * @param digits the number of digits in the OTP (must be 6, 7, or 8)
+      * TODO(Botan4) remove the default hash param here
       */
       HOTP(const uint8_t key[], size_t key_len, std::string_view hash_algo = "SHA-1", size_t digits = 6);
 
@@ -55,7 +57,7 @@ class BOTAN_PUBLIC_API(2, 2) HOTP final {
 
    private:
       std::unique_ptr<MessageAuthenticationCode> m_mac;
-      uint32_t m_digit_mod;
+      size_t m_digits;
 };
 
 /**
@@ -68,6 +70,7 @@ class BOTAN_PUBLIC_API(2, 2) TOTP final {
       * @param hash_algo the hash algorithm to use, should be SHA-1, SHA-256 or SHA-512
       * @param digits the number of digits in the OTP (must be 6, 7, or 8)
       * @param time_step granularity of OTP in seconds
+      * TODO(Botan4) remove the default hash param here
       */
       BOTAN_FUTURE_EXPLICIT TOTP(const SymmetricKey& key,
                                  std::string_view hash_algo = "SHA-1",
@@ -81,6 +84,7 @@ class BOTAN_PUBLIC_API(2, 2) TOTP final {
       * @param hash_algo the hash algorithm to use, should be SHA-1, SHA-256 or SHA-512
       * @param digits the number of digits in the OTP (must be 6, 7, or 8)
       * @param time_step granularity of OTP in seconds
+      * TODO(Botan4) remove the default hash param here
       */
       TOTP(const uint8_t key[],
            size_t key_len,
