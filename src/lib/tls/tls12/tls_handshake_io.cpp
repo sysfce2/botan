@@ -355,8 +355,8 @@ std::pair<Handshake_Type, std::vector<uint8_t>> Datagram_Handshake_IO::Handshake
 
 std::vector<uint8_t> Datagram_Handshake_IO::format_fragment(const uint8_t fragment[],
                                                             size_t frag_len,
-                                                            uint16_t frag_offset,
-                                                            uint16_t msg_len,
+                                                            uint32_t frag_offset,
+                                                            uint32_t msg_len,
                                                             Handshake_Type type,
                                                             uint16_t msg_sequence) const {
    std::vector<uint8_t> send_buf(12 + frag_len);
@@ -380,7 +380,7 @@ std::vector<uint8_t> Datagram_Handshake_IO::format_fragment(const uint8_t fragme
 std::vector<uint8_t> Datagram_Handshake_IO::format_w_seq(const std::vector<uint8_t>& msg,
                                                          Handshake_Type type,
                                                          uint16_t msg_sequence) const {
-   return format_fragment(msg.data(), msg.size(), 0, static_cast<uint16_t>(msg.size()), type, msg_sequence);
+   return format_fragment(msg.data(), msg.size(), 0, static_cast<uint32_t>(msg.size()), type, msg_sequence);
 }
 
 std::vector<uint8_t> Datagram_Handshake_IO::format(const std::vector<uint8_t>& msg, Handshake_Type type) const {
@@ -450,8 +450,8 @@ std::vector<uint8_t> Datagram_Handshake_IO::send_message(uint16_t msg_seq,
 
          const std::vector<uint8_t> frag = format_fragment(&msg_bits[frag_offset],
                                                            frag_len,
-                                                           static_cast<uint16_t>(frag_offset),
-                                                           static_cast<uint16_t>(msg_bits.size()),
+                                                           static_cast<uint32_t>(frag_offset),
+                                                           static_cast<uint32_t>(msg_bits.size()),
                                                            msg_type,
                                                            msg_seq);
 

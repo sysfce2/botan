@@ -153,8 +153,8 @@ class Datagram_Handshake_IO final : public Handshake_IO {
 
       std::vector<uint8_t> format_fragment(const uint8_t fragment[],
                                            size_t fragment_len,
-                                           uint16_t frag_offset,
-                                           uint16_t msg_len,
+                                           uint32_t frag_offset,
+                                           uint32_t msg_len,
                                            Handshake_Type type,
                                            uint16_t msg_sequence) const;
 
