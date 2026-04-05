@@ -79,7 +79,10 @@ class BOTAN_TEST_API Record_Layer {
        * Clears any data currently stored in the read buffer. This is typically
        * used for memory cleanup when the peer sent a CloseNotify alert.
        */
-      void clear_read_buffer() { zap(m_read_buffer); }
+      void clear_read_buffer() {
+         zap(m_read_buffer);
+         m_read_offset = 0;
+      }
 
       /**
        * Set the record size limits as negotiated by the "record_size_limit"
@@ -102,6 +105,7 @@ class BOTAN_TEST_API Record_Layer {
 
    private:
       std::vector<uint8_t> m_read_buffer;
+      size_t m_read_offset = 0;
       Connection_Side m_side;
 
       // Those are either the limits set by the TLS 1.3 specification (RFC 8446),

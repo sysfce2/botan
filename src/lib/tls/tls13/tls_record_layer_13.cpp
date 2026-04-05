@@ -171,6 +171,13 @@ Record_Layer::Record_Layer(Connection_Side side) :
       m_receiving_compat_mode(true) {}
 
 void Record_Layer::copy_data(std::span<const uint8_t> data) {
+   // Compact consumed data before appending new data
+   BOTAN_ASSERT_NOMSG(m_read_offset <= m_read_buffer.size());
+   if(m_read_offset > 0) {
+      m_read_buffer.erase(m_read_buffer.begin(), m_read_buffer.begin() + m_read_offset);
+      m_read_offset = 0;
+   }
+
    m_read_buffer.insert(m_read_buffer.end(), data.begin(), data.end());
 }
 
@@ -281,11 +288,13 @@ std::vector<uint8_t> Record_Layer::prepare_records(const Record_Type type,
 }
 
 Record_Layer::ReadResult<Record> Record_Layer::next_record(Cipher_State* cipher_state) {
-   if(m_read_buffer.size() < TLS_HEADER_SIZE) {
-      return TLS_HEADER_SIZE - m_read_buffer.size();
+   const auto remaining = m_read_buffer.size() - m_read_offset;
+
+   if(remaining < TLS_HEADER_SIZE) {
+      return TLS_HEADER_SIZE - remaining;
    }
 
-   const auto header_begin = m_read_buffer.cbegin();
+   const auto header_begin = m_read_buffer.cbegin() + m_read_offset;
    const auto header_end = header_begin + TLS_HEADER_SIZE;
 
    // The first received record(s) are likely a client or server hello. To be able to
@@ -308,8 +317,8 @@ Record_Layer::ReadResult<Record> Record_Layer::next_record(Cipher_State* cipher_
       throw TLS_Exception(Alert::UnexpectedMessage, "unprotected record received where protected traffic was expected");
    }
 
-   if(m_read_buffer.size() < TLS_HEADER_SIZE + plaintext_header.fragment_length()) {
-      return TLS_HEADER_SIZE + plaintext_header.fragment_length() - m_read_buffer.size();
+   if(remaining < TLS_HEADER_SIZE + plaintext_header.fragment_length()) {
+      return TLS_HEADER_SIZE + plaintext_header.fragment_length() - remaining;
    }
 
    const auto fragment_begin = header_end;
@@ -321,7 +330,14 @@ Record_Layer::ReadResult<Record> Record_Layer::next_record(Cipher_State* cipher_
    }
 
    Record record(plaintext_header.type(), secure_vector<uint8_t>(fragment_begin, fragment_end));
-   m_read_buffer.erase(header_begin, fragment_end);
+   m_read_offset += TLS_HEADER_SIZE + plaintext_header.fragment_length();
+
+   // If all buffered data has been consumed, release the buffer memory
+   // to avoid retaining peak allocation on idle connections.
+   if(m_read_offset == m_read_buffer.size()) {
+      zap(m_read_buffer);
+      m_read_offset = 0;
+   }
 
    if(record.type == Record_Type::ApplicationData) {
       if(cipher_state == nullptr) {
