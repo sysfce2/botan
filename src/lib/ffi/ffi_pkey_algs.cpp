@@ -253,7 +253,7 @@ int botan_privkey_load_rsa(botan_privkey_t* key, botan_mp_t rsa_p, botan_mp_t rs
 
 int botan_privkey_load_rsa_pkcs1(botan_privkey_t* key, const uint8_t bits[], size_t len) {
 #if defined(BOTAN_HAS_RSA)
-   if(key == nullptr || bits == nullptr) {
+   if(Botan::any_null_pointers(key, bits)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
    *key = nullptr;
@@ -287,7 +287,7 @@ int botan_pubkey_load_rsa(botan_pubkey_t* key, botan_mp_t n, botan_mp_t e) {
 
 int botan_pubkey_load_rsa_pkcs1(botan_pubkey_t* key, const uint8_t bits[], size_t len) {
 #if defined(BOTAN_HAS_RSA)
-   if(key == nullptr || bits == nullptr) {
+   if(Botan::any_null_pointers(key, bits)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
    *key = nullptr;
@@ -359,7 +359,7 @@ int botan_privkey_rsa_get_privkey(botan_privkey_t rsa_key, uint8_t out[], size_t
 int botan_privkey_create_dsa(botan_privkey_t* key, botan_rng_t rng_obj, size_t pbits, size_t qbits) {
 #if defined(BOTAN_HAS_DSA)
 
-   if((rng_obj == nullptr) || (key == nullptr)) {
+   if(Botan::any_null_pointers(rng_obj, key)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
 
@@ -466,7 +466,7 @@ int botan_pubkey_load_ecdsa(botan_pubkey_t* key,
                             const botan_mp_t public_y,
                             const char* curve_name) {
 #if defined(BOTAN_HAS_ECDSA)
-   if(key == nullptr || curve_name == nullptr) {
+   if(Botan::any_null_pointers(key, curve_name)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
    *key = nullptr;
@@ -489,7 +489,7 @@ int botan_pubkey_load_ecdsa(botan_pubkey_t* key,
 
 int botan_pubkey_load_ecdsa_sec1(botan_pubkey_t* key, const uint8_t sec1[], size_t sec1_len, const char* curve_name) {
 #if defined(BOTAN_HAS_ECDSA)
-   if(key == nullptr || sec1 == nullptr || curve_name == nullptr) {
+   if(Botan::any_null_pointers(key, sec1, curve_name)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
    *key = nullptr;
@@ -512,7 +512,7 @@ int botan_pubkey_load_ecdsa_sec1(botan_pubkey_t* key, const uint8_t sec1[], size
 
 int botan_privkey_load_ecdsa(botan_privkey_t* key, const botan_mp_t scalar, const char* curve_name) {
 #if defined(BOTAN_HAS_ECDSA)
-   if(key == nullptr || curve_name == nullptr) {
+   if(Botan::any_null_pointers(key, curve_name)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
    *key = nullptr;
@@ -534,7 +534,7 @@ int botan_privkey_load_ecdsa(botan_privkey_t* key, const botan_mp_t scalar, cons
 /* ElGamal specific operations */
 int botan_privkey_create_elgamal(botan_privkey_t* key, botan_rng_t rng_obj, size_t pbits, size_t qbits) {
 #if defined(BOTAN_HAS_ELGAMAL)
-   if(key == nullptr || rng_obj == nullptr) {
+   if(Botan::any_null_pointers(key, rng_obj)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
    *key = nullptr;
@@ -635,7 +635,7 @@ int botan_pubkey_load_dh(botan_pubkey_t* key, botan_mp_t p, botan_mp_t g, botan_
 /* ECDH + x25519/x448 specific operations */
 
 int botan_privkey_create_ecdh(botan_privkey_t* key_obj, botan_rng_t rng_obj, const char* param_str) {
-   if(key_obj == nullptr || param_str == nullptr) {
+   if(Botan::any_null_pointers(key_obj, param_str)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
    *key_obj = nullptr;
@@ -658,7 +658,7 @@ int botan_pubkey_load_ecdh(botan_pubkey_t* key,
                            const botan_mp_t public_y,
                            const char* curve_name) {
 #if defined(BOTAN_HAS_ECDH)
-   if(key == nullptr || curve_name == nullptr) {
+   if(Botan::any_null_pointers(key, curve_name)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
    *key = nullptr;
@@ -679,7 +679,7 @@ int botan_pubkey_load_ecdh(botan_pubkey_t* key,
 
 int botan_pubkey_load_ecdh_sec1(botan_pubkey_t* key, const uint8_t sec1[], size_t sec1_len, const char* curve_name) {
 #if defined(BOTAN_HAS_ECDH)
-   if(key == nullptr || sec1 == nullptr || curve_name == nullptr) {
+   if(Botan::any_null_pointers(key, sec1, curve_name)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
    *key = nullptr;
@@ -702,7 +702,7 @@ int botan_pubkey_load_ecdh_sec1(botan_pubkey_t* key, const uint8_t sec1[], size_
 
 int botan_privkey_load_ecdh(botan_privkey_t* key, const botan_mp_t scalar, const char* curve_name) {
 #if defined(BOTAN_HAS_ECDH)
-   if(key == nullptr || curve_name == nullptr) {
+   if(Botan::any_null_pointers(key, curve_name)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
    *key = nullptr;
@@ -724,7 +724,7 @@ int botan_privkey_load_ecdh(botan_privkey_t* key, const botan_mp_t scalar, const
 
 int botan_pubkey_sm2_compute_za(
    uint8_t out[], size_t* out_len, const char* ident, const char* hash_algo, const botan_pubkey_t key) {
-   if(out == nullptr || out_len == nullptr || ident == nullptr || hash_algo == nullptr || key == nullptr) {
+   if(Botan::any_null_pointers(out, out_len, ident, hash_algo, key)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
 
@@ -760,7 +760,7 @@ int botan_pubkey_load_sm2(botan_pubkey_t* key,
                           const botan_mp_t public_y,
                           const char* curve_name) {
 #if defined(BOTAN_HAS_SM2)
-   if(key == nullptr || curve_name == nullptr) {
+   if(Botan::any_null_pointers(key, curve_name)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
    *key = nullptr;
@@ -781,7 +781,7 @@ int botan_pubkey_load_sm2(botan_pubkey_t* key,
 
 int botan_pubkey_load_sm2_sec1(botan_pubkey_t* key, const uint8_t sec1[], size_t sec1_len, const char* curve_name) {
 #if defined(BOTAN_HAS_SM2)
-   if(key == nullptr || sec1 == nullptr || curve_name == nullptr) {
+   if(Botan::any_null_pointers(key, sec1, curve_name)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
    *key = nullptr;
@@ -804,7 +804,7 @@ int botan_pubkey_load_sm2_sec1(botan_pubkey_t* key, const uint8_t sec1[], size_t
 
 int botan_privkey_load_sm2(botan_privkey_t* key, const botan_mp_t scalar, const char* curve_name) {
 #if defined(BOTAN_HAS_SM2)
-   if(key == nullptr || curve_name == nullptr) {
+   if(Botan::any_null_pointers(key, curve_name)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
    *key = nullptr;
@@ -1146,7 +1146,7 @@ int botan_pubkey_x448_get_pubkey(botan_pubkey_t key, uint8_t output[56]) {
 
 int botan_privkey_load_kyber(botan_privkey_t* key, const uint8_t privkey[], size_t key_len) {
 #if defined(BOTAN_HAS_KYBER)
-   if(key == nullptr || privkey == nullptr) {
+   if(Botan::any_null_pointers(key, privkey)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
    *key = nullptr;
@@ -1179,7 +1179,7 @@ int botan_privkey_load_kyber(botan_privkey_t* key, const uint8_t privkey[], size
 
 int botan_pubkey_load_kyber(botan_pubkey_t* key, const uint8_t pubkey[], size_t key_len) {
 #if defined(BOTAN_HAS_KYBER)
-   if(key == nullptr || pubkey == nullptr) {
+   if(Botan::any_null_pointers(key, pubkey)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
    *key = nullptr;
@@ -1246,7 +1246,7 @@ int botan_pubkey_view_kyber_raw_key(botan_pubkey_t key, botan_view_ctx ctx, bota
 
 int botan_privkey_load_ml_kem(botan_privkey_t* key, const uint8_t privkey[], size_t key_len, const char* mlkem_mode) {
 #if defined(BOTAN_HAS_ML_KEM)
-   if(key == nullptr || privkey == nullptr || mlkem_mode == nullptr) {
+   if(Botan::any_null_pointers(key, privkey, mlkem_mode)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
 
@@ -1269,7 +1269,7 @@ int botan_privkey_load_ml_kem(botan_privkey_t* key, const uint8_t privkey[], siz
 
 int botan_pubkey_load_ml_kem(botan_pubkey_t* key, const uint8_t pubkey[], size_t key_len, const char* mlkem_mode) {
 #if defined(BOTAN_HAS_ML_KEM)
-   if(key == nullptr || pubkey == nullptr || mlkem_mode == nullptr) {
+   if(Botan::any_null_pointers(key, pubkey, mlkem_mode)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
 
@@ -1296,7 +1296,7 @@ int botan_pubkey_load_ml_kem(botan_pubkey_t* key, const uint8_t pubkey[], size_t
 
 int botan_privkey_load_ml_dsa(botan_privkey_t* key, const uint8_t privkey[], size_t key_len, const char* mldsa_mode) {
 #if defined(BOTAN_HAS_ML_DSA)
-   if(key == nullptr || privkey == nullptr || mldsa_mode == nullptr) {
+   if(Botan::any_null_pointers(key, privkey, mldsa_mode)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
 
@@ -1319,7 +1319,7 @@ int botan_privkey_load_ml_dsa(botan_privkey_t* key, const uint8_t privkey[], siz
 
 int botan_pubkey_load_ml_dsa(botan_pubkey_t* key, const uint8_t pubkey[], size_t key_len, const char* mldsa_mode) {
 #if defined(BOTAN_HAS_ML_DSA)
-   if(key == nullptr || pubkey == nullptr || mldsa_mode == nullptr) {
+   if(Botan::any_null_pointers(key, pubkey, mldsa_mode)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
 
@@ -1346,7 +1346,7 @@ int botan_pubkey_load_ml_dsa(botan_pubkey_t* key, const uint8_t pubkey[], size_t
 
 int botan_privkey_load_slh_dsa(botan_privkey_t* key, const uint8_t privkey[], size_t key_len, const char* slhdsa_mode) {
 #if defined(BOTAN_HAS_SLH_DSA_WITH_SHA2) || defined(BOTAN_HAS_SLH_DSA_WITH_SHAKE)
-   if(key == nullptr || privkey == nullptr || slhdsa_mode == nullptr) {
+   if(Botan::any_null_pointers(key, privkey, slhdsa_mode)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
 
@@ -1369,7 +1369,7 @@ int botan_privkey_load_slh_dsa(botan_privkey_t* key, const uint8_t privkey[], si
 
 int botan_pubkey_load_slh_dsa(botan_pubkey_t* key, const uint8_t pubkey[], size_t key_len, const char* slhdsa_mode) {
 #if defined(BOTAN_HAS_SLH_DSA_WITH_SHA2) || defined(BOTAN_HAS_SLH_DSA_WITH_SHAKE)
-   if(key == nullptr || pubkey == nullptr || slhdsa_mode == nullptr) {
+   if(Botan::any_null_pointers(key, pubkey, slhdsa_mode)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
 
@@ -1396,7 +1396,7 @@ int botan_pubkey_load_slh_dsa(botan_pubkey_t* key, const uint8_t pubkey[], size_
 
 int botan_privkey_load_frodokem(botan_privkey_t* key, const uint8_t privkey[], size_t key_len, const char* frodo_mode) {
 #if defined(BOTAN_HAS_FRODOKEM)
-   if(key == nullptr || privkey == nullptr || frodo_mode == nullptr) {
+   if(Botan::any_null_pointers(key, privkey, frodo_mode)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
 
@@ -1415,7 +1415,7 @@ int botan_privkey_load_frodokem(botan_privkey_t* key, const uint8_t privkey[], s
 
 int botan_pubkey_load_frodokem(botan_pubkey_t* key, const uint8_t pubkey[], size_t key_len, const char* frodo_mode) {
 #if defined(BOTAN_HAS_FRODOKEM)
-   if(key == nullptr || pubkey == nullptr || frodo_mode == nullptr) {
+   if(Botan::any_null_pointers(key, pubkey, frodo_mode)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
 
@@ -1441,7 +1441,7 @@ int botan_privkey_load_classic_mceliece(botan_privkey_t* key,
                                         size_t key_len,
                                         const char* cmce_mode) {
 #if defined(BOTAN_HAS_CLASSICMCELIECE)
-   if(key == nullptr || privkey == nullptr || cmce_mode == nullptr) {
+   if(Botan::any_null_pointers(key, privkey, cmce_mode)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
 
@@ -1463,7 +1463,7 @@ int botan_pubkey_load_classic_mceliece(botan_pubkey_t* key,
                                        size_t key_len,
                                        const char* cmce_mode) {
 #if defined(BOTAN_HAS_CLASSICMCELIECE)
-   if(key == nullptr || pubkey == nullptr || cmce_mode == nullptr) {
+   if(Botan::any_null_pointers(key, pubkey, cmce_mode)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
 
