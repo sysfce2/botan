@@ -121,11 +121,17 @@ int botan_cipher_destroy(botan_cipher_t cipher) {
 }
 
 int botan_cipher_clear(botan_cipher_t cipher) {
-   return BOTAN_FFI_VISIT(cipher, [](auto& c) { c.clear(); });
+   return BOTAN_FFI_VISIT(cipher, [=](auto& c) {
+      cipher->buf().clear();
+      c.clear();
+   });
 }
 
 int botan_cipher_reset(botan_cipher_t cipher) {
-   return BOTAN_FFI_VISIT(cipher, [](auto& c) { c.reset(); });
+   return BOTAN_FFI_VISIT(cipher, [=](auto& c) {
+      cipher->buf().clear();
+      c.reset();
+   });
 }
 
 int botan_cipher_output_length(botan_cipher_t cipher, size_t in_len, size_t* out_len) {
