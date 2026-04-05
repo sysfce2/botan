@@ -66,10 +66,6 @@
    #include <botan/internal/tls_cbc.h>
 #endif
 
-#if defined(BOTAN_HAS_ECDSA)
-   #include <botan/ecdsa.h>
-#endif
-
 #if defined(BOTAN_HAS_SYSTEM_RNG)
    #include <botan/system_rng.h>
 #endif
@@ -279,18 +275,14 @@ class ECDSA_Timing_Test final : public Timing_Test {
 
    private:
       const Botan::EC_Group m_group;
-      const Botan::ECDSA_PrivateKey m_privkey;
       const Botan::EC_Scalar m_x;
       Botan::EC_Scalar m_b;
-      Botan::EC_Scalar m_b_inv;
 };
 
 ECDSA_Timing_Test::ECDSA_Timing_Test(const std::string& ecgroup) :
       m_group(Botan::EC_Group::from_name(ecgroup)),
-      m_privkey(timing_test_rng(), m_group),
-      m_x(m_privkey._private_key()),
-      m_b(Botan::EC_Scalar::random(m_group, timing_test_rng())),
-      m_b_inv(m_b.invert()) {}
+      m_x(Botan::EC_Scalar::random(m_group, timing_test_rng())),
+      m_b(Botan::EC_Scalar::random(m_group, timing_test_rng())) {}
 
 uint64_t ECDSA_Timing_Test::measure_critical_function(const std::vector<uint8_t>& input) {
    const auto k = Botan::EC_Scalar::from_bytes_with_trunc(m_group, input);
@@ -300,12 +292,18 @@ uint64_t ECDSA_Timing_Test::measure_critical_function(const std::vector<uint8_t>
    const TimingTestTimer timer;
 
    // the following ECDSA operations involve and should not leak any information about k
+
    const auto r = Botan::EC_Scalar::gk_x_mod_order(k, timing_test_rng());
-   const auto k_inv = k.invert();
-   m_b.square_self();
-   m_b_inv.square_self();
+
+   const auto k_inv = (m_b * k).invert();
+
    const auto xr_m = ((m_x * m_b) * r) + (m * m_b);
-   const auto s = (k_inv * xr_m) * m_b_inv;
+
+   const auto s = (k_inv * xr_m);
+
+   // Generate the next blinding value via modular squaring
+   m_b.square_self();
+
    BOTAN_UNUSED(r, s);
 
    return timer.complete();

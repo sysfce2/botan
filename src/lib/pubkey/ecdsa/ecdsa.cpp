@@ -169,8 +169,6 @@ std::vector<uint8_t> ECDSA_Signature_Operation::raw_sign(std::span<const uint8_t
    const auto k = EC_Scalar::random(m_group, rng);
 #endif
 
-   const auto r = EC_Scalar::gk_x_mod_order(k, rng);
-
    /*
    * Blind the inputs
    *
@@ -189,7 +187,11 @@ std::vector<uint8_t> ECDSA_Signature_Operation::raw_sign(std::span<const uint8_t
    *
    * [1] But note that such attacks are currently outside of Botan's threat model.
    *
+   * NOTE: if you change anything here also update ECDSA_Timing_Test
+   * in cli/timing_tests.cpp to use the same formulas
    */
+   const auto r = EC_Scalar::gk_x_mod_order(k, rng);
+
    const auto k_inv = (m_b * k).invert();
 
    const auto xr_m = ((m_x * m_b) * r) + (m * m_b);
