@@ -152,6 +152,9 @@ void Stream_Decompression::process(secure_vector<uint8_t>& buf, size_t offset, u
          }
 
          // More data follows: try to process as a following stream
+         // Remove stream1's unused output space so stream2's output
+         // is placed immediately after stream1's data with no gap.
+         m_buffer.resize(m_buffer.size() - m_stream->avail_out());
          const size_t read = (buf.size() - offset) - m_stream->avail_in();
          start();
          m_stream->next_in(buf.data() + offset + read, buf.size() - offset - read);
@@ -172,13 +175,26 @@ void Stream_Decompression::process(secure_vector<uint8_t>& buf, size_t offset, u
 }
 
 void Stream_Decompression::update(secure_vector<uint8_t>& buf, size_t offset) {
+   if(!m_stream) {
+      if(buf.size() == offset) {
+         return;
+      }
+      // Previous stream ended cleanly; re-initialize for a concatenated stream
+      start();
+   }
    process(buf, offset, m_stream->run_flag());
 }
 
 void Stream_Decompression::finish(secure_vector<uint8_t>& buf, size_t offset) {
-   if(buf.size() != offset || m_stream != nullptr) {
-      process(buf, offset, m_stream->finish_flag());
+   if(!m_stream) {
+      if(buf.size() == offset) {
+         return;
+      }
+      // Previous stream ended cleanly; re-initialize for a concatenated stream
+      start();
    }
+
+   process(buf, offset, m_stream->finish_flag());
 
    if(m_stream) {
       throw Invalid_State(fmt("{} finished but not at stream end", name()));
