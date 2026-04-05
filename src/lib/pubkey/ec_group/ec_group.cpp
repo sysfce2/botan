@@ -381,7 +381,13 @@ std::pair<std::shared_ptr<EC_Group_Data>, bool> EC_Group::BER_decode_EC_group(st
          throw Decoding_Error("Invalid ECC base point");
       }
 
-      auto data = ec_group_data().lookup_or_create_without_oid(p, a, b, g_x, g_y, order, cofactor, source);
+      /*
+      * Create the group data without registering it in the global map.
+      *
+      * Applications that need persistent custom groups should register them
+      * via the relevant EC_Group constructor
+      */
+      auto data = EC_Group_Data::create(p, a, b, g_x, g_y, order, cofactor, OID(), source);
       return std::make_pair(data, true);
    } else if(next_obj_type == ASN1_Type::Null) {
       throw Decoding_Error("Decoding ImplicitCA ECC parameters is not supported");
