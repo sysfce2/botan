@@ -548,9 +548,9 @@ void Cipher_State::derive_write_traffic_key(const secure_vector<uint8_t>& traffi
 
 void Cipher_State::derive_read_traffic_key(const secure_vector<uint8_t>& traffic_secret,
                                            const bool handshake_traffic_secret) {
-   BOTAN_ASSERT_NONNULL(m_encrypt);
+   BOTAN_ASSERT_NONNULL(m_decrypt);
 
-   m_read_key = hkdf_expand_label(traffic_secret, "key", {}, m_encrypt->minimum_keylength());
+   m_read_key = hkdf_expand_label(traffic_secret, "key", {}, m_decrypt->minimum_keylength());
    m_read_iv = hkdf_expand_label(traffic_secret, "iv", {}, NONCE_LENGTH);
    m_read_seq_no = 0;
 
