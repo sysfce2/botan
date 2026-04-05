@@ -114,6 +114,8 @@ class BOTAN_PUBLIC_API(3, 0) Dilithium_PrivateKey final : public virtual Dilithi
    public:
       std::unique_ptr<Public_Key> public_key() const override;
 
+      bool check_key(RandomNumberGenerator& rng, bool strong) const override;
+
       /**
        * Generates a new key pair
        */

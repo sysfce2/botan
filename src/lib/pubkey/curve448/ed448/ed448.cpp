@@ -88,7 +88,11 @@ secure_vector<uint8_t> Ed448_PrivateKey::private_key_bits() const {
 }
 
 bool Ed448_PrivateKey::check_key(RandomNumberGenerator& /*rng*/, bool /*strong*/) const {
-   return true;
+   BOTAN_ASSERT_NOMSG(m_private.size() == ED448_LEN);
+   auto scope = CT::scoped_poison(m_private);
+   const auto public_point = create_pk_from_sk(std::span(m_private).first<ED448_LEN>());
+   CT::unpoison(public_point);
+   return public_point == m_public;
 }
 
 namespace {

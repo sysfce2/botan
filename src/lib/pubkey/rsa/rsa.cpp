@@ -261,6 +261,12 @@ const BigInt& RSA_PrivateKey::get_d2() const {
 }
 
 void RSA_PrivateKey::init(BigInt&& d, BigInt&& p, BigInt&& q, BigInt&& d1, BigInt&& d2, BigInt&& c) {
+   if(d < 2 || p < 3 || q < 3 || p == q) {
+      throw Decoding_Error("Invalid RSA private key parameters");
+   }
+   if(p * q != get_n()) {
+      throw Decoding_Error("Invalid RSA private key: p * q != n");
+   }
    m_private = std::make_shared<RSA_Private_Data>(
       std::move(d), std::move(p), std::move(q), std::move(d1), std::move(d2), std::move(c));
 }

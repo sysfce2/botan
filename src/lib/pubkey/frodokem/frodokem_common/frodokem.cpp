@@ -13,6 +13,7 @@
 #include <botan/frodokem.h>
 
 #include <botan/assert.h>
+#include <botan/pubkey.h>
 #include <botan/rng.h>
 #include <botan/xof.h>
 #include <botan/internal/buffer_slicer.h>
@@ -300,6 +301,10 @@ std::vector<uint8_t> FrodoKEM_PublicKey::public_key_bits() const {
 }
 
 bool FrodoKEM_PublicKey::check_key(RandomNumberGenerator& /*rng*/, bool /*strong*/) const {
+   // The public key consists of (seed_a, b) where b is a matrix of elements
+   // mod q = 2^d. Length validation is performed in the constructor, and bit
+   // unpacking naturally constrains all matrix elements to [0, 2^d - 1] which
+   // is the full valid range, leaving no further structural checks to perform.
    return true;
 }
 
@@ -378,6 +383,22 @@ FrodoKEM_PrivateKey::FrodoKEM_PrivateKey(const AlgorithmIdentifier& alg_id, std:
 
 std::unique_ptr<Public_Key> FrodoKEM_PrivateKey::public_key() const {
    return std::make_unique<FrodoKEM_PublicKey>(*this);
+}
+
+bool FrodoKEM_PrivateKey::check_key(RandomNumberGenerator& rng, bool strong) const {
+   if(!FrodoKEM_PublicKey::check_key(rng, strong)) {
+      return false;
+   }
+
+   if(strong) {
+      PK_KEM_Encryptor enc(*this, "Raw");
+      PK_KEM_Decryptor dec(*this, rng, "Raw");
+      const auto [c, K] = KEM_Encapsulation::destructure(enc.encrypt(rng));
+      const auto K_prime = dec.decrypt(c);
+      return K == K_prime;
+   }
+
+   return true;
 }
 
 secure_vector<uint8_t> FrodoKEM_PrivateKey::private_key_bits() const {
