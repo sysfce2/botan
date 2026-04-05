@@ -839,6 +839,12 @@ std::string parse_rsa_signature_algorithm(const AlgorithmIdentifier& alg_id) {
 
    std::string padding = sig_info[1];
 
+   if(padding != "PSS") {
+      if(!alg_id.parameters_are_null_or_empty()) {
+         throw Decoding_Error("Non-PSS RSA signature algorithm OID has unexpected parameters");
+      }
+   }
+
    if(padding == "PSS") {
       // "MUST contain RSASSA-PSS-params"
       if(alg_id.parameters().empty()) {
