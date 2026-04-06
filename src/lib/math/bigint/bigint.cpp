@@ -471,20 +471,6 @@ void BigInt::ct_cond_add(bool predicate, const BigInt& value) {
 }
 
 void BigInt::ct_shift_left(size_t shift) {
-   auto shl_bit = [](const BigInt& a, BigInt& result) {
-      BOTAN_DEBUG_ASSERT(a.size() + 1 == result.size());
-      bigint_shl2(result.mutable_data(), a._data(), a.size(), 1);
-      // shl2 may have shifted a bit into the next word, which must be dropped
-      clear_mem(result.mutable_data() + result.size() - 1, 1);
-   };
-
-   auto shl_word = [](const BigInt& a, BigInt& result) {
-      // the most significant word is not copied, aka. shifted out
-      bigint_shl2(result.mutable_data(), a._data(), a.size() - 1 /* ignore msw */, WordInfo<word>::bits);
-      // we left-shifted by a full word, the least significant word must be zero'ed
-      clear_mem(result.mutable_data(), 1);
-   };
-
    BOTAN_ASSERT_NOMSG(size() > 0);
 
    constexpr size_t bits_in_word = sizeof(word) * 8;
@@ -492,15 +478,33 @@ void BigInt::ct_shift_left(size_t shift) {
    const size_t bit_shift = shift & ((1 << ceil_log2(bits_in_word)) - 1);  // shift % bits_in_word
    const size_t iterations = std::max(size(), bits_in_word) - 1;           // uint64_t i; i << 64 is undefined behaviour
 
+   const size_t n = size();
+
+   // Workspace 1 word larger to catch overflow from bigint_shl2
+   secure_vector<word> ws(n + 1);
+
    // In every iteration, shift one bit and one word to the left and use the
    // shift results only when they are within the shift range.
-   BigInt tmp;
-   tmp.resize(size() + 1 /* to hold the shifted-out word */);
    for(size_t i = 0; i < iterations; ++i) {
-      shl_bit(*this, tmp);
-      ct_cond_assign(i < bit_shift, tmp);
-      shl_word(*this, tmp);
-      ct_cond_assign(i < word_shift, tmp);
+      // Shift left by 1 bit, dropping overflow
+      bigint_shl2(ws.data(), _data(), n, 1);
+      ws[n] = 0;
+
+      // Conditionally assign the bit-shift result
+      const auto bmask = CT::Mask<word>::expand_bool(i < bit_shift);
+      for(size_t j = 0; j != n; ++j) {
+         m_data.set_word_at(j, bmask.select(ws[j], word_at(j)));
+      }
+
+      // Shift left by 1 word, dropping the most significant word
+      bigint_shl2(ws.data(), _data(), n - 1 /* ignore msw */, WordInfo<word>::bits);
+      ws[0] = 0;
+
+      // Conditionally assign the word-shift result
+      const auto wmask = CT::Mask<word>::expand_bool(i < word_shift);
+      for(size_t j = 0; j != n; ++j) {
+         m_data.set_word_at(j, wmask.select(ws[j], word_at(j)));
+      }
    }
 }
 
@@ -528,7 +532,7 @@ void BigInt::ct_cond_assign(bool predicate, const BigInt& other) {
    const size_t t_words = size();
    const size_t o_words = other.size();
 
-   if(o_words < t_words) {
+   if(t_words < o_words) {
       grow_to(o_words);
    }
 
