@@ -48,7 +48,6 @@ void GCM_Mode::clear() {
 
 void GCM_Mode::reset() {
    m_ghash->reset_state();
-   zeroise(m_y0);
 }
 
 std::string GCM_Mode::name() const {
@@ -101,26 +100,22 @@ void GCM_Mode::start_msg(const uint8_t nonce[], size_t nonce_len) {
       throw Invalid_IV_Length(name(), nonce_len);
    }
 
-   if(m_y0.size() != GCM_BS) {
-      m_y0.resize(GCM_BS);
-   }
-
-   clear_mem(m_y0.data(), m_y0.size());
+   std::array<uint8_t, GCM_BS> y0 = {};
 
    if(nonce_len == 12) {
-      copy_mem(m_y0.data(), nonce, nonce_len);
-      m_y0[15] = 1;
+      copy_mem(y0.data(), nonce, nonce_len);
+      y0[15] = 1;
    } else {
-      m_ghash->nonce_hash(std::span<uint8_t, GCM_BS>(m_y0), {nonce, nonce_len});
+      m_ghash->nonce_hash(std::span<uint8_t, GCM_BS>(y0), {nonce, nonce_len});
    }
 
-   m_ctr->set_iv(m_y0.data(), m_y0.size());
+   m_ctr->set_iv(y0.data(), y0.size());
 
-   clear_mem(m_y0.data(), m_y0.size());
-   m_ctr->encipher(m_y0);
+   clear_mem(y0.data(), y0.size());
+   m_ctr->encipher(y0);
 
-   m_ghash->start(m_y0);
-   clear_mem(m_y0.data(), m_y0.size());
+   m_ghash->start(y0);
+   secure_scrub_memory(y0);
 }
 
 size_t GCM_Encryption::process_msg(uint8_t buf[], size_t sz) {
