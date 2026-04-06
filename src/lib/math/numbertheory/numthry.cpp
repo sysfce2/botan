@@ -396,11 +396,12 @@ bool is_prime(const BigInt& n, RandomNumberGenerator& rng, size_t prob, bool is_
    }
 
    auto mod_n = Barrett_Reduction::for_secret_modulus(n);
+   const Montgomery_Params monty_n(n, mod_n);
 
    if(rng.is_seeded()) {
       const size_t t = miller_rabin_test_iterations(n_bits, prob, is_random);
 
-      if(!is_miller_rabin_probable_prime(n, mod_n, rng, t)) {
+      if(!is_miller_rabin_probable_prime(n, mod_n, monty_n, rng, t)) {
          return false;
       }
 

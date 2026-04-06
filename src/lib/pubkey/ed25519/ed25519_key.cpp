@@ -132,7 +132,11 @@ secure_vector<uint8_t> Ed25519_PrivateKey::private_key_bits() const {
 }
 
 bool Ed25519_PrivateKey::check_key(RandomNumberGenerator& /*rng*/, bool /*strong*/) const {
-   return true;  // ???
+   std::vector<uint8_t> public_point(32);
+   secure_vector<uint8_t> private_key(64);  // discarded
+   ed25519_gen_keypair(public_point.data(), private_key.data(), m_private.data());
+   // Variable time comparison is fine here
+   return public_point == m_public;
 }
 
 namespace {

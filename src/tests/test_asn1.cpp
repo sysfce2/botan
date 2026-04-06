@@ -252,7 +252,7 @@ Test::Result test_asn1_negative_int_encoding() {
       const auto enc = Botan::DER_Encoder().encode(n).get_contents_unlocked();
 
       BigInt n_dec;
-      Botan::BER_Decoder(enc).decode(n_dec);
+      Botan::BER_Decoder(enc, Botan::BER_Decoder::Limits::DER()).decode(n_dec);
 
       result.test_bn_eq("DER encoding round trips negative integers", n_dec, n);
    }

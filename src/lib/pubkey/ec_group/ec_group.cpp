@@ -256,15 +256,15 @@ std::shared_ptr<EC_Group_Data> EC_Group::load_EC_group_info(const char* p_str,
 }
 
 //static
-std::pair<std::shared_ptr<EC_Group_Data>, bool> EC_Group::BER_decode_EC_group(std::span<const uint8_t> bits,
+std::pair<std::shared_ptr<EC_Group_Data>, bool> EC_Group::DER_decode_EC_group(std::span<const uint8_t> der,
                                                                               EC_Group_Source source) {
-   BER_Decoder ber(bits);
+   BER_Decoder dec(der, BER_Decoder::Limits::DER());
 
-   auto next_obj_type = ber.peek_next_object().type_tag();
+   auto next_obj_type = dec.peek_next_object().type_tag();
 
    if(next_obj_type == ASN1_Type::ObjectId) {
       OID oid;
-      ber.decode(oid);
+      dec.decode(oid);
 
       auto data = ec_group_data().lookup(oid);
       if(!data) {
@@ -281,7 +281,7 @@ std::pair<std::shared_ptr<EC_Group_Data>, bool> EC_Group::BER_decode_EC_group(st
       std::vector<uint8_t> base_pt;
       std::vector<uint8_t> seed;
 
-      ber.start_sequence()
+      dec.start_sequence()
          .decode_and_check<size_t>(1, "Unknown ECC param version code")
          .start_sequence()
          .decode_and_check(OID({1, 2, 840, 10045, 1, 1}), "Only prime ECC fields supported")
@@ -381,7 +381,13 @@ std::pair<std::shared_ptr<EC_Group_Data>, bool> EC_Group::BER_decode_EC_group(st
          throw Decoding_Error("Invalid ECC base point");
       }
 
-      auto data = ec_group_data().lookup_or_create_without_oid(p, a, b, g_x, g_y, order, cofactor, source);
+      /*
+      * Create the group data without registering it in the global map.
+      *
+      * Applications that need persistent custom groups should register them
+      * via the relevant EC_Group constructor
+      */
+      auto data = EC_Group_Data::create(p, a, b, g_x, g_y, order, cofactor, OID(), source);
       return std::make_pair(data, true);
    } else if(next_obj_type == ASN1_Type::Null) {
       throw Decoding_Error("Decoding ImplicitCA ECC parameters is not supported");
@@ -466,9 +472,9 @@ EC_Group::EC_Group(std::string_view str) {
    if(m_data == nullptr) {
       if(str.size() > 30 && str.starts_with("-----BEGIN EC PARAMETERS-----")) {
          // OK try it as PEM ...
-         const auto ber = PEM_Code::decode_check_label(str, "EC PARAMETERS");
+         const auto der = PEM_Code::decode_check_label(str, "EC PARAMETERS");
 
-         auto data = BER_decode_EC_group(ber, EC_Group_Source::ExternalSource);
+         auto data = DER_decode_EC_group(der, EC_Group_Source::ExternalSource);
          this->m_data = data.first;
          this->m_explicit_encoding = data.second;
       }
@@ -481,8 +487,8 @@ EC_Group::EC_Group(std::string_view str) {
 
 //static
 EC_Group EC_Group::from_PEM(std::string_view pem) {
-   const auto ber = PEM_Code::decode_check_label(pem, "EC PARAMETERS");
-   return EC_Group(ber);
+   const auto der = PEM_Code::decode_check_label(pem, "EC PARAMETERS");
+   return EC_Group(der);
 }
 
 EC_Group::EC_Group(const BigInt& p,
@@ -574,8 +580,8 @@ EC_Group::EC_Group(const OID& oid,
       ec_group_data().lookup_or_create(p, a, b, base_x, base_y, order, cofactor, oid, EC_Group_Source::ExternalSource);
 }
 
-EC_Group::EC_Group(std::span<const uint8_t> ber) {
-   auto data = BER_decode_EC_group(ber, EC_Group_Source::ExternalSource);
+EC_Group::EC_Group(std::span<const uint8_t> der) {
+   auto data = DER_decode_EC_group(der, EC_Group_Source::ExternalSource);
    m_data = data.first;
    m_explicit_encoding = data.second;
 }

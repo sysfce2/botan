@@ -66,6 +66,10 @@ size_t decode_tag(DataSource* ber, ASN1_Type& type_tag, ASN1_Class& class_tag, b
       throw BER_Decoding_Error("Detected long-form tag for small tag value in DER structure");
    }
 
+   if(tag_buf == static_cast<uint32_t>(ASN1_Type::NoObject)) {
+      throw BER_Decoding_Error("Tag value collides with internal sentinel");
+   }
+
    type_tag = ASN1_Type(tag_buf);
    return tag_bytes;
 }
@@ -487,6 +491,10 @@ uint64_t BER_Decoder::decode_constrained_integer(ASN1_Type type_tag, ASN1_Class 
 
    BigInt integer;
    decode(integer, type_tag, class_tag);
+
+   if(integer.is_negative()) {
+      throw BER_Decoding_Error("Decoded small integer value was negative");
+   }
 
    if(integer.bits() > 8 * T_bytes) {
       throw BER_Decoding_Error("Decoded integer value larger than expected");

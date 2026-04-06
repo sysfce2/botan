@@ -161,10 +161,16 @@ int botan_rng_destroy(botan_rng_t rng) {
 }
 
 int botan_rng_get(botan_rng_t rng, uint8_t* out, size_t out_len) {
+   if(out_len > 0 && out == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
    return BOTAN_FFI_VISIT(rng, [=](auto& r) { r.randomize(out, out_len); });
 }
 
 int botan_system_rng_get(uint8_t* out, size_t out_len) {
+   if(out_len > 0 && out == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
    return ffi_guard_thunk(__func__, [=]() -> int {
       Botan::system_rng().randomize(out, out_len);
       return BOTAN_FFI_SUCCESS;
@@ -176,6 +182,9 @@ int botan_rng_reseed(botan_rng_t rng, size_t bits) {
 }
 
 int botan_rng_add_entropy(botan_rng_t rng, const uint8_t* input, size_t len) {
+   if(len > 0 && input == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
    return BOTAN_FFI_VISIT(rng, [=](auto& r) { r.add_entropy(input, len); });
 }
 

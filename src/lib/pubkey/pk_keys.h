@@ -117,9 +117,16 @@ class BOTAN_PUBLIC_API(3, 0) Asymmetric_Key /* NOLINT(*special-member-functions)
 
       /*
       * Test the key values for consistency.
-      * @param rng rng to use
-      * @param strong whether to perform strong and lengthy version of the test
-      * @return true if the test is passed
+      *
+      * Note this function is always "best effort"; for many algorithms it is
+      * not computationally possible to ensure the key is correctly formed in
+      * all respects. There is always the possibility a malformed key will be
+      * accepted; this is especially the case for public keys.
+      *
+      * @param rng rng to use for randomized testing (may be ignored)
+      * @param strong whether to perform strong and lengthy version of the test,
+      *        however for many algorithms this has no effect
+      * @return true if the tests passed
       */
       virtual bool check_key(RandomNumberGenerator& rng, bool strong) const = 0;
 

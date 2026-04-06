@@ -180,6 +180,7 @@ class PrimeOrderCurveImpl final : public PrimeOrderCurve {
 
       Scalar base_point_mul_x_mod_order(const Scalar& scalar, RandomNumberGenerator& rng) const override {
          auto pt = m_mul_by_g.mul(from_stash(scalar), rng);
+         BOTAN_STATE_CHECK(!pt.is_identity().as_bool());
          std::array<uint8_t, C::FieldElement::BYTES> x_bytes{};
          to_affine_x<C>(pt).serialize_to(std::span{x_bytes});
          // Reduction might be required (if unlikely)

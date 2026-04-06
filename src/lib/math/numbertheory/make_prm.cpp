@@ -15,6 +15,7 @@
 #include <botan/internal/ct_utils.h>
 #include <botan/internal/divide.h>
 #include <botan/internal/loadstor.h>
+#include <botan/internal/monty.h>
 
 namespace Botan {
 
@@ -187,13 +188,14 @@ BigInt random_prime(
          BOTAN_DEBUG_ASSERT(no_small_multiples(p, sieve));
 
          auto mod_p = Barrett_Reduction::for_secret_modulus(p);
+         const Montgomery_Params monty_p(p, mod_p);
 
          if(coprime > 1) {
             /*
             First do a single M-R iteration to quickly eliminate most non-primes,
             before doing the coprimality check which is expensive
             */
-            if(!is_miller_rabin_probable_prime(p, mod_p, rng, 1)) {
+            if(!is_miller_rabin_probable_prime(p, mod_p, monty_p, rng, 1)) {
                continue;
             }
 
@@ -210,7 +212,7 @@ BigInt random_prime(
             break;
          }
 
-         if(!is_miller_rabin_probable_prime(p, mod_p, rng, mr_trials)) {
+         if(!is_miller_rabin_probable_prime(p, mod_p, monty_p, rng, mr_trials)) {
             continue;
          }
 
@@ -277,13 +279,14 @@ BigInt generate_rsa_prime(RandomNumberGenerator& keygen_rng,
          BOTAN_DEBUG_ASSERT(no_small_multiples(p, sieve));
 
          auto mod_p = Barrett_Reduction::for_secret_modulus(p);
+         const Montgomery_Params monty_p(p, mod_p);
 
          /*
          * Do a single primality test first before checking coprimality, since
          * currently a single Miller-Rabin test is faster than computing gcd,
          * and this eliminates almost all wasted gcd computations.
          */
-         if(!is_miller_rabin_probable_prime(p, mod_p, prime_test_rng, 1)) {
+         if(!is_miller_rabin_probable_prime(p, mod_p, monty_p, prime_test_rng, 1)) {
             continue;
          }
 
@@ -298,7 +301,7 @@ BigInt generate_rsa_prime(RandomNumberGenerator& keygen_rng,
             break;
          }
 
-         if(is_miller_rabin_probable_prime(p, mod_p, prime_test_rng, mr_trials)) {
+         if(is_miller_rabin_probable_prime(p, mod_p, monty_p, prime_test_rng, mr_trials)) {
             return p;
          }
       }

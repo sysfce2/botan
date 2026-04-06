@@ -142,7 +142,7 @@ const BigInt& RSA_PublicKey::get_int_field(std::string_view field) const {
 }
 
 std::unique_ptr<Private_Key> RSA_PublicKey::generate_another(RandomNumberGenerator& rng) const {
-   return std::make_unique<RSA_PrivateKey>(rng, m_public->public_modulus_bits(), m_public->get_e().to_u32bit());
+   return std::make_unique<RSA_PrivateKey>(rng, m_public->public_modulus_bits(), 65537);
 }
 
 const BigInt& RSA_PublicKey::get_n() const {
@@ -154,8 +154,11 @@ const BigInt& RSA_PublicKey::get_e() const {
 }
 
 void RSA_PublicKey::init(BigInt&& n, BigInt&& e) {
-   if(n.signum() < 0 || n.is_even() || n.bits() < 5 /* n >= 3*5 */ || e.signum() < 0 || e.is_even()) {
-      throw Decoding_Error("Invalid RSA public key parameters");
+   if(n.signum() <= 0 || n.is_even() || n.bits() < 384 || n.bits() > 16384) {
+      throw Decoding_Error("Invalid RSA public key modulus");
+   }
+   if(e.is_even() || e <= 1 || e >= n || e.bits() > 256) {
+      throw Decoding_Error("Invalid RSA public key exponent");
    }
    m_public = std::make_shared<RSA_Public_Data>(std::move(n), std::move(e));
 }
@@ -258,6 +261,12 @@ const BigInt& RSA_PrivateKey::get_d2() const {
 }
 
 void RSA_PrivateKey::init(BigInt&& d, BigInt&& p, BigInt&& q, BigInt&& d1, BigInt&& d2, BigInt&& c) {
+   if(d < 2 || p < 3 || q < 3 || p == q) {
+      throw Decoding_Error("Invalid RSA private key parameters");
+   }
+   if(p * q != get_n()) {
+      throw Decoding_Error("Invalid RSA private key: p * q != n");
+   }
    m_private = std::make_shared<RSA_Private_Data>(
       std::move(d), std::move(p), std::move(q), std::move(d1), std::move(d2), std::move(c));
 }
@@ -325,8 +334,18 @@ RSA_PrivateKey::RSA_PrivateKey(
 * Create a RSA private key
 */
 RSA_PrivateKey::RSA_PrivateKey(RandomNumberGenerator& rng, size_t bits, size_t exp) {
-   if(bits < 1024) {
-      throw Invalid_Argument(fmt("Cannot create an RSA key only {} bits long", bits));
+   constexpr size_t MIN_RSA_BITS = 1024;
+   constexpr size_t MAX_RSA_BITS = 16384;
+   constexpr size_t MOD_RSA_BITS = 8;
+
+   if(bits < MIN_RSA_BITS) {
+      throw Invalid_Argument(fmt("Cannot create an RSA key of {} bits: must be at least {} bits", bits, MIN_RSA_BITS));
+   } else if(bits > MAX_RSA_BITS) {
+      throw Invalid_Argument(
+         fmt("Cannot create an RSA key of {} bits: must be no more than {} bits", bits, MAX_RSA_BITS));
+   } else if(bits % MOD_RSA_BITS != 0) {
+      throw Invalid_Argument(
+         fmt("Cannot create an RSA key of {} bits: must be a multiple of {} bits", bits, MOD_RSA_BITS));
    }
 
    if(exp < 3 || exp % 2 == 0) {
@@ -819,6 +838,12 @@ std::string parse_rsa_signature_algorithm(const AlgorithmIdentifier& alg_id) {
    }
 
    std::string padding = sig_info[1];
+
+   if(padding != "PSS") {
+      if(!alg_id.parameters_are_null_or_empty()) {
+         throw Decoding_Error("Non-PSS RSA signature algorithm OID has unexpected parameters");
+      }
+   }
 
    if(padding == "PSS") {
       // "MUST contain RSASSA-PSS-params"

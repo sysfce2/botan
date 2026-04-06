@@ -1317,7 +1317,7 @@ class FFI_Cert_ExtKeyUsages_Test final : public FFI_Test {
    #if defined(BOTAN_HAS_X509)
 
 auto read_distinguished_name(std::span<const uint8_t> bytes) {
-   auto dec = Botan::BER_Decoder(bytes);
+   auto dec = Botan::BER_Decoder(bytes, Botan::BER_Decoder::Limits::DER());
    Botan::X509_DN dn;
    dn.decode_from(dec);
    return dn;
@@ -3481,10 +3481,8 @@ class FFI_RSA_Test final : public FFI_Test {
             botan_mp_destroy(x);
 
             botan_privkey_t loaded_privkey;
-            // First try loading a bogus key and verify check_key fails
-            TEST_FFI_OK(botan_privkey_load_rsa, (&loaded_privkey, n, d, q));
-            TEST_FFI_RC(-1, botan_privkey_check_key, (loaded_privkey, rng, 0));
-            botan_privkey_destroy(loaded_privkey);
+            // First try loading a bogus key and verify it is rejected
+            TEST_FFI_RC(-1, botan_privkey_load_rsa, (&loaded_privkey, n, d, q));
 
             TEST_FFI_OK(botan_privkey_load_rsa, (&loaded_privkey, p, q, e));
             TEST_FFI_OK(botan_privkey_check_key, (loaded_privkey, rng, 0));

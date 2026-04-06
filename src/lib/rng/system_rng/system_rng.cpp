@@ -231,6 +231,10 @@ class System_RNG_Impl final : public RandomNumberGenerator {
                throw System_Error("System_RNG getrandom failed", errno);
             }
 
+            if(got == 0) {
+               throw System_Error("System_RNG getrandom unexpectedly returned 0");
+            }
+
             buf += got;
             len -= got;
          }

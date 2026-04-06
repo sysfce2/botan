@@ -32,6 +32,7 @@ void CFB_Mode::clear() {
 void CFB_Mode::reset() {
    m_state.clear();
    zeroise(m_keystream);
+   m_keystream_pos = 0;
 }
 
 std::string CFB_Mode::name() const {

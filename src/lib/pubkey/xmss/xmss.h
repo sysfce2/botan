@@ -73,7 +73,7 @@ class BOTAN_PUBLIC_API(2, 0) XMSS_PublicKey : public virtual Public_Key {
          return AlgorithmIdentifier(object_identifier(), AlgorithmIdentifier::USE_EMPTY_PARAM);
       }
 
-      bool check_key(RandomNumberGenerator& /*rng*/, bool /*strong*/) const override { return true; }
+      bool check_key(RandomNumberGenerator& rng, bool strong) const override;
 
       size_t estimated_strength() const override { return m_xmss_params.estimated_strength(); }
 

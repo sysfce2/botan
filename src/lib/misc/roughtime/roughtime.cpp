@@ -195,7 +195,7 @@ Response Response::from_bits(const std::vector<uint8_t>& response, const Nonce& 
    if(size % 64 != 0) {
       throw Roughtime_Error("Merkle tree path size must be multiple of 64 bytes");
    }
-   if(indx >= (1U << levels)) {
+   if(levels >= 32 || indx >= (uint32_t(1) << levels)) {
       throw Roughtime_Error("Merkle tree path is too short");
    }
 

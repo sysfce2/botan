@@ -162,7 +162,9 @@ OID SphincsPlus_PublicKey::object_identifier() const {
 }
 
 bool SphincsPlus_PublicKey::check_key(RandomNumberGenerator& /*rng*/, bool /*strong*/) const {
-   // Nothing to check. It's literally just hashes. :-)
+   // Nothing to check for the public key. It's literally just hashes. :-)
+   // A sign/verify roundtrip for the private key could be added for strong
+   // validation, but SLH-DSA signing is very expensive.
    return true;
 }
 

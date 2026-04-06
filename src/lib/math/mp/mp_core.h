@@ -1014,7 +1014,7 @@ constexpr std::array<W, N> redc_crandall(std::span<const W, 2 * N> z) {
                       movq 0(%[x]), %[borrow]
                       subq %[p0], %[borrow]
                       movq %[borrow], 0(%[r])
-                      movq 16(%[x]), %[borrow]
+                      movq 8(%[x]), %[borrow]
                       sbbq $-1, %[borrow]
                       movq %[borrow], 8(%[r])
                       movq 16(%[x]), %[borrow]
@@ -1029,11 +1029,11 @@ constexpr std::array<W, N> redc_crandall(std::span<const W, 2 * N> z) {
                       : [borrow] "=r"(borrow)
                       : [x] "r"(hi.data()), [p0] "r"(P0), [r] "r"(r.data()), "0"(borrow)
                       : "cc", "memory");
-      }
 
-      borrow = (carry - borrow) > carry;
-      CT::conditional_assign_mem(borrow, r.data(), hi.data(), N);
-      return r;
+         borrow = (carry - borrow) > carry;
+         CT::conditional_assign_mem(borrow, r.data(), hi.data(), N);
+         return r;
+      }
    }
 #endif
 

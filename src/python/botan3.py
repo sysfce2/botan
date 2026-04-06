@@ -3053,6 +3053,28 @@ def nist_key_unwrap(kek: bytes, wrapped: bytes, cipher: str | None = None) -> by
                            output, byref(out_len))
     return bytes(output[0:int(out_len.value)])
 
+def nist_key_wrap_padded(kek: bytes, key: bytes, cipher: str | None = None) -> bytes:
+    cipher_algo = "AES-%d" % (8*len(kek)) if cipher is None else cipher
+    padding = 1
+    output = create_string_buffer(len(key) + 15)
+    out_len = c_size_t(len(output))
+    _DLL.botan_nist_kw_enc(_ctype_str(cipher_algo), padding,
+                           key, len(key),
+                           kek, len(kek),
+                           output, byref(out_len))
+    return bytes(output[0:int(out_len.value)])
+
+def nist_key_unwrap_padded(kek: bytes, wrapped: bytes, cipher: str | None = None) -> bytes:
+    cipher_algo = "AES-%d" % (8*len(kek)) if cipher is None else cipher
+    padding = 1
+    output = create_string_buffer(len(wrapped))
+    out_len = c_size_t(len(output))
+    _DLL.botan_nist_kw_dec(_ctype_str(cipher_algo), padding,
+                           wrapped, len(wrapped),
+                           kek, len(kek),
+                           output, byref(out_len))
+    return bytes(output[0:int(out_len.value)])
+
 class Srp6ServerSession:
     __obj = c_void_p(0)
 

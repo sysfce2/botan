@@ -22,6 +22,7 @@
 #include <botan/internal/dilithium_symmetric_primitives.h>
 #include <botan/internal/dilithium_types.h>
 #include <botan/internal/fmt.h>
+#include <botan/internal/keypair.h>
 #include <botan/internal/pk_ops_impl.h>
 #include <botan/internal/stl_util.h>
 
@@ -366,7 +367,13 @@ std::vector<uint8_t> Dilithium_PublicKey::public_key_bits() const {
 }
 
 bool Dilithium_PublicKey::check_key(RandomNumberGenerator& /*rng*/, bool /*strong*/) const {
-   return true;  // ???
+   // The public key consists of (rho, t1). Length validation is performed in
+   // the constructor, and t1 coefficients are decoded via SimpleBitUnpack
+   // (FIPS 204 Algorithm 18) into a power-of-2 range that exactly covers all
+   // valid values, so no out-of-range coefficients are possible. For the
+   // private key, s1/s2 coefficient ranges are validated and t is recomputed
+   // from (A, s1, s2) and verified against the stored hash during decoding.
+   return true;
 }
 
 std::unique_ptr<Private_Key> Dilithium_PublicKey::generate_another(RandomNumberGenerator& rng) const {
@@ -444,6 +451,18 @@ std::unique_ptr<PK_Ops::Signature> Dilithium_PrivateKey::create_signature_op(Ran
       return std::make_unique<Dilithium_Signature_Operation>(DilithiumInternalKeypair{m_public, m_private}, randomized);
    }
    throw Provider_Not_Found(algo_name(), provider);
+}
+
+bool Dilithium_PrivateKey::check_key(RandomNumberGenerator& rng, bool strong) const {
+   if(!Dilithium_PublicKey::check_key(rng, strong)) {
+      return false;
+   }
+
+   if(strong) {
+      return KeyPair::signature_consistency_check(rng, *this, "");
+   }
+
+   return true;
 }
 
 std::unique_ptr<Public_Key> Dilithium_PrivateKey::public_key() const {

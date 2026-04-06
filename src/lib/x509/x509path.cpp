@@ -68,7 +68,19 @@ class CertificatePathBuilder {
       }
 
       std::optional<std::vector<X509_Certificate>> next() {
+         size_t steps = 0;
+
          while(!m_stack.empty()) {
+            constexpr size_t MAX_DFS_STEPS = 1000;
+
+            steps++;
+
+            if(steps > MAX_DFS_STEPS) {
+               // Intentionally overwrite any previous builder error
+               m_error = Certificate_Status_Code::CERT_ISSUER_NOT_FOUND;
+               return std::nullopt;
+            }
+
             auto [last, trusted] = std::move(m_stack.back());  // move before pop_back
             m_stack.pop_back();
 
@@ -453,6 +465,22 @@ Certificate_Status_Code verify_ocsp_signing_cert(const X509_Certificate& signing
    //       usage extension and is issued by the CA that issued the
    //       certificate in question as stated above.
 
+   // Verify the delegated responder was issued by the CA that issued
+   // the certificate in question (the EKU and signature chain are
+   // verified by the path validation below).
+   if(signing_cert.issuer_dn() != ca.subject_dn()) {
+      return Certificate_Status_Code::OCSP_ISSUER_NOT_TRUSTED;
+   } else {
+      // If both key identifiers are available, verify they match to
+      // handle CAs that share a subject DN but have different keys
+      // (eg re-keyed or cross-certified CAs).
+      const auto& aki = signing_cert.authority_key_id();
+      const auto& ski = ca.subject_key_id();
+      if(!aki.empty() && !ski.empty() && aki != ski) {
+         return Certificate_Status_Code::OCSP_ISSUER_NOT_TRUSTED;
+      }
+   }
+
    // TODO: Implement OCSP revocation check of OCSP signer certificate
    // Note: This needs special care to prevent endless loops on specifically
    //       forged chains of OCSP responses referring to each other.
@@ -502,7 +530,7 @@ std::set<Certificate_Status_Code> evaluate_ocsp_response(const OCSP::Response& o
    // Verify the signing certificate is trusted
    auto cert_status = verify_ocsp_signing_cert(
       signing_cert.value(), ca, concat(ocsp_response.certificates(), cert_path), certstores, ref_time, restrictions);
-   if(cert_status > Certificate_Status_Code::FIRST_ERROR_STATUS) {
+   if(cert_status >= Certificate_Status_Code::FIRST_ERROR_STATUS) {
       return {cert_status, Certificate_Status_Code::OCSP_ISSUER_NOT_TRUSTED};
    }
 
@@ -669,34 +697,35 @@ CertificatePathStatusCodes PKIX::check_ocsp_online(const std::vector<X509_Certif
    }
 
    for(size_t i = 0; i < to_ocsp; ++i) {
-      const X509_Certificate& subject = cert_path.at(i);
-      const X509_Certificate& issuer = cert_path.at(i + 1);
+      const auto& subject = cert_path.at(i);
+      const auto& issuer = cert_path.at(i + 1);
 
       if(subject.ocsp_responder().empty()) {
-         ocsp_response_futures.emplace_back(std::async(std::launch::deferred, [&]() -> std::optional<OCSP::Response> {
+         ocsp_response_futures.emplace_back(std::async(std::launch::deferred, []() -> std::optional<OCSP::Response> {
             return OCSP::Response(Certificate_Status_Code::OCSP_NO_REVOCATION_URL);
          }));
       } else {
-         ocsp_response_futures.emplace_back(std::async(std::launch::async, [&]() -> std::optional<OCSP::Response> {
-            const OCSP::Request req(issuer, BigInt::from_bytes(subject.serial_number()));
+         auto ocsp_url = subject.ocsp_responder();
+         auto ocsp_req = OCSP::Request(issuer, BigInt::from_bytes(subject.serial_number()));
+         ocsp_response_futures.emplace_back(
+            std::async(std::launch::async, [ocsp_url, ocsp_req, timeout]() -> std::optional<OCSP::Response> {
+               HTTP::Response http;
+               try {
+                  http = HTTP::POST_sync(ocsp_url,
+                                         "application/ocsp-request",
+                                         ocsp_req.BER_encode(),
+                                         /*redirects*/ 1,
+                                         timeout);
+               } catch(std::exception&) {
+                  // log e.what() ?
+               }
+               if(http.status_code() != 200) {
+                  return OCSP::Response(Certificate_Status_Code::OCSP_SERVER_NOT_AVAILABLE);
+               }
+               // Check the MIME type?
 
-            HTTP::Response http;
-            try {
-               http = HTTP::POST_sync(subject.ocsp_responder(),
-                                      "application/ocsp-request",
-                                      req.BER_encode(),
-                                      /*redirects*/ 1,
-                                      timeout);
-            } catch(std::exception&) {
-               // log e.what() ?
-            }
-            if(http.status_code() != 200) {
-               return OCSP::Response(Certificate_Status_Code::OCSP_SERVER_NOT_AVAILABLE);
-            }
-            // Check the MIME type?
-
-            return OCSP::Response(http.body());
-         }));
+               return OCSP::Response(http.body());
+            }));
       }
    }
 
@@ -726,9 +755,9 @@ CertificatePathStatusCodes PKIX::check_crl_online(const std::vector<X509_Certifi
    std::vector<std::optional<X509_CRL>> crls(cert_path.size());
 
    for(size_t i = 0; i != cert_path.size(); ++i) {
-      const std::optional<X509_Certificate>& cert = cert_path.at(i);
+      const auto& cert = cert_path.at(i);
       for(auto* certstore : certstores) {
-         crls[i] = certstore->find_crl_for(*cert);
+         crls[i] = certstore->find_crl_for(cert);
          if(crls[i].has_value()) {
             break;
          }
@@ -743,14 +772,15 @@ CertificatePathStatusCodes PKIX::check_crl_online(const std::vector<X509_Certifi
          so that indexes match up
          */
          future_crls.emplace_back(std::future<std::optional<X509_CRL>>());
-      } else if(cert->crl_distribution_point().empty()) {
+      } else if(cert.crl_distribution_point().empty()) {
          // Avoid creating a thread for this case
-         future_crls.emplace_back(std::async(std::launch::deferred, [&]() -> std::optional<X509_CRL> {
+         future_crls.emplace_back(std::async(std::launch::deferred, []() -> std::optional<X509_CRL> {
             throw Not_Implemented("No CRL distribution point for this certificate");
          }));
       } else {
-         future_crls.emplace_back(std::async(std::launch::async, [&]() -> std::optional<X509_CRL> {
-            auto http = HTTP::GET_sync(cert->crl_distribution_point(),
+         auto cdp = cert.crl_distribution_point();
+         future_crls.emplace_back(std::async(std::launch::async, [cdp, timeout]() -> std::optional<X509_CRL> {
+            auto http = HTTP::GET_sync(cdp,
                                        /*redirects*/ 1,
                                        timeout);
 
@@ -930,16 +960,19 @@ Path_Validation_Result x509_path_validate(const std::vector<X509_Certificate>& e
 
    CertificatePathBuilder builder(trusted_roots, end_entity, end_entity_extra, require_self_signed);
 
-   constexpr size_t max_paths = 128;
+   constexpr size_t max_paths = 50;
+   constexpr size_t max_verifications = 200;
 
    std::optional<Path_Validation_Result> first_path_error;
    size_t paths_checked = 0;
+   size_t certs_checked = 0;
 
    while(auto cert_path = builder.next()) {
       BOTAN_ASSERT_NOMSG(cert_path->empty() == false);
 
       paths_checked += 1;
-      if(paths_checked > max_paths) {
+      certs_checked += cert_path->size();
+      if(paths_checked > max_paths || certs_checked > max_verifications) {
          break;
       }
 

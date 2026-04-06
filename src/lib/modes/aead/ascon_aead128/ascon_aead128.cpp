@@ -9,6 +9,7 @@
 #include <botan/internal/ascon_aead128.h>
 
 #include <botan/exceptn.h>
+#include <botan/mem_ops.h>
 #include <botan/internal/concat_util.h>
 #include <botan/internal/loadstor.h>
 
@@ -144,6 +145,7 @@ void Ascon_AEAD128_Decryption::finish_msg(secure_vector<uint8_t>& final_block, s
 
    process_msg(final_ciphertext_block.data(), final_ciphertext_block.size());
    if(!constant_time_compare(calculate_tag_and_finish(), expected_tag)) {
+      clear_mem(std::span{final_block}.subspan(offset, final_ciphertext_block.size()));
       throw Invalid_Authentication_Tag("Ascon-AEAD128 tag check failed");
    }
 

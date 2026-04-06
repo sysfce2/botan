@@ -299,10 +299,10 @@ void poly1305_finish(secure_vector<uint64_t>& X, uint8_t mac[16]) {
    const uint64_t g2 = h2 + c - (static_cast<uint64_t>(1) << 42);
 
    /* select h if h < p, or h + -p if h >= p */
-   const auto c_mask = CT::Mask<uint64_t>::expand(c);
-   h0 = c_mask.select(g0, h0);
-   h1 = c_mask.select(g1, h1);
-   h2 = c_mask.select(g2, h2);
+   const auto h_mask = CT::Mask<uint64_t>::expand_top_bit(g2);
+   h0 = h_mask.select(h0, g0);
+   h1 = h_mask.select(h1, g1);
+   h2 = h_mask.select(h2, g2);
 
    /* h = (h + pad) */
    const uint64_t t0 = X[PAD_BASE + 0];

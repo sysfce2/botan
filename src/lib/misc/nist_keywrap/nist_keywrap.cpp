@@ -205,6 +205,13 @@ secure_vector<uint8_t> nist_key_unwrap_padded(const uint8_t input[], size_t inpu
       throw Invalid_Authentication_Tag("NIST key unwrap failed");
    }
 
+   // Verify padding bytes are zero
+   const uint64_t last_block = load_be<uint64_t>(R.data() + R.size() - 8, 0);
+   const uint64_t padding_mask = (static_cast<uint64_t>(1) << (padding * 8)) - 1;
+   if((last_block & padding_mask) != 0) {
+      throw Invalid_Authentication_Tag("NIST key unwrap failed");
+   }
+
    R.resize(R.size() - static_cast<size_t>(padding));
    return R;
 }

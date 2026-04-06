@@ -123,10 +123,10 @@ void CBC_Encryption::finish_msg(secure_vector<uint8_t>& buffer, size_t offset) {
 
    const size_t BS = block_size();
 
-   const size_t output_bytes = padding().output_length(buffer.size(), BS);
+   const size_t output_bytes = offset + padding().output_length(buffer.size() - offset, BS);
    const size_t bytes_in_final_block = (buffer.size() - offset) % BS;
    buffer.resize(output_bytes);
-   padding().add_padding(buffer, bytes_in_final_block, BS);
+   padding().add_padding(std::span(buffer).subspan(offset), bytes_in_final_block, BS);
 
    BOTAN_ASSERT_EQUAL(buffer.size() % BS, offset % BS, "Padded to block boundary");
 

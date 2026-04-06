@@ -145,9 +145,12 @@ std::unique_ptr<CRL_Data> decode_crl_body(const std::vector<uint8_t>& body, cons
    // field in all CRLs". Obviously, not everyone complies...
    //
    // See https://github.com/randombit/botan/issues/4722 for more details.
-   tbs_crl.decode_optional(data->m_next_update, ASN1_Type::UtcTime, ASN1_Class::Universal);
-   if(!data->m_next_update.time_is_set()) {
-      tbs_crl.decode_optional(data->m_next_update, ASN1_Type::GeneralizedTime, ASN1_Class::Universal);
+   {
+      const auto& next_update = tbs_crl.peek_next_object();
+      if(next_update.is_a(ASN1_Type::UtcTime, ASN1_Class::Universal) ||
+         next_update.is_a(ASN1_Type::GeneralizedTime, ASN1_Class::Universal)) {
+         tbs_crl.decode(data->m_next_update);
+      }
    }
 
    BER_Object next = tbs_crl.get_next_object();

@@ -25,6 +25,10 @@ size_t hmac_drbg_security_level(size_t mac_output_length) {
    // SHA-256, SHA-512/256, SHA-384, SHA-512: >= 256 bits
    // NIST SP 800-90A only supports up to 256 bits though
 
+   if(mac_output_length < 20) {
+      throw Invalid_Argument(fmt("HMAC_DRBG MAC output length {} is too small", mac_output_length));
+   }
+
    if(mac_output_length < 32) {
       return (mac_output_length - 4) * 8;
    } else {

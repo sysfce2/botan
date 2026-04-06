@@ -71,7 +71,7 @@ class BOTAN_TEST_API OCB_Mode : public AEAD_Mode /* NOLINT(*-special-member-func
       std::unique_ptr<BlockCipher> m_cipher;  // NOLINT(*non-private-member-variables*)
       std::unique_ptr<L_computer> m_L;        // NOLINT(*non-private-member-variables*)
 
-      size_t m_block_index = 0;  // NOLINT(*non-private-member-variables*)
+      uint64_t m_block_index = 0;  // NOLINT(*non-private-member-variables*)
 
       secure_vector<uint8_t> m_checksum;  // NOLINT(*non-private-member-variables*)
       secure_vector<uint8_t> m_ad_hash;   // NOLINT(*non-private-member-variables*)

@@ -9,6 +9,7 @@
 #include <botan/internal/ccm.h>
 
 #include <botan/exceptn.h>
+#include <botan/mem_ops.h>
 #include <botan/internal/ct_utils.h>
 #include <botan/internal/fmt.h>
 #include <botan/internal/loadstor.h>
@@ -114,6 +115,15 @@ void CCM_Mode::start_msg(const uint8_t nonce[], size_t nonce_len) {
 size_t CCM_Mode::process_msg(uint8_t buf[], size_t sz) {
    BOTAN_STATE_CHECK(!m_nonce.empty());
    m_msg_buf.insert(m_msg_buf.end(), buf, buf + sz);
+
+   // CCM message length is limited to 2^(8*L) - 1 bytes
+   if(L() < 8) {
+      const uint64_t max_msg_len = (static_cast<uint64_t>(1) << (8 * L())) - 1;
+      if(m_msg_buf.size() > max_msg_len) {
+         throw Invalid_State("CCM message length exceeds the limit for L");
+      }
+   }
+
    return 0;  // no output until finished
 }
 
@@ -270,6 +280,7 @@ void CCM_Decryption::finish_msg(secure_vector<uint8_t>& buffer, size_t offset) {
    T ^= S0;
 
    if(!CT::is_equal(T.data(), buf_end, tag_size()).as_bool()) {
+      clear_mem(std::span{buffer}.subspan(offset, sz - tag_size()));
       throw Invalid_Authentication_Tag("CCM tag check failed");
    }
 

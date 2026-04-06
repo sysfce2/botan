@@ -137,6 +137,9 @@ int botan_kdf(const char* kdf_algo,
               size_t salt_len,
               const uint8_t label[],
               size_t label_len) {
+   if(kdf_algo == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
    return ffi_guard_thunk(__func__, [=]() -> int {
       auto kdf = Botan::KDF::create_or_throw(kdf_algo);
       kdf->kdf(out, out_len, secret, secret_len, salt, salt_len, label, label_len);
@@ -188,6 +191,9 @@ int botan_bcrypt_generate(
 }
 
 int botan_bcrypt_is_valid(const char* pass, const char* hash) {
+   if(any_null_pointers(pass, hash)) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
 #if defined(BOTAN_HAS_BCRYPT)
    return ffi_guard_thunk(__func__, [=]() -> int {
       return Botan::check_bcrypt(pass, hash) ? BOTAN_FFI_SUCCESS : BOTAN_FFI_INVALID_VERIFIER;

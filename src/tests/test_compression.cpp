@@ -169,6 +169,82 @@ class Compression_Tests final : public Test {
 
 BOTAN_REGISTER_TEST("compression", "compression_tests", Compression_Tests);
 
+class Concatenated_Compression_Tests final : public Test {
+   public:
+      std::vector<Test::Result> run() override {
+         std::vector<Test::Result> results;
+
+         for(const std::string algo : {"zlib", "deflate", "gzip", "bz2", "lzma"}) {
+            try {
+               Test::Result result(algo + " concatenated decompression");
+
+               auto c = Botan::Compression_Algorithm::create(algo);
+               auto d = Botan::Decompression_Algorithm::create(algo);
+
+               if(!c || !d) {
+                  result.note_missing(algo);
+                  continue;
+               }
+
+               const Botan::secure_vector<uint8_t> msg1 = {'H', 'e', 'l', 'l', 'o'};
+               const Botan::secure_vector<uint8_t> msg2 = {'W', 'o', 'r', 'l', 'd'};
+
+               // Compress two messages independently
+               auto compress = [&](const Botan::secure_vector<uint8_t>& msg) {
+                  Botan::secure_vector<uint8_t> buf = msg;
+                  c->start(6);
+                  c->update(buf, 0, false);
+                  Botan::secure_vector<uint8_t> final_bits;
+                  c->finish(final_bits);
+                  buf += final_bits;
+                  return buf;
+               };
+
+               const auto c1 = compress(msg1);
+               const auto c2 = compress(msg2);
+
+               // Concatenate the two compressed streams
+               Botan::secure_vector<uint8_t> concatenated = c1;
+               concatenated += c2;
+
+               // Decompress in a single update() call
+               Botan::secure_vector<uint8_t> decompressed = concatenated;
+               d->start();
+               d->update(decompressed);
+               Botan::secure_vector<uint8_t> final_outputs;
+               d->finish(final_outputs);
+               decompressed += final_outputs;
+
+               Botan::secure_vector<uint8_t> expected = msg1;
+               expected += msg2;
+               result.test_bin_eq("concatenated streams decompressed correctly", expected, decompressed);
+
+               // Decompress feeding one byte at a time
+               decompressed.clear();
+               d->start();
+               for(const auto byte : concatenated) {
+                  Botan::secure_vector<uint8_t> buf = {byte};
+                  d->update(buf);
+                  decompressed += buf;
+               }
+               final_outputs.clear();
+               d->finish(final_outputs);
+               decompressed += final_outputs;
+
+               result.test_bin_eq("byte-at-a-time concatenated streams", expected, decompressed);
+
+               results.emplace_back(result);
+            } catch(std::exception& e) {
+               results.emplace_back(Test::Result::Failure("testing " + algo, e.what()));
+            }
+         }
+
+         return results;
+      }
+};
+
+BOTAN_REGISTER_TEST("compression", "concat_compression_tests", Concatenated_Compression_Tests);
+
 class CompressionCreate_Tests final : public Test {
    public:
       std::vector<Test::Result> run() override {

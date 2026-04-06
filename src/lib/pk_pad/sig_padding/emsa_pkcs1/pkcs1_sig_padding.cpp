@@ -109,6 +109,11 @@ PKCS1v15_Raw_SignaturePaddingScheme::PKCS1v15_Raw_SignaturePaddingScheme(std::st
 
 void PKCS1v15_Raw_SignaturePaddingScheme::update(const uint8_t input[], size_t length) {
    m_message += std::make_pair(input, length);
+   // A sanity check to prevent someone from accidentally feeding an entire message
+   // into PKCS1v15(Raw), which would have to be buffered in memory
+   if(m_message.size() > 16384 / 8) {
+      throw Invalid_Argument("PKCS1v15(Raw) message too long");
+   }
 }
 
 std::vector<uint8_t> PKCS1v15_Raw_SignaturePaddingScheme::raw_data() {

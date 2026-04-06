@@ -113,7 +113,6 @@ tests_that_fail_unexpectedly = {
 
     'cve::cve-2024-0567': 'Possible path building bug',
     'rfc5280::root-and-intermediate-swapped': 'Possible path building bug',
-    'rfc5280::nc::permitted-self-issued': 'Possible path building bug',
 }
 
 def report_success(test_id, modified_result, type):

@@ -131,21 +131,24 @@ const EC_Scalar& EC_PrivateKey::_private_key() const {
 EC_PrivateKey::EC_PrivateKey(RandomNumberGenerator& rng,
                              const EC_Group& ec_group,
                              const BigInt& x,
-                             bool with_modular_inverse) {
+                             bool with_modular_inverse) :
+      m_with_modular_inverse(with_modular_inverse) {
    auto scalar = (x.is_zero()) ? EC_Scalar::random(ec_group, rng) : EC_Scalar::from_bigint(ec_group, x);
    m_private_key = std::make_shared<EC_PrivateKey_Data>(ec_group, std::move(scalar));
    m_public_key = m_private_key->public_key(rng, with_modular_inverse);
    m_domain_encoding = default_encoding_for(domain());
 }
 
-EC_PrivateKey::EC_PrivateKey(RandomNumberGenerator& rng, const EC_Group& ec_group, bool with_modular_inverse) {
+EC_PrivateKey::EC_PrivateKey(RandomNumberGenerator& rng, const EC_Group& ec_group, bool with_modular_inverse) :
+      m_with_modular_inverse(with_modular_inverse) {
    auto scalar = EC_Scalar::random(ec_group, rng);
    m_private_key = std::make_shared<EC_PrivateKey_Data>(ec_group, std::move(scalar));
    m_public_key = m_private_key->public_key(rng, with_modular_inverse);
    m_domain_encoding = default_encoding_for(domain());
 }
 
-EC_PrivateKey::EC_PrivateKey(const EC_Group& ec_group, const EC_Scalar& x, bool with_modular_inverse) {
+EC_PrivateKey::EC_PrivateKey(const EC_Group& ec_group, const EC_Scalar& x, bool with_modular_inverse) :
+      m_with_modular_inverse(with_modular_inverse) {
    m_private_key = std::make_shared<EC_PrivateKey_Data>(ec_group, x);
    m_public_key = m_private_key->public_key(with_modular_inverse);
    m_domain_encoding = default_encoding_for(domain());
@@ -172,7 +175,8 @@ secure_vector<uint8_t> EC_PrivateKey::private_key_bits() const {
 
 EC_PrivateKey::EC_PrivateKey(const AlgorithmIdentifier& alg_id,
                              std::span<const uint8_t> key_bits,
-                             bool with_modular_inverse) {
+                             bool with_modular_inverse) :
+      m_with_modular_inverse(with_modular_inverse) {
    const EC_Group group(alg_id.parameters());
 
    OID key_parameters;
@@ -204,7 +208,14 @@ bool EC_PrivateKey::check_key(RandomNumberGenerator& rng, bool strong) const {
       return false;
    }
 
-   return EC_PublicKey::check_key(rng, strong);
+   if(!EC_PublicKey::check_key(rng, strong)) {
+      return false;
+   }
+
+   // Verify that the public key is consistent with the private key.
+   // For ECKCDSA/ECGDSA the derivation is g^(x^-1), for all others it is g^x.
+   auto expected = m_private_key->public_key(m_with_modular_inverse);
+   return expected->public_key() == _public_ec_point();
 }
 
 const BigInt& EC_PublicKey::get_int_field(std::string_view field) const {

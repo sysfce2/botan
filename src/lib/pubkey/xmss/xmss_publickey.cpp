@@ -99,6 +99,14 @@ XMSS_PublicKey::XMSS_PublicKey(XMSS_Parameters::xmss_algorithm_t xmss_oid,
    BOTAN_ARG_CHECK(m_public_seed.size() == m_xmss_params.element_size(), "XMSS: unexpected byte length of public seed");
 }
 
+bool XMSS_PublicKey::check_key(RandomNumberGenerator& /*rng*/, bool /*strong*/) const {
+   // The public key consists of (OID, root hash, public seed). The OID is
+   // validated and the byte lengths of root and public_seed are verified
+   // against the parameter set during deserialization. These are opaque
+   // hash outputs with no further structural invariants to check.
+   return true;
+}
+
 std::unique_ptr<PK_Ops::Verification> XMSS_PublicKey::create_verification_op(std::string_view /*params*/,
                                                                              std::string_view provider) const {
    if(provider == "base" || provider.empty()) {

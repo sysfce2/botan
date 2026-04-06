@@ -40,6 +40,11 @@ bool CertID::is_id_for(const X509_Certificate& issuer, const X509_Certificate& s
       }
 
       const std::string hash_algo = m_hash_id.oid().to_formatted_string();
+
+      if(hash_algo != "SHA-1" && hash_algo != "SHA-256") {
+         return false;
+      }
+
       auto hash = HashFunction::create_or_throw(hash_algo);
 
       if(m_issuer_dn_hash != unlock(hash->process(subject.raw_issuer_dn()))) {
@@ -133,7 +138,7 @@ void decode_optional_list(BER_Decoder& ber, ASN1_Type tag, std::vector<X509_Cert
       return;
    }
 
-   BER_Decoder list(obj);
+   BER_Decoder list(obj, BER_Decoder::Limits::DER());
    auto seq = list.start_sequence();
    while(seq.more_items()) {
       output.push_back([&] {

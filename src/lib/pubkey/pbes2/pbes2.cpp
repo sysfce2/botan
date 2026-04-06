@@ -46,6 +46,10 @@ secure_vector<uint8_t> derive_key(std::string_view passphrase,
          .end_cons()
          .verify_end();
 
+      if(iterations == 0) {
+         throw Decoding_Error("PBE-PKCS5 v2.0: Iteration count must be positive");
+      }
+
       if(salt.size() < 8) {
          throw Decoding_Error("PBE-PKCS5 v2.0: Encoded salt is too small");
       }
@@ -82,6 +86,10 @@ secure_vector<uint8_t> derive_key(std::string_view passphrase,
          .decode_optional(key_length, ASN1_Type::Integer, ASN1_Class::Universal)
          .end_cons()
          .verify_end();
+
+      if(N == 0 || r == 0 || p == 0) {
+         throw Decoding_Error("PBE-PKCS5 v2.0: Invalid Scrypt parameters");
+      }
 
       if(key_length == 0) {
          key_length = default_key_size;

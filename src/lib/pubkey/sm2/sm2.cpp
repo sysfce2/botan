@@ -166,6 +166,11 @@ std::vector<uint8_t> SM2_Signature_Operation::sign(RandomNumberGenerator& rng) {
    const auto r = EC_Scalar::gk_x_mod_order(k, rng) + e;
    const auto s = (k - r * m_x) * m_da_inv;
 
+   // With overwhelming probability, a bug rather than actual zero r/s
+   if(r.is_zero() || s.is_zero()) {
+      throw Internal_Error("During SM2 signature generated zero r/s");
+   }
+
    return EC_Scalar::serialize_pair(r, s);
 }
 
