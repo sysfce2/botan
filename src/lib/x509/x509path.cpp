@@ -697,34 +697,35 @@ CertificatePathStatusCodes PKIX::check_ocsp_online(const std::vector<X509_Certif
    }
 
    for(size_t i = 0; i < to_ocsp; ++i) {
-      const X509_Certificate& subject = cert_path.at(i);
-      const X509_Certificate& issuer = cert_path.at(i + 1);
+      const auto& subject = cert_path.at(i);
+      const auto& issuer = cert_path.at(i + 1);
 
       if(subject.ocsp_responder().empty()) {
-         ocsp_response_futures.emplace_back(std::async(std::launch::deferred, [&]() -> std::optional<OCSP::Response> {
+         ocsp_response_futures.emplace_back(std::async(std::launch::deferred, []() -> std::optional<OCSP::Response> {
             return OCSP::Response(Certificate_Status_Code::OCSP_NO_REVOCATION_URL);
          }));
       } else {
-         ocsp_response_futures.emplace_back(std::async(std::launch::async, [&]() -> std::optional<OCSP::Response> {
-            const OCSP::Request req(issuer, BigInt::from_bytes(subject.serial_number()));
+         auto ocsp_url = subject.ocsp_responder();
+         auto ocsp_req = OCSP::Request(issuer, BigInt::from_bytes(subject.serial_number()));
+         ocsp_response_futures.emplace_back(
+            std::async(std::launch::async, [ocsp_url, ocsp_req, timeout]() -> std::optional<OCSP::Response> {
+               HTTP::Response http;
+               try {
+                  http = HTTP::POST_sync(ocsp_url,
+                                         "application/ocsp-request",
+                                         ocsp_req.BER_encode(),
+                                         /*redirects*/ 1,
+                                         timeout);
+               } catch(std::exception&) {
+                  // log e.what() ?
+               }
+               if(http.status_code() != 200) {
+                  return OCSP::Response(Certificate_Status_Code::OCSP_SERVER_NOT_AVAILABLE);
+               }
+               // Check the MIME type?
 
-            HTTP::Response http;
-            try {
-               http = HTTP::POST_sync(subject.ocsp_responder(),
-                                      "application/ocsp-request",
-                                      req.BER_encode(),
-                                      /*redirects*/ 1,
-                                      timeout);
-            } catch(std::exception&) {
-               // log e.what() ?
-            }
-            if(http.status_code() != 200) {
-               return OCSP::Response(Certificate_Status_Code::OCSP_SERVER_NOT_AVAILABLE);
-            }
-            // Check the MIME type?
-
-            return OCSP::Response(http.body());
-         }));
+               return OCSP::Response(http.body());
+            }));
       }
    }
 
@@ -754,9 +755,9 @@ CertificatePathStatusCodes PKIX::check_crl_online(const std::vector<X509_Certifi
    std::vector<std::optional<X509_CRL>> crls(cert_path.size());
 
    for(size_t i = 0; i != cert_path.size(); ++i) {
-      const std::optional<X509_Certificate>& cert = cert_path.at(i);
+      const auto& cert = cert_path.at(i);
       for(auto* certstore : certstores) {
-         crls[i] = certstore->find_crl_for(*cert);
+         crls[i] = certstore->find_crl_for(cert);
          if(crls[i].has_value()) {
             break;
          }
@@ -771,14 +772,15 @@ CertificatePathStatusCodes PKIX::check_crl_online(const std::vector<X509_Certifi
          so that indexes match up
          */
          future_crls.emplace_back(std::future<std::optional<X509_CRL>>());
-      } else if(cert->crl_distribution_point().empty()) {
+      } else if(cert.crl_distribution_point().empty()) {
          // Avoid creating a thread for this case
-         future_crls.emplace_back(std::async(std::launch::deferred, [&]() -> std::optional<X509_CRL> {
+         future_crls.emplace_back(std::async(std::launch::deferred, []() -> std::optional<X509_CRL> {
             throw Not_Implemented("No CRL distribution point for this certificate");
          }));
       } else {
-         future_crls.emplace_back(std::async(std::launch::async, [&]() -> std::optional<X509_CRL> {
-            auto http = HTTP::GET_sync(cert->crl_distribution_point(),
+         auto cdp = cert.crl_distribution_point();
+         future_crls.emplace_back(std::async(std::launch::async, [cdp, timeout]() -> std::optional<X509_CRL> {
+            auto http = HTTP::GET_sync(cdp,
                                        /*redirects*/ 1,
                                        timeout);
 
