@@ -172,8 +172,9 @@ class BSD_SocketUDP final : public OS::SocketUDP {
          }
 
          if(m_socket == invalid_socket()) {
-            throw System_Error(fmt("Connecting to {} for service {} failed with errno {}", hostname, service, errno),
-                               errno);
+            throw System_Error(
+               fmt("Connecting to {} for service {} failed with errno {}", hostname, service, last_socket_error()),
+               last_socket_error());
          }
       }
 
@@ -189,14 +190,21 @@ class BSD_SocketUDP final : public OS::SocketUDP {
       BSD_SocketUDP& operator=(BSD_SocketUDP&& other) = delete;
 
       void write(const uint8_t buf[], size_t len) override {
-         fd_set write_set;
-         FD_ZERO(&write_set);
-         FD_SET(m_socket, &write_set);
-
          size_t sent_so_far = 0;
          while(sent_so_far != len) {
+            fd_set write_set;
+            FD_ZERO(&write_set);
+            FD_SET(m_socket, &write_set);
+
             struct timeval timeout = make_timeout_tv();
             const int active = ::select(static_cast<int>(m_socket + 1), nullptr, &write_set, nullptr, &timeout);
+
+            if(active < 0) {
+               if(select_error_is_retryable()) {
+                  continue;
+               }
+               throw System_Error("Socket select failed", last_socket_error());
+            }
 
             if(active == 0) {
                throw System_Error("Timeout during socket write");
@@ -210,7 +218,7 @@ class BSD_SocketUDP final : public OS::SocketUDP {
                                                      reinterpret_cast<sockaddr*>(&sa),
                                                      salen);
             if(sent < 0) {
-               throw System_Error("Socket write failed", errno);
+               throw System_Error("Socket write failed", last_socket_error());
             } else {
                sent_so_far += static_cast<size_t>(sent);
             }
@@ -218,25 +226,34 @@ class BSD_SocketUDP final : public OS::SocketUDP {
       }
 
       size_t read(uint8_t buf[], size_t len) override {
-         fd_set read_set;
-         FD_ZERO(&read_set);
-         FD_SET(m_socket, &read_set);
+         for(;;) {
+            fd_set read_set;
+            FD_ZERO(&read_set);
+            FD_SET(m_socket, &read_set);
 
-         struct timeval timeout = make_timeout_tv();
-         const int active = ::select(static_cast<int>(m_socket + 1), &read_set, nullptr, nullptr, &timeout);
+            struct timeval timeout = make_timeout_tv();
+            const int active = ::select(static_cast<int>(m_socket + 1), &read_set, nullptr, nullptr, &timeout);
 
-         if(active == 0) {
-            throw System_Error("Timeout during socket read");
+            if(active < 0) {
+               if(select_error_is_retryable()) {
+                  continue;
+               }
+               throw System_Error("Socket select failed", last_socket_error());
+            }
+
+            if(active == 0) {
+               throw System_Error("Timeout during socket read");
+            }
+
+            const socket_op_ret_type got = ::recvfrom(
+               m_socket, cast_uint8_ptr_to_char(buf), static_cast<sendrecv_len_type>(len), 0, nullptr, nullptr);
+
+            if(got < 0) {
+               throw System_Error("Socket read failed", last_socket_error());
+            }
+
+            return static_cast<size_t>(got);
          }
-
-         const socket_op_ret_type got =
-            ::recvfrom(m_socket, cast_uint8_ptr_to_char(buf), static_cast<sendrecv_len_type>(len), 0, nullptr, nullptr);
-
-         if(got < 0) {
-            throw System_Error("Socket read failed", errno);
-         }
-
-         return static_cast<size_t>(got);
       }
 
    private:
@@ -249,9 +266,13 @@ class BSD_SocketUDP final : public OS::SocketUDP {
 
       static void close_socket(socket_type s) { ::closesocket(s); }
 
+      static int last_socket_error() { return ::WSAGetLastError(); }
+
       static std::string get_last_socket_error() { return std::to_string(::WSAGetLastError()); }
 
       static bool nonblocking_connect_in_progress() { return (::WSAGetLastError() == WSAEWOULDBLOCK); }
+
+      static bool select_error_is_retryable() { return (::WSAGetLastError() == WSAEINTR); }
 
       static void set_nonblocking(socket_type s) {
          u_long nonblocking = 1;
@@ -282,9 +303,13 @@ class BSD_SocketUDP final : public OS::SocketUDP {
 
       static void close_socket(socket_type s) { ::close(s); }
 
+      static int last_socket_error() { return errno; }
+
       static std::string get_last_socket_error() { return ::strerror(errno); }
 
       static bool nonblocking_connect_in_progress() { return (errno == EINPROGRESS); }
+
+      static bool select_error_is_retryable() { return (errno == EINTR); }
 
       static void set_nonblocking(socket_type s) {
          // NOLINTNEXTLINE(*-vararg)
