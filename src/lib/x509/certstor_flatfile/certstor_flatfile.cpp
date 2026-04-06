@@ -94,9 +94,13 @@ std::vector<X509_Certificate> Flatfile_Certificate_Store::find_all_certs(const X
 
    std::vector<X509_Certificate> found_certs;
    for(const auto& cert : certs) {
-      if(key_id.empty() || key_id == cert.subject_key_id()) {
-         found_certs.push_back(cert);
+      if(!key_id.empty()) {
+         const std::vector<uint8_t>& skid = cert.subject_key_id();
+         if(!skid.empty() && skid != key_id) {
+            continue;
+         }
       }
+      found_certs.push_back(cert);
    }
 
    return found_certs;
