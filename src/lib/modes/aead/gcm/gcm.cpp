@@ -48,6 +48,7 @@ void GCM_Mode::clear() {
 
 void GCM_Mode::reset() {
    m_ghash->reset_state();
+   zeroise(m_y0);
 }
 
 std::string GCM_Mode::name() const {

@@ -193,6 +193,8 @@ void OCB_Mode::reset() {
    zeroise(m_checksum);
    m_last_nonce.clear();
    m_stretch.clear();
+   zeroise(m_nonce_buf);
+   zeroise(m_offset);
 }
 
 bool OCB_Mode::valid_nonce_length(size_t length) const {
