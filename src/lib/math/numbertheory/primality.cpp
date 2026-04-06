@@ -159,13 +159,12 @@ bool passes_miller_rabin_test(const BigInt& n,
 
 bool is_miller_rabin_probable_prime(const BigInt& n,
                                     const Barrett_Reduction& mod_n,
+                                    const Montgomery_Params& monty_n,
                                     RandomNumberGenerator& rng,
                                     size_t test_iterations) {
    if(n < 3 || n.is_even()) {
       return false;
    }
-
-   const Montgomery_Params monty_n(n, mod_n);
 
    for(size_t i = 0; i != test_iterations; ++i) {
       const BigInt a = BigInt::random_integer(rng, BigInt::from_word(2), n);
