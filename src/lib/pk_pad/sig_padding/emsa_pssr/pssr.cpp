@@ -204,6 +204,10 @@ PSS_Raw::PSS_Raw(std::unique_ptr<HashFunction> hash, size_t salt_size) :
 */
 void PSS_Raw::update(const uint8_t input[], size_t length) {
    m_msg.insert(m_msg.end(), input, input + length);
+
+   if(m_msg.size() > m_hash->output_length()) {
+      throw Encoding_Error("PSS_Raw: Input length exceeded hash output");
+   }
 }
 
 /*
