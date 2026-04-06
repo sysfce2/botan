@@ -9,6 +9,7 @@
 #include <botan/internal/chacha20poly1305.h>
 
 #include <botan/exceptn.h>
+#include <botan/mem_ops.h>
 #include <botan/internal/ct_utils.h>
 #include <botan/internal/loadstor.h>
 
@@ -176,6 +177,7 @@ void ChaCha20Poly1305_Decryption::finish_msg(secure_vector<uint8_t>& buffer, siz
    m_nonce_len = 0;
 
    if(!CT::is_equal(mac, included_tag, tag_size()).as_bool()) {
+      clear_mem(std::span{buffer}.subspan(offset, remaining));
       throw Invalid_Authentication_Tag("ChaCha20Poly1305 tag check failed");
    }
    buffer.resize(offset + remaining);

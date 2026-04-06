@@ -191,6 +191,7 @@ void SIV_Decryption::finish_msg(secure_vector<uint8_t>& buffer, size_t offset) {
    const secure_vector<uint8_t> T = S2V(buffer.data() + offset, buffer.size() - offset - V.size());
 
    if(!CT::is_equal<uint8_t>(T, V).as_bool()) {
+      clear_mem(std::span{buffer}.subspan(offset, buffer.size() - offset - V.size()));
       throw Invalid_Authentication_Tag("SIV tag check failed");
    }
 

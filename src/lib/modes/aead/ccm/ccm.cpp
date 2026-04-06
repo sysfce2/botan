@@ -9,6 +9,7 @@
 #include <botan/internal/ccm.h>
 
 #include <botan/exceptn.h>
+#include <botan/mem_ops.h>
 #include <botan/internal/ct_utils.h>
 #include <botan/internal/fmt.h>
 #include <botan/internal/loadstor.h>
@@ -279,6 +280,7 @@ void CCM_Decryption::finish_msg(secure_vector<uint8_t>& buffer, size_t offset) {
    T ^= S0;
 
    if(!CT::is_equal(T.data(), buf_end, tag_size()).as_bool()) {
+      clear_mem(std::span{buffer}.subspan(offset, sz - tag_size()));
       throw Invalid_Authentication_Tag("CCM tag check failed");
    }
 

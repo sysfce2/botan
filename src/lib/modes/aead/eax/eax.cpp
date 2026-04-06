@@ -187,6 +187,7 @@ void EAX_Decryption::finish_msg(secure_vector<uint8_t>& buffer, size_t offset) {
    m_nonce_mac.clear();
 
    if(!accept_mac) {
+      clear_mem(std::span{buffer}.subspan(offset, remaining));
       throw Invalid_Authentication_Tag("EAX tag check failed");
    }
 }

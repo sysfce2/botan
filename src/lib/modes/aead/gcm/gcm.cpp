@@ -166,6 +166,7 @@ void GCM_Decryption::finish_msg(secure_vector<uint8_t>& buffer, size_t offset) {
    const uint8_t* included_tag = &buffer[remaining + offset];
 
    if(!CT::is_equal(mac.data(), included_tag, tag_size()).as_bool()) {
+      clear_mem(std::span{buffer}.subspan(offset, remaining));
       throw Invalid_Authentication_Tag("GCM tag check failed");
    }
 
