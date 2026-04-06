@@ -131,7 +131,7 @@ std::vector<X509_DN> Certificate_Store_In_SQL::all_subjects() const {
 
    while(stmt->step()) {
       auto blob = stmt->get_blob(0);
-      BER_Decoder dec(std::span<const uint8_t>{blob.first, blob.second});
+      BER_Decoder dec(std::span<const uint8_t>{blob.first, blob.second}, BER_Decoder::Limits::DER());
       X509_DN dn;
 
       dn.decode_from(dec);

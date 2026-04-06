@@ -157,7 +157,7 @@ class OID_Encoding_Tests : public Text_Based_Test {
          }
 
          try {
-            Botan::BER_Decoder dec(expected_der);
+            Botan::BER_Decoder dec(expected_der, Botan::BER_Decoder::Limits::DER());
             Botan::OID dec_oid;
             dec.decode(dec_oid);
             dec.verify_end();

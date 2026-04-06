@@ -1317,7 +1317,7 @@ class FFI_Cert_ExtKeyUsages_Test final : public FFI_Test {
    #if defined(BOTAN_HAS_X509)
 
 auto read_distinguished_name(std::span<const uint8_t> bytes) {
-   auto dec = Botan::BER_Decoder(bytes);
+   auto dec = Botan::BER_Decoder(bytes, Botan::BER_Decoder::Limits::DER());
    Botan::X509_DN dn;
    dn.decode_from(dec);
    return dn;

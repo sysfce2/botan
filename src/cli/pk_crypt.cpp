@@ -121,7 +121,8 @@ class PK_Decrypt final : public Command {
          try {
             Botan::DataSource_Stream input(get_arg("datafile"));
 
-            Botan::BER_Decoder(Botan::PEM_Code::decode_check_label(input, "PUBKEY ENCRYPTED MESSAGE"))
+            Botan::BER_Decoder(Botan::PEM_Code::decode_check_label(input, "PUBKEY ENCRYPTED MESSAGE"),
+                               Botan::BER_Decoder::Limits::DER())
                .start_sequence()
                .decode(pk_alg_id)
                .decode(encrypted_key, Botan::ASN1_Type::OctetString)
@@ -146,7 +147,7 @@ class PK_Decrypt final : public Command {
          }
 
          Botan::AlgorithmIdentifier oaep_hash_id;
-         Botan::BER_Decoder(pk_alg_id.parameters()).decode(oaep_hash_id);
+         Botan::BER_Decoder(pk_alg_id.parameters(), Botan::BER_Decoder::Limits::DER()).decode(oaep_hash_id);
 
          const std::string oaep_hash = oaep_hash_id.oid().human_name_or_empty();
 

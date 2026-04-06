@@ -106,7 +106,8 @@ Certificate_Request_12::Certificate_Request_12(const std::vector<uint8_t>& buf) 
    while(reader.has_remaining()) {
       std::vector<uint8_t> name_bits = reader.get_range_vector<uint8_t>(2, 0, 65535);
 
-      BER_Decoder decoder(name_bits);
+      // RFC 5246 7.4.4 mandates DER for the names
+      BER_Decoder decoder(name_bits, BER_Decoder::Limits::DER());
       X509_DN name;
       decoder.decode(name);
       m_names.emplace_back(name);

@@ -162,28 +162,37 @@ class DL_Group_Data final {
 };
 
 //static
-std::shared_ptr<DL_Group_Data> DL_Group::BER_decode_DL_group(const std::span<const uint8_t> data,
+std::shared_ptr<DL_Group_Data> DL_Group::DER_decode_DL_group(const std::span<const uint8_t> data,
                                                              DL_Group_Format format,
                                                              DL_Group_Source source) {
-   BER_Decoder decoder(data);
-   BER_Decoder ber = decoder.start_sequence();
+   BER_Decoder decoder(data, BER_Decoder::Limits::DER());
+   BER_Decoder inner = decoder.start_sequence();
 
    if(format == DL_Group_Format::ANSI_X9_57) {
+      /*
+      This format is p, q, g with no additional data following
+      */
       BigInt p;
       BigInt q;
       BigInt g;
-      ber.decode(p).decode(q).decode(g).verify_end();
+      inner.decode(p).decode(q).decode(g).verify_end();
       return DL_Group_Data::create(p, q, g, source);
    } else if(format == DL_Group_Format::ANSI_X9_42) {
+      /*
+      This format is p, g, q with optional cofactor and seed following
+      */
       BigInt p;
       BigInt g;
       BigInt q;
-      ber.decode(p).decode(g).decode(q).discard_remaining();
+      inner.decode(p).decode(g).decode(q).discard_remaining();
       return DL_Group_Data::create(p, q, g, source);
    } else if(format == DL_Group_Format::PKCS_3) {
+      /*
+      This format is p, g followed by optional privateValueLength (recommended exponent size)
+      */
       BigInt p;
       BigInt g;
-      ber.decode(p).decode(g).discard_remaining();
+      inner.decode(p).decode(g).discard_remaining();
       return DL_Group_Data::create(p, g, source);
    } else {
       throw Invalid_Argument("Unknown DL_Group encoding");
@@ -238,10 +247,10 @@ DL_Group::DL_Group(std::string_view str) {
    if(m_data == nullptr) {
       try {
          std::string label;
-         const std::vector<uint8_t> ber = unlock(PEM_Code::decode(str, label));
+         const std::vector<uint8_t> der = unlock(PEM_Code::decode(str, label));
          const DL_Group_Format format = pem_label_to_dl_format(label);
 
-         m_data = BER_decode_DL_group(ber, format, DL_Group_Source::ExternalSource);
+         m_data = DER_decode_DL_group(der, format, DL_Group_Source::ExternalSource);
       } catch(...) {}
    }
 
@@ -663,8 +672,8 @@ std::string DL_Group::PEM_encode(DL_Group_Format format) const {
    }
 }
 
-DL_Group::DL_Group(std::span<const uint8_t> ber, DL_Group_Format format) {
-   m_data = BER_decode_DL_group(ber, format, DL_Group_Source::ExternalSource);
+DL_Group::DL_Group(std::span<const uint8_t> der, DL_Group_Format format) {
+   m_data = DER_decode_DL_group(der, format, DL_Group_Source::ExternalSource);
 }
 
 }  // namespace Botan

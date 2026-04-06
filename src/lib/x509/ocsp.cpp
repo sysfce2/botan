@@ -138,7 +138,7 @@ void decode_optional_list(BER_Decoder& ber, ASN1_Type tag, std::vector<X509_Cert
       return;
    }
 
-   BER_Decoder list(obj);
+   BER_Decoder list(obj, BER_Decoder::Limits::DER());
    auto seq = list.start_sequence();
    while(seq.more_items()) {
       output.push_back([&] {
