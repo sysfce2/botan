@@ -18,7 +18,7 @@ https://keybase.io/jacklloyd and on most PGP keyservers.
 2026
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* 2026-03-31 (CVE-2026-35582): TLS 1.3 client authentication bypass
+* 2026-03-31 (CVE-2026-34582): TLS 1.3 client authentication bypass
 
   The TLS 1.3 implementation allowed ApplicationData records to be processed
   prior to the Finished message being received. A server which is attempting to
@@ -30,7 +30,7 @@ https://keybase.io/jacklloyd and on most PGP keyservers.
 
   Credit: Ben Smyth
 
-* 2026-03-31 (CVE-2026-35580): Certificate verification bypass due to trust anchor confusion
+* 2026-03-31 (CVE-2026-34580): Certificate verification bypass due to trust anchor confusion
 
   During path validation, an end-entity certificate whose DN collided with the
   DN of a trust anchor would be accepted immediately without further validation.
