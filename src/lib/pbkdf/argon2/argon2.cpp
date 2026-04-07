@@ -254,7 +254,7 @@ inline size_t mod_threads(uint32_t random, size_t threads) {
 // Reduce alpha modulo the lane length; always a multiple of 4 and commonly a power of 2
 inline size_t mod_lanes(uint64_t alpha, size_t lanes) {
    if(is_power_of_2(lanes)) {
-      return alpha & static_cast<uint64_t>(lanes - 1);
+      return static_cast<size_t>(alpha & static_cast<uint64_t>(lanes - 1));
    } else {
       return alpha % lanes;
    }
