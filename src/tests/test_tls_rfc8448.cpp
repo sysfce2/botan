@@ -773,15 +773,6 @@ class Server_Context : public TLS_Context {
       Botan::TLS::Server server;  // NOLINT(*-non-private-member-variable*)
 };
 
-void sort_extensions(Botan::TLS::Extensions& exts, const std::vector<Botan::TLS::Extension_Code>& expected_order) {
-   for(const auto ext_type : expected_order) {
-      auto ext = exts.take(ext_type);
-      if(ext != nullptr) {
-         exts.add(std::move(ext));
-      }
-   }
-}
-
 /**
  * Because of the nature of the RFC 8448 test data we need to produce bit-compatible
  * TLS messages. Hence we sort the generated TLS extensions exactly as expected.
@@ -790,34 +781,32 @@ void sort_rfc8448_extensions(Botan::TLS::Extensions& exts,
                              Botan::TLS::Connection_Side side,
                              Botan::TLS::Handshake_Type /*type*/ = Botan::TLS::Handshake_Type::ClientHello) {
    if(side == Botan::TLS::Connection_Side::Client) {
-      sort_extensions(exts,
-                      {
-                         Botan::TLS::Extension_Code::ServerNameIndication,
-                         Botan::TLS::Extension_Code::SafeRenegotiation,
-                         Botan::TLS::Extension_Code::SupportedGroups,
-                         Botan::TLS::Extension_Code::SessionTicket,
-                         Botan::TLS::Extension_Code::KeyShare,
-                         Botan::TLS::Extension_Code::EarlyData,
-                         Botan::TLS::Extension_Code::SupportedVersions,
-                         Botan::TLS::Extension_Code::SignatureAlgorithms,
-                         Botan::TLS::Extension_Code::Cookie,
-                         Botan::TLS::Extension_Code::PskKeyExchangeModes,
-                         Botan::TLS::Extension_Code::RecordSizeLimit,
-                         Padding::static_type(),
-                         Botan::TLS::Extension_Code::PresharedKey,
-                      });
+      exts.reorder({
+         Botan::TLS::Extension_Code::ServerNameIndication,
+         Botan::TLS::Extension_Code::SafeRenegotiation,
+         Botan::TLS::Extension_Code::SupportedGroups,
+         Botan::TLS::Extension_Code::SessionTicket,
+         Botan::TLS::Extension_Code::KeyShare,
+         Botan::TLS::Extension_Code::EarlyData,
+         Botan::TLS::Extension_Code::SupportedVersions,
+         Botan::TLS::Extension_Code::SignatureAlgorithms,
+         Botan::TLS::Extension_Code::Cookie,
+         Botan::TLS::Extension_Code::PskKeyExchangeModes,
+         Botan::TLS::Extension_Code::RecordSizeLimit,
+         Padding::static_type(),
+         Botan::TLS::Extension_Code::PresharedKey,
+      });
    } else {
-      sort_extensions(exts,
-                      {
-                         Botan::TLS::Extension_Code::SupportedGroups,
-                         Botan::TLS::Extension_Code::KeyShare,
-                         Botan::TLS::Extension_Code::Cookie,
-                         Botan::TLS::Extension_Code::SupportedVersions,
-                         Botan::TLS::Extension_Code::SignatureAlgorithms,
-                         Botan::TLS::Extension_Code::RecordSizeLimit,
-                         Botan::TLS::Extension_Code::ServerNameIndication,
-                         Botan::TLS::Extension_Code::EarlyData,
-                      });
+      exts.reorder({
+         Botan::TLS::Extension_Code::SupportedGroups,
+         Botan::TLS::Extension_Code::KeyShare,
+         Botan::TLS::Extension_Code::Cookie,
+         Botan::TLS::Extension_Code::SupportedVersions,
+         Botan::TLS::Extension_Code::SignatureAlgorithms,
+         Botan::TLS::Extension_Code::RecordSizeLimit,
+         Botan::TLS::Extension_Code::ServerNameIndication,
+         Botan::TLS::Extension_Code::EarlyData,
+      });
    }
 }
 
@@ -1539,17 +1528,16 @@ class Test_TLS_RFC8448_Client : public Test_TLS_RFC8448 {
             // This is the order of extensions when we first introduced the PSK
             // implementation and generated the transcript. To stay compatible
             // with the now hard-coded transcript, we pin the extension order.
-            sort_extensions(exts,
-                            {
-                               Botan::TLS::Extension_Code::ServerNameIndication,
-                               Botan::TLS::Extension_Code::SupportedGroups,
-                               Botan::TLS::Extension_Code::KeyShare,
-                               Botan::TLS::Extension_Code::SupportedVersions,
-                               Botan::TLS::Extension_Code::SignatureAlgorithms,
-                               Botan::TLS::Extension_Code::PskKeyExchangeModes,
-                               Botan::TLS::Extension_Code::RecordSizeLimit,
-                               Botan::TLS::Extension_Code::PresharedKey,
-                            });
+            exts.reorder({
+               Botan::TLS::Extension_Code::ServerNameIndication,
+               Botan::TLS::Extension_Code::SupportedGroups,
+               Botan::TLS::Extension_Code::KeyShare,
+               Botan::TLS::Extension_Code::SupportedVersions,
+               Botan::TLS::Extension_Code::SignatureAlgorithms,
+               Botan::TLS::Extension_Code::PskKeyExchangeModes,
+               Botan::TLS::Extension_Code::RecordSizeLimit,
+               Botan::TLS::Extension_Code::PresharedKey,
+            });
          };
 
          std::unique_ptr<Client_Context> ctx;
@@ -1676,18 +1664,17 @@ class Test_TLS_RFC8448_Client : public Test_TLS_RFC8448 {
             // public key authentication implementation and generated the transcript.
             // To stay compatible with the now hard-coded transcript, we pin the
             // extension order.
-            sort_extensions(exts,
-                            {
-                               Botan::TLS::Extension_Code::ServerNameIndication,
-                               Botan::TLS::Extension_Code::SupportedGroups,
-                               Botan::TLS::Extension_Code::KeyShare,
-                               Botan::TLS::Extension_Code::SupportedVersions,
-                               Botan::TLS::Extension_Code::SignatureAlgorithms,
-                               Botan::TLS::Extension_Code::PskKeyExchangeModes,
-                               Botan::TLS::Extension_Code::RecordSizeLimit,
-                               Botan::TLS::Extension_Code::ClientCertificateType,
-                               Botan::TLS::Extension_Code::ServerCertificateType,
-                            });
+            exts.reorder({
+               Botan::TLS::Extension_Code::ServerNameIndication,
+               Botan::TLS::Extension_Code::SupportedGroups,
+               Botan::TLS::Extension_Code::KeyShare,
+               Botan::TLS::Extension_Code::SupportedVersions,
+               Botan::TLS::Extension_Code::SignatureAlgorithms,
+               Botan::TLS::Extension_Code::PskKeyExchangeModes,
+               Botan::TLS::Extension_Code::RecordSizeLimit,
+               Botan::TLS::Extension_Code::ClientCertificateType,
+               Botan::TLS::Extension_Code::ServerCertificateType,
+            });
          };
 
          std::unique_ptr<Client_Context> ctx;
@@ -2473,19 +2460,17 @@ class Test_TLS_RFC8448_Server : public Test_TLS_RFC8448 {
                         // implementation and generated the transcript. To stay compatible
                         // with the now hard-coded transcript, we pin the extension order.
                         if(type == Botan::TLS::Handshake_Type::EncryptedExtensions) {
-                           sort_extensions(exts,
-                                           {
-                                              Botan::TLS::Extension_Code::SupportedGroups,
-                                              Botan::TLS::Extension_Code::RecordSizeLimit,
-                                              Botan::TLS::Extension_Code::ServerNameIndication,
-                                           });
+                           exts.reorder({
+                              Botan::TLS::Extension_Code::SupportedGroups,
+                              Botan::TLS::Extension_Code::RecordSizeLimit,
+                              Botan::TLS::Extension_Code::ServerNameIndication,
+                           });
                         } else if(type == Botan::TLS::Handshake_Type::ServerHello) {
-                           sort_extensions(exts,
-                                           {
-                                              Botan::TLS::Extension_Code::SupportedVersions,
-                                              Botan::TLS::Extension_Code::KeyShare,
-                                              Botan::TLS::Extension_Code::PresharedKey,
-                                           });
+                           exts.reorder({
+                              Botan::TLS::Extension_Code::SupportedVersions,
+                              Botan::TLS::Extension_Code::KeyShare,
+                              Botan::TLS::Extension_Code::PresharedKey,
+                           });
                         }
                      };
 
@@ -2613,20 +2598,18 @@ class Test_TLS_RFC8448_Server : public Test_TLS_RFC8448 {
                // To stay compatible with the now hard-coded transcript, we pin the
                // extension order.
                if(type == Botan::TLS::Handshake_Type::EncryptedExtensions) {
-                  sort_extensions(exts,
-                                  {
-                                     Botan::TLS::Extension_Code::ClientCertificateType,
-                                     Botan::TLS::Extension_Code::ServerCertificateType,
-                                     Botan::TLS::Extension_Code::SupportedGroups,
-                                     Botan::TLS::Extension_Code::RecordSizeLimit,
-                                     Botan::TLS::Extension_Code::ServerNameIndication,
-                                  });
+                  exts.reorder({
+                     Botan::TLS::Extension_Code::ClientCertificateType,
+                     Botan::TLS::Extension_Code::ServerCertificateType,
+                     Botan::TLS::Extension_Code::SupportedGroups,
+                     Botan::TLS::Extension_Code::RecordSizeLimit,
+                     Botan::TLS::Extension_Code::ServerNameIndication,
+                  });
                } else if(type == Botan::TLS::Handshake_Type::ServerHello) {
-                  sort_extensions(exts,
-                                  {
-                                     Botan::TLS::Extension_Code::KeyShare,
-                                     Botan::TLS::Extension_Code::SupportedVersions,
-                                  });
+                  exts.reorder({
+                     Botan::TLS::Extension_Code::KeyShare,
+                     Botan::TLS::Extension_Code::SupportedVersions,
+                  });
                }
             };
 

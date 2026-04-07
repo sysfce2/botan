@@ -277,8 +277,19 @@ class BOTAN_PUBLIC_API(2, 0) Policy /* NOLINT(*-special-member-functions) */ {
       * to reconnect after disabling ephemeral Diffie-Hellman.
       *
       * Default: 2048 bits
+      *
+      * This only affects the TLS 1.2 client
       */
       virtual size_t minimum_dh_group_size() const;
+
+      /**
+      * Largest DH group size (in bits) the client will accept from a server.
+      *
+      * Default: 8192 bits (the largest FFDHE group)
+      *
+      * This only affects the TLS 1.2 client
+      */
+      virtual size_t maximum_dh_group_size() const;
 
       /**
       * For ECDSA authenticated ciphersuites, the smallest key size the
@@ -515,10 +526,33 @@ class BOTAN_PUBLIC_API(2, 0) Policy /* NOLINT(*-special-member-functions) */ {
       virtual size_t dtls_maximum_timeout() const;
 
       /**
+      * @return the maximum size of a single handshake message, in bytes.
+      * Messages larger than this will be rejected prior to processing.
+      * Return 0 to disable this and accept any size.
+      */
+      virtual size_t maximum_handshake_message_size() const;
+
+      /**
       * @return the maximum size of the certificate chain, in bytes.
       * Return 0 to disable this and accept any size.
       */
       virtual size_t maximum_certificate_chain_size() const;
+
+      /**
+      * @return the minimum number of milliseconds that must elapse between
+      * two received KeyUpdate messages. If a KeyUpdate arrives sooner than
+      * this interval after the previous one, the connection is terminated.
+      * Return 0 to disable rate limiting.
+      * @note Only applies to TLS 1.3 connections.
+      */
+      virtual uint64_t minimum_key_update_interval_ms() const;
+
+      /**
+      * @return the maximum number of NewSessionTicket messages to accept
+      * from a server on a single connection. Return 0 to disable the limit.
+      * @note Only applies to TLS 1.3 client connections.
+      */
+      virtual size_t maximum_session_tickets_per_connection() const;
 
       /**
       * @note Has no effect for TLS 1.3 connections.

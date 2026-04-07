@@ -111,6 +111,8 @@ class Client_Impl_13 : public Channel_Impl_13 {
 
       std::optional<Session_with_Handle> m_resumed_session;
       std::optional<std::string> m_psk_identity;
+
+      size_t m_session_tickets_received = 0;
 };
 
 }  // namespace TLS

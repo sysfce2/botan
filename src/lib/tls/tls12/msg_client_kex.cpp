@@ -77,6 +77,13 @@ Client_Key_Exchange::Client_Key_Exchange(Handshake_IO& io,
             throw Decoding_Error("Bad params size for DH key exchange");
          }
 
+         if(modulus.bits() < policy.minimum_dh_group_size()) {
+            throw TLS_Exception(Alert::InsufficientSecurity, "DH prime too small for policy");
+         }
+         if(modulus.bits() > policy.maximum_dh_group_size()) {
+            throw TLS_Exception(Alert::IllegalParameter, "DH prime too large for policy");
+         }
+
          DL_Group group(modulus, generator);
 
          if(!group.verify_group(rng, false)) {

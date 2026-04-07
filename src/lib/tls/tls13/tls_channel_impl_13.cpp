@@ -12,10 +12,12 @@
 #include <botan/tls_callbacks.h>
 #include <botan/tls_exceptn.h>
 #include <botan/tls_messages_13.h>
+#include <botan/tls_policy.h>
 #include <botan/internal/concat_util.h>
 #include <botan/internal/tls_cipher_state.h>
 
 #include <array>
+#include <chrono>
 
 namespace {
 bool is_user_canceled_alert(const Botan::TLS::Alert& alert) {
@@ -200,11 +202,20 @@ void Channel_Impl_13::handle(const Key_Update& key_update) {
       throw Unexpected_Message("Unexpected additional post-handshake message data found in record");
    }
 
+   if(const uint64_t min_interval = policy().minimum_key_update_interval_ms(); min_interval > 0) {
+      const uint64_t now =
+         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+            .count();
+
+      if(m_last_key_update_ms != 0 && (now - m_last_key_update_ms) < min_interval) {
+         throw TLS_Exception(Alert::UnexpectedMessage, "Peer is requesting KeyUpdates too frequently");
+      }
+
+      m_last_key_update_ms = now;
+   }
+
    BOTAN_ASSERT_NONNULL(m_cipher_state);
    m_cipher_state->update_read_keys(*this);
-
-   // TODO: introduce some kind of rate limit of key updates, otherwise we
-   //       might be forced into an endless loop of key updates.
 
    // RFC 8446 4.6.3
    //    If the request_update field is set to "update_requested", then the

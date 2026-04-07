@@ -245,6 +245,10 @@ size_t Policy::minimum_dh_group_size() const {
    return 2048;
 }
 
+size_t Policy::maximum_dh_group_size() const {
+   return 8192;
+}
+
 size_t Policy::minimum_ecdsa_group_size() const {
    // Here we are at the mercy of whatever the CA signed, but most certs should be 256 bit by now
    return 256;
@@ -459,8 +463,20 @@ bool Policy::allow_dtls_epoch0_restart() const {
    return false;
 }
 
+size_t Policy::maximum_handshake_message_size() const {
+   return 65536;
+}
+
 size_t Policy::maximum_certificate_chain_size() const {
-   return 0;
+   return 65536;
+}
+
+uint64_t Policy::minimum_key_update_interval_ms() const {
+   return 1000;
+}
+
+size_t Policy::maximum_session_tickets_per_connection() const {
+   return 10;
 }
 
 // 1 second initial timeout, 60 second max - see RFC 6347 sec 4.2.4.1

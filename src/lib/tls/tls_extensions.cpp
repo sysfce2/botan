@@ -19,6 +19,7 @@
 #include <botan/internal/stl_util.h>
 #include <botan/internal/tls_reader.h>
 #include <algorithm>
+#include <unordered_set>
 
 #if defined(BOTAN_HAS_TLS_13)
    #include <botan/tls_extensions_13.h>
@@ -133,20 +134,28 @@ std::unique_ptr<Extension> make_extension(TLS_Data_Reader& reader,
 
 Extensions::~Extensions() = default;
 
-Extension* Extensions::get(Extension_Code type) const {
-   const auto i =
-      std::find_if(m_extensions.cbegin(), m_extensions.cend(), [type](const auto& ext) { return ext->type() == type; });
+bool Extensions::has(Extension_Code type) const {
+   return m_extensions.contains(type);
+}
 
-   return (i != m_extensions.end()) ? i->get() : nullptr;
+Extension* Extensions::get(Extension_Code type) const {
+   const auto i = m_extensions.find(type);
+
+   if(i == m_extensions.end()) {
+      return nullptr;
+   } else {
+      return i->second.get();
+   }
 }
 
 void Extensions::add(std::unique_ptr<Extension> extn) {
-   if(has(extn->type())) {
-      throw Invalid_Argument("cannot add the same extension twice: " +
-                             std::to_string(static_cast<uint16_t>(extn->type())));
+   const auto type = extn->type();
+   if(has(type)) {
+      throw Invalid_Argument("cannot add the same extension twice: " + std::to_string(static_cast<uint16_t>(type)));
    }
 
-   m_extensions.emplace_back(extn.release());
+   m_extension_codes.push_back(type);
+   m_extensions.emplace(type, std::move(extn));
 }
 
 void Extensions::deserialize(TLS_Data_Reader& reader, const Connection_Side from, const Handshake_Type message_type) {
@@ -170,6 +179,7 @@ void Extensions::deserialize(TLS_Data_Reader& reader, const Connection_Side from
          // TODO offer a function on reader that returns a byte range as a reference
          // to avoid this copy of the extension data
          const std::vector<uint8_t> extn_data = reader.get_fixed<uint8_t>(extension_size);
+         m_raw_extension_data[type] = extn_data;
          TLS_Data_Reader extn_reader("Extension", extn_data);
          this->add(make_extension(extn_reader, type, from, message_type));
          extn_reader.assert_done();
@@ -200,28 +210,31 @@ bool Extensions::contains_other_than(const std::set<Extension_Code>& allowed_ext
    return !diff.empty();
 }
 
-std::unique_ptr<Extension> Extensions::take(Extension_Code type) {
-   const auto i =
-      std::find_if(m_extensions.begin(), m_extensions.end(), [type](const auto& ext) { return ext->type() == type; });
+bool Extensions::remove_extension(Extension_Code type) {
+   auto i = m_extensions.find(type);
 
-   std::unique_ptr<Extension> result;
-   if(i != m_extensions.end()) {
-      std::swap(result, *i);
+   if(i == m_extensions.end()) {
+      return false;
+   } else {
       m_extensions.erase(i);
+      std::erase(m_extension_codes, type);
+      m_raw_extension_data.erase(type);
+      return true;
    }
-
-   return result;
 }
 
 std::vector<uint8_t> Extensions::serialize(Connection_Side whoami) const {
    std::vector<uint8_t> buf(2);  // 2 bytes for length field
 
-   for(const auto& extn : m_extensions) {
+   // Serialize in the order extensions were added, which matters for TLS 1.3
+   for(const auto extn_type : m_extension_codes) {
+      const auto& extn = m_extensions.at(extn_type);
+
       if(extn->empty()) {
          continue;
       }
 
-      const uint16_t extn_code = static_cast<uint16_t>(extn->type());
+      const uint16_t extn_code = static_cast<uint16_t>(extn_type);
 
       const std::vector<uint8_t> extn_val = extn->serialize(whoami);
 
@@ -249,11 +262,33 @@ std::vector<uint8_t> Extensions::serialize(Connection_Side whoami) const {
 
 std::set<Extension_Code> Extensions::extension_types() const {
    std::set<Extension_Code> offers;
-   std::transform(
-      m_extensions.cbegin(), m_extensions.cend(), std::inserter(offers, offers.begin()), [](const auto& ext) {
-         return ext->type();
-      });
+   for(const auto& [extn_type, extn] : m_extensions) {
+      offers.insert(extn_type);
+   }
    return offers;
+}
+
+void Extensions::reorder(const std::vector<Extension_Code>& order) {
+   const std::set<Extension_Code> in_order(order.begin(), order.end());
+
+   std::vector<Extension_Code> new_codes;
+   new_codes.reserve(m_extension_codes.size());
+
+   // First: extensions not mentioned in the order (preserving their relative order)
+   for(auto code : m_extension_codes) {
+      if(!in_order.contains(code)) {
+         new_codes.push_back(code);
+      }
+   }
+
+   // Then: extensions in the specified order
+   for(auto code : order) {
+      if(m_extensions.contains(code)) {
+         new_codes.push_back(code);
+      }
+   }
+
+   m_extension_codes = std::move(new_codes);
 }
 
 Unknown_Extension::Unknown_Extension(Extension_Code type, TLS_Data_Reader& reader, uint16_t extension_size) :
@@ -585,10 +620,11 @@ Supported_Groups::Supported_Groups(TLS_Data_Reader& reader, uint16_t extension_s
 
    const size_t elems = len / 2;
 
+   std::unordered_set<uint16_t> seen;
    for(size_t i = 0; i != elems; ++i) {
       const auto group = static_cast<Group_Params>(reader.get_uint16_t());
       // Note: RFC 8446 does not explicitly enforce that groups must be unique.
-      if(!value_exists(m_groups, group)) {
+      if(seen.insert(group.wire_code()).second) {
          m_groups.push_back(group);
       }
    }

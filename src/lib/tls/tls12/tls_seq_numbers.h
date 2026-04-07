@@ -10,6 +10,7 @@
 
 #include <botan/assert.h>
 #include <botan/exceptn.h>
+#include <limits>
 #include <map>
 
 namespace Botan::TLS {
@@ -58,13 +59,23 @@ class Stream_Sequence_Numbers final : public Connection_Sequence_Numbers {
 
       uint16_t current_write_epoch() const override { return m_write_epoch; }
 
-      uint64_t next_write_sequence(uint16_t /*epoch*/) override { return m_write_seq_no++; }
+      uint64_t next_write_sequence(uint16_t /*epoch*/) override {
+         if(m_write_seq_no == std::numeric_limits<uint64_t>::max()) {
+            throw Invalid_State("TLS 1.2 write sequence number overflow");
+         }
+         return m_write_seq_no++;
+      }
 
       uint64_t next_read_sequence() override { return m_read_seq_no; }
 
       bool already_seen(uint64_t /*seq*/) const override { return false; }
 
-      void read_accept(uint64_t /*seq*/) override { m_read_seq_no++; }
+      void read_accept(uint64_t /*seq*/) override {
+         if(m_read_seq_no == std::numeric_limits<uint64_t>::max()) {
+            throw Invalid_State("TLS 1.2 read sequence number overflow");
+         }
+         m_read_seq_no++;
+      }
 
    private:
       uint64_t m_write_seq_no;
@@ -100,6 +111,9 @@ class Datagram_Sequence_Numbers final : public Connection_Sequence_Numbers {
       uint64_t next_write_sequence(uint16_t epoch) override {
          auto i = m_write_seqs.find(epoch);
          BOTAN_ASSERT(i != m_write_seqs.end(), "Found epoch");
+         if(i->second > 0x0000FFFFFFFFFFFF) {
+            throw Invalid_State("DTLS write sequence number overflow");
+         }
          return (static_cast<uint64_t>(epoch) << 48) | i->second++;
       }
 

@@ -338,6 +338,8 @@ class Channel_Impl_13 : public Channel_Impl,
       bool m_opportunistic_key_update;
       bool m_first_message_sent;
       bool m_first_message_received;
+
+      uint64_t m_last_key_update_ms = 0;
 };
 }  // namespace Botan::TLS
 

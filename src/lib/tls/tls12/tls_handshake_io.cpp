@@ -10,6 +10,7 @@
 #include <botan/exceptn.h>
 #include <botan/tls_exceptn.h>
 #include <botan/tls_handshake_msg.h>
+#include <botan/internal/fmt.h>
 #include <botan/internal/loadstor.h>
 #include <botan/internal/tls_record.h>
 #include <botan/internal/tls_seq_numbers.h>
@@ -21,6 +22,18 @@ namespace {
 
 inline size_t load_be24(const uint8_t q[3]) {
    return make_uint32(0, q[0], q[1], q[2]);
+}
+
+// Reject handshake type values that are internal sentinels, not wire values
+void verify_is_expected_wire_handshake_type(Handshake_Type type) {
+   switch(type) {
+      case Handshake_Type::HelloRetryRequest:
+      case Handshake_Type::HandshakeCCS:
+      case Handshake_Type::None:
+         throw TLS_Exception(Alert::UnexpectedMessage, "Invalid handshake message type");
+      default:
+         break;
+   }
 }
 
 void store_be24(uint8_t out[3], size_t val) {
@@ -60,13 +73,10 @@ void Stream_Handshake_IO::add_record(const uint8_t record[],
    }
 }
 
-std::pair<Handshake_Type, std::vector<uint8_t>> Stream_Handshake_IO::get_next_record(bool expecting_ccs) {
+std::pair<Handshake_Type, std::vector<uint8_t>> Stream_Handshake_IO::get_next_record(bool expecting_ccs,
+                                                                                     size_t max_message_size) {
    if(m_queue.size() >= 4) {
       const Handshake_Type type = static_cast<Handshake_Type>(m_queue[0]);
-
-      if(type == Handshake_Type::None) {
-         throw Decoding_Error("Invalid handshake message type");
-      }
 
       const size_t rec_length = make_uint32(0, m_queue[1], m_queue[2], m_queue[3]);
 
@@ -78,6 +88,14 @@ std::pair<Handshake_Type, std::vector<uint8_t>> Stream_Handshake_IO::get_next_re
          const bool is_ccs = (type == Handshake_Type::HandshakeCCS && rec_length == 0);
          if(!is_ccs) {
             throw TLS_Exception(Alert::UnexpectedMessage, "Expected ChangeCipherSpec but got a handshake message");
+         }
+      } else {
+         verify_is_expected_wire_handshake_type(type);
+
+         if(max_message_size > 0 && rec_length > max_message_size) {
+            throw TLS_Exception(
+               Alert::HandshakeFailure,
+               Botan::fmt("Handshake message is {} bytes, policy maximum is {}", rec_length, max_message_size));
          }
       }
 
@@ -207,7 +225,17 @@ void Datagram_Handshake_IO::add_record(const uint8_t record[],
       }
 
       const Handshake_Type msg_type = static_cast<Handshake_Type>(record[0]);
+
+      verify_is_expected_wire_handshake_type(msg_type);
+
       const size_t msg_len = load_be24(&record[1]);
+
+      if(m_max_handshake_msg_size > 0 && msg_len > m_max_handshake_msg_size) {
+         throw TLS_Exception(
+            Alert::HandshakeFailure,
+            Botan::fmt("Handshake message is {} bytes, policy maximum is {}", msg_len, m_max_handshake_msg_size));
+      }
+
       const uint16_t message_seq = load_be<uint16_t>(&record[4], 0);
       const size_t fragment_offset = load_be24(&record[6]);
       const size_t fragment_length = load_be24(&record[9]);
@@ -230,7 +258,8 @@ void Datagram_Handshake_IO::add_record(const uint8_t record[],
    }
 }
 
-std::pair<Handshake_Type, std::vector<uint8_t>> Datagram_Handshake_IO::get_next_record(bool expecting_ccs) {
+std::pair<Handshake_Type, std::vector<uint8_t>> Datagram_Handshake_IO::get_next_record(bool expecting_ccs,
+                                                                                       size_t /*max_message_size*/) {
    // Expecting a message means the last flight is concluded
    if(!m_flights.rbegin()->empty()) {
       m_flights.push_back(std::vector<uint16_t>());
@@ -326,8 +355,8 @@ std::pair<Handshake_Type, std::vector<uint8_t>> Datagram_Handshake_IO::Handshake
 
 std::vector<uint8_t> Datagram_Handshake_IO::format_fragment(const uint8_t fragment[],
                                                             size_t frag_len,
-                                                            uint16_t frag_offset,
-                                                            uint16_t msg_len,
+                                                            uint32_t frag_offset,
+                                                            uint32_t msg_len,
                                                             Handshake_Type type,
                                                             uint16_t msg_sequence) const {
    std::vector<uint8_t> send_buf(12 + frag_len);
@@ -351,7 +380,7 @@ std::vector<uint8_t> Datagram_Handshake_IO::format_fragment(const uint8_t fragme
 std::vector<uint8_t> Datagram_Handshake_IO::format_w_seq(const std::vector<uint8_t>& msg,
                                                          Handshake_Type type,
                                                          uint16_t msg_sequence) const {
-   return format_fragment(msg.data(), msg.size(), 0, static_cast<uint16_t>(msg.size()), type, msg_sequence);
+   return format_fragment(msg.data(), msg.size(), 0, static_cast<uint32_t>(msg.size()), type, msg_sequence);
 }
 
 std::vector<uint8_t> Datagram_Handshake_IO::format(const std::vector<uint8_t>& msg, Handshake_Type type) const {
@@ -421,8 +450,8 @@ std::vector<uint8_t> Datagram_Handshake_IO::send_message(uint16_t msg_seq,
 
          const std::vector<uint8_t> frag = format_fragment(&msg_bits[frag_offset],
                                                            frag_len,
-                                                           static_cast<uint16_t>(frag_offset),
-                                                           static_cast<uint16_t>(msg_bits.size()),
+                                                           static_cast<uint32_t>(frag_offset),
+                                                           static_cast<uint32_t>(msg_bits.size()),
                                                            msg_type,
                                                            msg_seq);
 

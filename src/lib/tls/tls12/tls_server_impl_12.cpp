@@ -187,6 +187,10 @@ uint16_t choose_ciphersuite(const Policy& policy,
                continue;
             }
 
+            if(!value_exists(allowed, scheme)) {
+               continue;
+            }
+
             if(scheme.algorithm_name() == suite->sig_algo() &&
                policy.allowed_signature_hash(scheme.hash_function_name())) {
                we_support_some_hash_by_client = true;
