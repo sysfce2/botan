@@ -50,7 +50,7 @@ class Client_PSK {
             Client_PSK(PskIdentity(PresharedKeyID(psk.identity())),
                        psk.prf_algo(),
                        psk.extract_master_secret(),
-                       Cipher_State::PSK_Type::External) {}
+                       psk.is_imported() ? Cipher_State::PSK_Type::Imported : Cipher_State::PSK_Type::External) {}
 
       Client_PSK(PskIdentity id, std::vector<uint8_t> bndr) :
             m_identity(std::move(id)), m_binder(std::move(bndr)), m_is_resumption(false) {}

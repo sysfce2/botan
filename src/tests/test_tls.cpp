@@ -13,6 +13,7 @@
 
    #include <botan/mem_ops.h>
    #include <botan/tls_alert.h>
+   #include <botan/tls_external_psk.h>
    #include <botan/tls_policy.h>
    #include <botan/tls_session.h>
    #include <botan/tls_signature_scheme.h>
@@ -31,6 +32,9 @@
       #include <botan/internal/tls_null.h>
    #endif
 
+   #if defined(BOTAN_HAS_TLS_13)
+      #include <botan/tls_psk_13.h>
+   #endif
 #endif
 
 namespace Botan_Tests {
@@ -700,6 +704,37 @@ class Test_TLS_Algo_Strings : public Test {
 };
 
 BOTAN_REGISTER_TEST("tls", "tls_algo_strings", Test_TLS_Algo_Strings);
+
+   #if defined(BOTAN_HAS_TLS_13)
+
+class TLS13_PSK_Import_Tests final : public Text_Based_Test {
+   public:
+      TLS13_PSK_Import_Tests() :
+            Text_Based_Test("tls_13_psk_import.vec", "Key,Identity,TargetHash,Output", "Context") {}
+
+      Test::Result run_one_test(const std::string& hash_name, const VarMap& vars) override {
+         Test::Result result("PSK Import " + hash_name);
+
+         const auto key = vars.get_req_bin("Key");
+         const auto identity = vars.get_req_bin("Identity");
+         const auto context = vars.get_opt_bin("Context");
+         const auto target_hash = vars.get_req_str("TargetHash");
+         const auto expected = vars.get_req_bin("Output");
+
+         const Botan::TLS::PSKImporter importer(key, identity, context, hash_name);
+         auto psk = importer.derive_imported_psk(Botan::TLS::Protocol_Version::TLS_V13, target_hash);
+
+         result.test_is_true("PSK is marked as imported", psk.is_imported());
+         result.test_str_eq("PRF algo matches target hash", psk.prf_algo(), target_hash);
+         result.test_bin_eq("Derived PSK", psk.extract_master_secret(), expected);
+
+         return result;
+      }
+};
+
+BOTAN_REGISTER_TEST("tls", "tls13_psk_import", TLS13_PSK_Import_Tests);
+
+   #endif
 
 #endif
 

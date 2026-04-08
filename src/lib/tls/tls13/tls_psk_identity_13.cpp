@@ -6,7 +6,7 @@
  * Botan is released under the Simplified BSD License (see license.txt)
  */
 
-#include <botan/tls_psk_identity_13.h>
+#include <botan/tls_psk_13.h>
 
 #include <botan/internal/mem_utils.h>
 
