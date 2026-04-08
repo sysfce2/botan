@@ -203,6 +203,7 @@ std::string map_to_bogo_error(const std::string& e) noexcept {
       {"No shared TLS version", ":UNSUPPORTED_PROTOCOL:"},
       {"OS2ECP: Unknown format type 251", ":BAD_ECPOINT:"},
       {"Peer sent signature algorithm that is not suitable for TLS 1.3", ":WRONG_SIGNATURE_TYPE:"},
+      {"Public key does not have the correct byte count", ":BAD_ECPOINT:"},
       {"Policy forbids all available DTLS version", ":NO_SUPPORTED_VERSIONS_ENABLED:"},
       {"Policy forbids all available TLS version", ":NO_SUPPORTED_VERSIONS_ENABLED:"},
       {"Policy refuses to accept signing with any hash supported by peer", ":NO_COMMON_SIGNATURE_ALGORITHMS:"},
@@ -1028,6 +1029,35 @@ class Shim_Policy final : public Botan::TLS::Policy {
          }
 
          return Botan::TLS::Policy::key_exchange_groups();
+      }
+
+      std::vector<Botan::TLS::Group_Params> key_exchange_groups_to_offer() const override {
+         // BoGo expects key shares for both the first classical group and the
+         // first post-quantum group (matching BoringSSL's behavior), in the
+         // order they appear in the configured group list.
+         const auto groups = key_exchange_groups();
+         std::vector<Botan::TLS::Group_Params> to_offer;
+         bool have_classical = false;
+         bool have_pq = false;
+
+         for(auto g : groups) {
+            if(g.is_post_quantum()) {
+               if(!have_pq) {
+                  to_offer.push_back(g);
+                  have_pq = true;
+               }
+            } else {
+               if(!have_classical) {
+                  to_offer.push_back(g);
+                  have_classical = true;
+               }
+            }
+            if(have_classical && have_pq) {
+               break;
+            }
+         }
+
+         return to_offer;
       }
 
       bool use_ecc_point_compression() const override { return false; }  // BoGo expects this
