@@ -219,16 +219,20 @@ Client_Hello_13::Client_Hello_13(const Policy& policy,
       m_data->extensions().add(new Record_Size_Limit(policy.record_size_limit().value()));
    }
 
+   /*
+   * Right now raw public key support is not implemented for TLS 1.2, so we only offer
+   * certificate_types (which is used to request raw public key) if additionally TLS 1.2
+   * support is disabled. Otherwise a peer might reply with a 1.2 server hello + a certificate_type
+   * extension indicating it wishes to use RPK, which would lead to errors later.
+   */
+   if(!policy.allow_tls12()) {
+      m_data->extensions().add(new Client_Certificate_Type(policy.accepted_client_certificate_types()));
+      m_data->extensions().add(new Server_Certificate_Type(policy.accepted_server_certificate_types()));
+   }
+
    if(!next_protocols.empty()) {
       m_data->extensions().add(new Application_Layer_Protocol_Notification(next_protocols));
    }
-
-   // RFC 7250 4.1
-   //    In order to indicate the support of raw public keys, clients include
-   //    the client_certificate_type and/or the server_certificate_type
-   //    extensions in an extended client hello message.
-   m_data->extensions().add(new Client_Certificate_Type(policy.accepted_client_certificate_types()));
-   m_data->extensions().add(new Server_Certificate_Type(policy.accepted_server_certificate_types()));
 
 #if defined(BOTAN_HAS_TLS_12)
    if(policy.allow_tls12()) {

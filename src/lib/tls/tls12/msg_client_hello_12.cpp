@@ -254,6 +254,7 @@ Client_Hello_12::Client_Hello_12(Handshake_IO& io,
    if(reneg_info.empty() && !next_protocols.empty()) {
       m_data->extensions().add(new Application_Layer_Protocol_Notification(next_protocols));
    }
+
    // NOLINTEND(*-owning-memory)
 
    cb.tls_modify_extensions(m_data->extensions(), Connection_Side::Client, type());
