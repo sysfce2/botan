@@ -22,6 +22,40 @@ on:
     - cron:  '14 3 * * *'
 
 jobs:
+  coverage:
+    name: "Coverage"
+
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: ./source
+          persist-credentials: false
+
+      - name: Read Repository Configuration
+        uses: ./source/.github/actions/read-repo-config
+
+      - name: Fetch BoringSSL fork for BoGo tests
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: ${{ env.BORINGSSL_REPO }}
+          ref: ${{ env.BORINGSSL_BRANCH }}
+          path: ./boringssl
+
+      - name: Setup Build Agent
+        uses: ./source/.github/actions/setup-build-agent
+        with:
+          target: coverage
+          compiler: gcc
+          cache-key: ubuntu-24.04-gcc-x86_64-coverage
+
+      - name: Build and Test Botan
+        env:
+          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+        run: python3 ./source/src/scripts/ci_build.py --root-dir=${{ github.workspace }}/source --build-dir=${{ github.workspace }}/build --boringssl-dir=${{ github.workspace }}/boringssl --cc='gcc' --ci-image='ubuntu-24.04' --test-results-dir=junit_results coverage
+
   strubbing:
     name: "Strubbing"
     strategy:
