@@ -441,8 +441,18 @@ class Shim_Socket final {
       Shim_Socket& operator=(Shim_Socket&&) = delete;
 
       ~Shim_Socket() {
-         ::close(m_socket);
-         m_socket = -1;
+         if(m_socket >= 0) {
+            // Signal that we are done writing so pending alert records
+            // are delivered with a FIN rather than lost to a RST.
+            ::shutdown(m_socket, SHUT_WR);
+            // Drain unread incoming data; if the receive buffer is
+            // non-empty when we close(), the kernel sends RST which
+            // discards our outgoing data (including any alert we sent).
+            char buf[256];
+            while(::read(m_socket, buf, sizeof(buf)) > 0) {}
+            ::close(m_socket);
+            m_socket = -1;
+         }
       }
 
       void write(const uint8_t buf[], size_t len) const {
