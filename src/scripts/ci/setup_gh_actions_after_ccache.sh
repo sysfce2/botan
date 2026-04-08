@@ -47,7 +47,7 @@ function build_and_install_esdm() {
 }
 
 if type -p "apt-get"; then
-    if [ "$TARGET" = "coverage" ] || [ "$TARGET" = "clang-tidy" ]; then
+    if [ "$TARGET" = "coverage" ] || [ "$TARGET" = "clang-tidy" ] || [ "$TARGET" = "optional-rngs" ]; then
         build_and_install_jitterentropy
         build_and_install_esdm
     fi

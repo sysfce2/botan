@@ -67,6 +67,7 @@ def known_targets():
         'nist',
         'no_pcurves',
         'no_tls12',
+        'optional-rngs',
         'no_tls13',
         'policy-bsi',
         'policy-fips140',
@@ -115,7 +116,7 @@ class LoggingGroup:
             print("> Running '%s' took %d seconds" % (self.group_title, time_taken))
 
 def build_targets(target, target_os):
-    if target in ['shared', 'minimized', 'examples', 'limbo', 'wycheproof'] or target.startswith('policy-'):
+    if target in ['shared', 'minimized', 'examples', 'limbo', 'optional-rngs', 'wycheproof'] or target.startswith('policy-'):
         yield 'shared'
     elif target in ['static', 'fuzzers', 'cross-arm32-baremetal', 'emscripten', 'strubbing']:
         yield 'static'
