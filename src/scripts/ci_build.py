@@ -69,6 +69,7 @@ def known_targets():
         'no_tls12',
         'optional-rngs',
         'no_tls13',
+        'pkcs11',
         'policy-bsi',
         'policy-fips140',
         'policy-modern',
@@ -116,7 +117,7 @@ class LoggingGroup:
             print("> Running '%s' took %d seconds" % (self.group_title, time_taken))
 
 def build_targets(target, target_os):
-    if target in ['shared', 'minimized', 'examples', 'limbo', 'optional-rngs', 'wycheproof'] or target.startswith('policy-'):
+    if target in ['shared', 'minimized', 'examples', 'limbo', 'optional-rngs', 'pkcs11', 'wycheproof'] or target.startswith('policy-'):
         yield 'shared'
     elif target in ['static', 'fuzzers', 'cross-arm32-baremetal', 'emscripten', 'strubbing']:
         yield 'static'
@@ -510,6 +511,8 @@ def determine_flags(target, target_os, target_cpu, target_cc, cc_bin, ccache,
         if target in ['coverage']:
             flags += ['--with-tpm']
             test_cmd += ['--run-online-tests']
+
+        if target in ['coverage', 'pkcs11']:
             if pkcs11_lib and os.access(pkcs11_lib, os.R_OK):
                 test_cmd += ['--pkcs11-lib=%s' % (pkcs11_lib)]
 

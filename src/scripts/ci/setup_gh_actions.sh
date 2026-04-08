@@ -61,12 +61,14 @@ if type -p "apt-get"; then
     elif [ "$TARGET" = "typos" ]; then
         cargo install typos-cli
 
-    elif [ "$TARGET" = "coverage" ] || [ "$TARGET" = "sanitizer" ]; then
+    elif [ "$TARGET" = "coverage" ] || [ "$TARGET" = "sanitizer" ] || [ "$TARGET" = "pkcs11" ]; then
         if [ "$TARGET" = "coverage" ]; then
             curl -L https://coveralls.io/coveralls-linux.tar.gz | tar -xz -C /usr/local/bin
         fi
 
-        echo "BOTAN_TPM2_ENABLED=test" >> "$GITHUB_ENV"
+        if [ "$TARGET" = "coverage" ] || [ "$TARGET" = "sanitizer" ]; then
+            echo "BOTAN_TPM2_ENABLED=test" >> "$GITHUB_ENV"
+        fi
 
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 

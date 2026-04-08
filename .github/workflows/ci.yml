@@ -293,6 +293,9 @@ jobs:
           - target: optional-rngs
             compiler: gcc
             host_os: ubuntu-24.04
+          - target: pkcs11
+            compiler: gcc
+            host_os: ubuntu-24.04
 
     runs-on: ${{ matrix.host_os }}
 
