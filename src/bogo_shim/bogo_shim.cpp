@@ -1007,13 +1007,9 @@ class Shim_Policy final : public Botan::TLS::Policy {
          if(m_args.option_used("curves")) {
             std::vector<Botan::TLS::Group_Params> groups;
 
-            // upcall to base class to find the groups actually supported by
-            // this Botan build
-            const auto supported_groups = Botan::TLS::Policy::key_exchange_groups();
-
             for(const size_t pref : m_args.get_int_vec_opt("curves")) {
                const auto group = static_cast<Botan::TLS::Group_Params>(pref);
-               if(std::find(supported_groups.cbegin(), supported_groups.cend(), group) != supported_groups.end()) {
+               if(group.to_string().has_value() && group.is_available()) {
                   groups.push_back(group);
                }
             }
