@@ -308,7 +308,7 @@ void Server_Impl_13::handle_reply_to_client_hello(Server_Hello_13 server_hello) 
    }();
 
    auto flight = aggregate_handshake_messages();
-   flight.add(m_handshake_state.sending(Encrypted_Extensions(client_hello, policy(), callbacks())));
+   flight.add(m_handshake_state.sending(Encrypted_Extensions(client_hello, policy(), callbacks(), m_resumed_session.has_value())));
 
    if(!uses_psk) {
       // RFC 8446 4.3.2

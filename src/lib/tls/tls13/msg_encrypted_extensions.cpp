@@ -15,7 +15,10 @@
 
 namespace Botan::TLS {
 
-Encrypted_Extensions::Encrypted_Extensions(const Client_Hello_13& client_hello, const Policy& policy, Callbacks& cb) {
+Encrypted_Extensions::Encrypted_Extensions(const Client_Hello_13& client_hello,
+                                           const Policy& policy,
+                                           Callbacks& cb,
+                                           bool is_resumption) {
    const auto& exts = client_hello.extensions();
 
    // NOLINTBEGIN(*-owning-memory)
@@ -75,7 +78,10 @@ Encrypted_Extensions::Encrypted_Extensions(const Client_Hello_13& client_hello, 
    //    extension [...] SHALL include an extension of type "server_name" in the
    //    (extended) server hello. The "extension_data" field of this extension
    //    SHALL be empty.
-   if(exts.has<Server_Name_Indicator>()) {
+   //
+   //    When resuming a session, the server MUST NOT include a server_name
+   //    extension in the server hello.
+   if(exts.has<Server_Name_Indicator>() && !is_resumption) {
       m_extensions.add(new Server_Name_Indicator(""));
    }
 
