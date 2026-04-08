@@ -403,7 +403,7 @@ Application_Layer_Protocol_Notification::Application_Layer_Protocol_Notification
                                                                                  uint16_t extension_size,
                                                                                  Connection_Side from) {
    if(extension_size == 0) {
-      return;  // empty extension
+      throw Decoding_Error("ALPN extension cannot be empty");
    }
 
    const uint16_t name_bytes = reader.get_uint16_t();

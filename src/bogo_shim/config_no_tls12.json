@@ -153,6 +153,7 @@
         "ExtraClientEncryptedExtension-*": "No ALPS",
 
         "*NPN*": "No support for NPN",
+        "ALPNClient-AllowUnknown-*": "Botan always validates server ALPN selection against offered list",
         "ALPNServer-Preferred-*": "No support for NPN",
         "*-NextProtocol*": "No support for NPN",
 

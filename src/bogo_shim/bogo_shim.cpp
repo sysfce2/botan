@@ -276,7 +276,7 @@ std::string map_to_bogo_error(const std::string& e) noexcept {
       {"TLS record version had unexpected value", ":WRONG_VERSION_NUMBER:"},
       {"Test requires rejecting cert", ":CERTIFICATE_VERIFY_FAILED:"},
       {"Too many PSK binders", ":PSK_IDENTITY_BINDER_COUNT_MISMATCH:"},
-      {"Unexpected ALPN protocol", ":INVALID_ALPN_PROTOCOL:"},
+      {"Server selected an ALPN protocol not offered by the client", ":INVALID_ALPN_PROTOCOL:"},
       {"Unexpected record type 42 from counterparty", ":UNEXPECTED_RECORD:"},
       {"Unexpected state transition in handshake got a certificate_request expected server_hello_done seen server_hello+server_key_exchange",
        ":UNEXPECTED_MESSAGE:"},
@@ -1686,10 +1686,6 @@ class Shim_Callbacks final : public Botan::TLS::Callbacks {
             if(alpn != m_args.get_string_opt("expect-alpn")) {
                shim_exit_with_error("Got unexpected ALPN");
             }
-         }
-
-         if(alpn == "baz" && !m_args.flag_set("allow-unknown-alpn-protos")) {
-            throw Botan::TLS::TLS_Exception(Botan::TLS::Alert::IllegalParameter, "Unexpected ALPN protocol");
          }
 
          if(m_args.flag_set("shim-shuts-down")) {

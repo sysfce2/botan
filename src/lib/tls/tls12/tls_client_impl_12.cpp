@@ -373,6 +373,17 @@ void Client_Impl_12::process_handshake_msg(const Handshake_State* active_state,
          state.server_hello()->extensions(), Connection_Side::Server, Handshake_Type::ServerHello);
 
       state.set_version(state.server_hello()->legacy_version());
+
+      if(state.server_hello()->extensions().has<Application_Layer_Protocol_Notification>()) {
+         const auto* server_alpn = state.server_hello()->extensions().get<Application_Layer_Protocol_Notification>();
+         const auto selected = server_alpn->single_protocol();
+         const auto* client_alpn = state.client_hello()->extensions().get<Application_Layer_Protocol_Notification>();
+         BOTAN_ASSERT_NONNULL(client_alpn);
+         const auto& offered = client_alpn->protocols();
+         if(!value_exists(offered, selected)) {
+            throw TLS_Exception(Alert::IllegalParameter, "Server selected an ALPN protocol not offered by the client");
+         }
+      }
       m_application_protocol = state.server_hello()->next_protocol();
 
       secure_renegotiation_check(state.server_hello());
