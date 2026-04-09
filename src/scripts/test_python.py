@@ -521,6 +521,20 @@ ofvkP1EDmpx50fHLawIDAQAB
         self.assertEqual(rsapub2.get_field("n"), n)
         self.assertEqual(rsapub2.get_field("e"), e)
 
+    def test_privkey_load_der(self):
+        # Verify that PrivateKey.load() works with both PEM and DER
+        rng = botan.RandomNumberGenerator()
+        priv = botan.PrivateKey.create('RSA', '2048', rng)
+
+        pem = priv.export(True)
+        der = priv.export(False)
+
+        priv_from_pem = botan.PrivateKey.load(pem)
+        self.assertEqual(priv_from_pem.to_pem(), pem)
+
+        priv_from_der = botan.PrivateKey.load(der)
+        self.assertEqual(priv_from_der.to_pem(), pem)
+
     def test_key_crypto(self):
         rng = botan.RandomNumberGenerator()
         priv = botan.PrivateKey.create('RSA', '1024', rng)

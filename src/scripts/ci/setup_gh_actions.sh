@@ -61,6 +61,10 @@ if type -p "apt-get"; then
 
     elif [ "$TARGET" = "coverage" ]; then
         "${SCRIPT_LOCATION}"/download_ci_dep.py coveralls --extract 'tar -xz -C /usr/local/bin -f {file}'
+
+    elif [ "$TARGET" = "wycheproof" ]; then
+        git clone --depth 1 "${WYCHEPROOF_GIT_URL}" wycheproof-git
+        echo "WYCHEPROOF_DIR=$(pwd)/wycheproof-git" >> "$GITHUB_ENV"
     fi
 
     if [ "$TARGET" = "coverage" ] || [ "$TARGET" = "sanitizer" ]; then

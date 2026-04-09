@@ -1688,12 +1688,13 @@ class PrivateKey:
         self.__obj = obj
 
     @classmethod
-    def load(cls, val: str | bytes, passphrase: str = "") -> PrivateKey:
+    def load(cls, val: str | bytes, passphrase: str | None = None) -> PrivateKey:
         """Return a private key (DER or PEM formats accepted)"""
         priv = PrivateKey()
         rng_obj = c_void_p(0) # unused in recent versions
         bits = _ctype_bits(val)
-        _DLL.botan_privkey_load(byref(priv.handle_()), rng_obj, bits, len(bits), _ctype_str(passphrase))
+        passwd = None if passphrase is None else _ctype_str(passphrase)
+        _DLL.botan_privkey_load(byref(priv.handle_()), rng_obj, bits, len(bits), passwd)
         return priv
 
     @classmethod
@@ -1837,6 +1838,24 @@ class PrivateKey:
     def load_classic_mceliece(cls, cmce_mode: str, key: bytes) -> PrivateKey:
         priv = PrivateKey()
         _DLL.botan_privkey_load_classic_mceliece(byref(priv.handle_()), key, len(key), _ctype_str(cmce_mode))
+        return priv
+
+    @classmethod
+    def load_x25519(cls, key: bytes) -> PrivateKey:
+        """Return a private X25519 key from 32 raw bytes"""
+        if len(key) != 32:
+            raise BotanException("Invalid input length to load_x25519")
+        priv = PrivateKey()
+        _DLL.botan_privkey_load_x25519(byref(priv.handle_()), key)
+        return priv
+
+    @classmethod
+    def load_x448(cls, key: bytes) -> PrivateKey:
+        """Return a private X448 key from 56 raw bytes"""
+        if len(key) != 56:
+            raise BotanException("Invalid input length to load_x448")
+        priv = PrivateKey()
+        _DLL.botan_privkey_load_x448(byref(priv.handle_()), key)
         return priv
 
     def __del__(self):
