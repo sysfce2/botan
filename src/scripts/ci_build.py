@@ -502,11 +502,8 @@ def determine_flags(target, target_os, target_cpu, target_cc, cc_bin, ccache,
                 #       only works for individual test names.
                 test_cmd += ["--tpm2-tcti-name=disabled"]
 
-        if is_running_in_github_actions():
-            if 'BOTAN_BUILD_WITH_JITTERENTROPY' in os.environ:
-                flags += ['--enable-modules=jitter_rng']
-            if 'BOTAN_BUILD_WITH_ESDM' in os.environ:
-                flags += ['--with-esdm_rng']
+        if target in ['coverage', 'clang-tidy', 'optional-rngs']:
+            flags += ['--enable-modules=jitter_rng,esdm_rng']
 
         if target in ['coverage']:
             flags += ['--with-tpm']
@@ -1040,8 +1037,8 @@ def main(args=None):
         cmds.append(make_cmd + ['distclean'])
 
     esdm_process = None
-    # start ESDM in background, if on Linux
-    if is_running_in_github_actions() and 'BOTAN_BUILD_WITH_ESDM' in os.environ:
+    # start ESDM in background if needed
+    if target in ['coverage', 'optional-rngs']:
         print('Starting esdm-server for this target')
         esdm_process = subprocess.Popen('sudo /usr/bin/esdm-server -f', shell=True)
         assert esdm_process.poll() is None, f"esdm-server did not start for target {target}"
