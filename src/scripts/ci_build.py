@@ -17,7 +17,6 @@ import time
 import tempfile
 import optparse # pylint: disable=deprecated-module
 import multiprocessing
-import glob
 
 def get_concurrency():
     def_concurrency = 2
@@ -806,6 +805,7 @@ def main(args=None):
             'src/scripts/test_fuzzers.py',
             'src/scripts/test_cli.py',
             'src/scripts/repo_config.py',
+            'src/scripts/wycheproof.py',
             'src/scripts/python_unittests.py',
             'src/scripts/python_unittests_unix.py',
             'src/scripts/dev_tools/run_clang_format.py',
@@ -816,9 +816,6 @@ def main(args=None):
             'src/editors/vscode/scripts/test.py',
             'src/ct_selftest/ct_selftest.py'
         ]
-
-        # Add all nightly wycheproof runner scripts
-        py_scripts += glob.glob('src/scripts/wycheproof/**/*.py', recursive=True)
 
         # These commands have to run in the repository root to generate the correct
         # relative paths in the output. Otherwise GitHub Actions will not
@@ -1001,8 +998,8 @@ def main(args=None):
             cmds.append([py_interp, '-b'] + python_tests)
 
         if target in ['wycheproof']:
-            wycheproof_online_tests_dir = os.path.join(root_dir, 'src/scripts/wycheproof')
-            cmds.append(["indir:%s" % wycheproof_online_tests_dir, py_interp, "-m", "unittest"])
+            wycheproof_test_script = os.path.join(root_dir, 'src/scripts/wycheproof.py')
+            cmds.append([py_interp, wycheproof_test_script])
 
         if target in ['shared', 'static']:
             cmds.append(make_cmd + ['install'])
