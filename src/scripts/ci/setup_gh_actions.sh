@@ -38,22 +38,20 @@ if type -p "apt-get"; then
     sudo apt-get -qq install $("${SCRIPT_LOCATION}"/gha_linux_packages.py "$TARGET" "$COMPILER")
 
     if [ "$TARGET" = "sde" ]; then
-        wget -nv "https://downloadmirror.intel.com/823664/${INTEL_SDE_VERSION}.tar.xz"
-        tar -xf "${INTEL_SDE_VERSION}.tar.xz"
+        "${SCRIPT_LOCATION}"/download_ci_dep.py intel_sde --extract 'tar -xf {file}'
         echo "${INTEL_SDE_VERSION}" >> "$GITHUB_PATH"
 
         echo "CXX=g++-14" >> "$GITHUB_ENV"
 
     elif [ "$TARGET" = "cross-android-arm32" ] || [ "$TARGET" = "cross-android-arm64" ] || [ "$TARGET" = "cross-android-arm64-amalgamation" ]; then
-        wget -nv "https://dl.google.com/android/repository/${ANDROID_NDK}-linux.zip"
-        unzip -qq "$ANDROID_NDK"-linux.zip
+        "${SCRIPT_LOCATION}"/download_ci_dep.py --max-download-mb=800 android_ndk --extract 'unzip -qq {file}'
 
     elif [ "$TARGET" = "cross-arm32-baremetal" ]; then
         echo 'extern "C" void __sync_synchronize() {}' >> "${SCRIPT_LOCATION}/../../tests/main.cpp"
         echo 'extern "C" void __sync_synchronize() {}' >> "${SCRIPT_LOCATION}/../../cli/main.cpp"
 
     elif [ "$TARGET" = "limbo" ]; then
-        wget -nv "https://raw.githubusercontent.com/C2SP/x509-limbo/${LIMBO_TEST_SUITE_REVISION}/limbo.json" -O "${SCRIPT_LOCATION}/../../../limbo.json"
+        "${SCRIPT_LOCATION}"/download_ci_dep.py limbo "${SCRIPT_LOCATION}/../../../limbo.json"
 
     elif [ "$TARGET" = "lint" ]; then
         pip install ruff
@@ -61,15 +59,16 @@ if type -p "apt-get"; then
     elif [ "$TARGET" = "typos" ]; then
         cargo install typos-cli
 
-    elif [ "$TARGET" = "coverage" ] || [ "$TARGET" = "sanitizer" ]; then
-        if [ "$TARGET" = "coverage" ]; then
-            curl -L https://coveralls.io/coveralls-linux.tar.gz | tar -xz -C /usr/local/bin
-        fi
+    elif [ "$TARGET" = "coverage" ]; then
+        "${SCRIPT_LOCATION}"/download_ci_dep.py coveralls --extract 'tar -xz -C /usr/local/bin -f {file}'
+    fi
 
+    if [ "$TARGET" = "coverage" ] || [ "$TARGET" = "sanitizer" ]; then
         echo "BOTAN_TPM2_ENABLED=test" >> "$GITHUB_ENV"
+    fi
 
-        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
+    # SoftHSM setup
+    if [ "$TARGET" = "coverage" ] || [ "$TARGET" = "sanitizer" ] || [ "$TARGET" = "pkcs11" ]; then
         sudo chgrp -R "$(id -g)" /var/lib/softhsm/ /etc/softhsm
         sudo chmod g+w /var/lib/softhsm/tokens
 

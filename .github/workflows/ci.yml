@@ -198,9 +198,6 @@ jobs:
 
       matrix:
         include:
-          - target: coverage
-            compiler: gcc
-            host_os: ubuntu-24.04
           - target: sanitizer
             compiler: clang
             host_os: ubuntu-24.04
@@ -225,9 +222,6 @@ jobs:
 
     runs-on: ${{ matrix.host_os }}
 
-    env:
-      COVERALLS_REPO_TOKEN: pbLoTMBxC1DFvbws9WfrzVOvfEdEZTcCS
-
     steps:
       - uses: actions/checkout@v4
         with:
@@ -244,7 +238,7 @@ jobs:
           repository: ${{ env.BORINGSSL_REPO }}
           ref: ${{ env.BORINGSSL_BRANCH }}
           path: ./boringssl
-        if: matrix.target == 'coverage' || matrix.target == 'sanitizer'
+        if: matrix.target == 'sanitizer'
 
       - name: Setup Build Agent
         uses: ./source/.github/actions/setup-build-agent
@@ -288,6 +282,12 @@ jobs:
             compiler: gcc
             host_os: ubuntu-24.04
           - target: no_pcurves
+            compiler: gcc
+            host_os: ubuntu-24.04
+          - target: optional-rngs
+            compiler: gcc
+            host_os: ubuntu-24.04
+          - target: pkcs11
             compiler: gcc
             host_os: ubuntu-24.04
 
