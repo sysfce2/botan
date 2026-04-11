@@ -320,14 +320,18 @@ jobs:
         uses: ./.github/actions/setup-build-agent
         with:
           target: tlsanvil
-          cache-key: linux-x86_64-tlsanvil
+          cache-key: linux-x86_64-tlsanvil-server
 
-      - name: Build and Test Botan Server with TLS-Anvil
+      - name: Build Botan
+        run: |
+          python3 ./configure.py --compiler-cache=ccache --build-targets=static,cli --without-documentation --with-boost
+          make -j$(nproc)
+
+      - name: Test Botan Server with TLS-Anvil
         run: >
-          python3 ./src/scripts/ci/ci_tlsanvil_test.py
-          --botan-dir .
+          python3 ./src/scripts/tls_anvil/run_tls_anvil_tests.py
+          --botan-cli ./botan
           --test-target server
-          --parallel $(nproc)
 
       - uses: actions/upload-artifact@v4
         with:
@@ -337,4 +341,45 @@ jobs:
             ./logs/
 
       - name: Check TLS-Anvil Test Results
-        run: python3 ./src/scripts/ci/ci_tlsanvil_check.py --verbose ./TestSuiteResults
+        run: python3 ./src/scripts/tls_anvil/analyze_tls_anvil_report.py --verbose server ./TestSuiteResults
+
+  tls_anvil_client_test:
+    name: "TLS-Anvil (client)"
+
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Fetch Botan Repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Read Repository Configuration
+        uses: ./.github/actions/read-repo-config
+
+      - name: Setup Build Agent
+        uses: ./.github/actions/setup-build-agent
+        with:
+          target: tlsanvil
+          cache-key: linux-x86_64-tlsanvil-client
+
+      - name: Build Botan
+        run: |
+          python3 ./configure.py --compiler-cache=ccache --build-targets=static,cli --without-documentation --with-boost
+          make -j$(nproc)
+
+      - name: Test Botan Client with TLS-Anvil
+        run: >
+          python3 ./src/scripts/tls_anvil/run_tls_anvil_tests.py
+          --botan-cli ./botan
+          --test-target client
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tls-anvil-client-test-results
+          path: |
+            ./TestSuiteResults/
+            ./logs/
+
+      - name: Check TLS-Anvil Test Results
+        run: python3 ./src/scripts/tls_anvil/analyze_tls_anvil_report.py --verbose client ./TestSuiteResults
