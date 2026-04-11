@@ -140,6 +140,7 @@ void Ascon_AEAD128_Decryption::finish_msg(secure_vector<uint8_t>& final_block, s
    BOTAN_STATE_CHECK(has_keying_material());
 
    const auto final_block_at_offset = std::span{final_block}.subspan(offset);
+   BOTAN_ARG_CHECK(final_block_at_offset.size() >= tag_size(), "input did not include the tag");
    const auto final_ciphertext_block = final_block_at_offset.first(final_block_at_offset.size() - tag_size());
    const auto expected_tag = final_block_at_offset.last(tag_size());
 
