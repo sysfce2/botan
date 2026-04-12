@@ -83,6 +83,7 @@ def known_targets():
         'valgrind-ct',
         'valgrind-ct-full',
         'wycheproof',
+        'acvp',
     ]
 
 def is_running_in_github_actions():
@@ -116,7 +117,7 @@ class LoggingGroup:
             print("> Running '%s' took %d seconds" % (self.group_title, time_taken))
 
 def build_targets(target, target_os):
-    if target in ['shared', 'minimized', 'examples', 'limbo', 'optional-rngs', 'pkcs11', 'wycheproof'] or target.startswith('policy-'):
+    if target in ['shared', 'minimized', 'examples', 'limbo', 'optional-rngs', 'pkcs11', 'wycheproof', 'acvp'] or target.startswith('policy-'):
         yield 'shared'
     elif target in ['static', 'fuzzers', 'cross-arm32-baremetal', 'emscripten', 'strubbing']:
         yield 'static'
@@ -128,10 +129,10 @@ def build_targets(target, target_os):
         yield 'shared'
         yield 'static'
 
-    if target not in ['examples', 'limbo', 'wycheproof']:
+    if target not in ['examples', 'limbo', 'wycheproof', 'acvp']:
         yield 'cli'
 
-    if target not in ['examples', 'limbo', 'hybrid-tls13-interop-test', 'strubbing', 'wycheproof']:
+    if target not in ['examples', 'limbo', 'hybrid-tls13-interop-test', 'strubbing', 'wycheproof', 'acvp']:
         yield 'tests'
 
     if target in ['coverage', 'no_tls12', 'no_tls13']:
@@ -260,7 +261,7 @@ def determine_flags(target, target_os, target_cpu, target_cc, cc_bin, ccache,
     else:
         flags += ['--without-doc']
 
-    if target in ['docs', 'codeql', 'hybrid-tls13-interop-test', 'limbo', 'wycheproof']:
+    if target in ['docs', 'codeql', 'hybrid-tls13-interop-test', 'limbo', 'wycheproof', 'acvp']:
         test_cmd = None
 
     if target in ['codeql']:
@@ -789,6 +790,7 @@ def main(args=None):
         py_scripts = [
             'configure.py',
             'src/python/botan3.py',
+            'src/scripts/acvp_tests.py',
             'src/scripts/ci_build.py',
             'src/scripts/install.py',
             'src/scripts/ci_check_headers.py',
@@ -1000,6 +1002,10 @@ def main(args=None):
         if target in ['wycheproof']:
             wycheproof_test_script = os.path.join(root_dir, 'src/scripts/wycheproof.py')
             cmds.append([py_interp, wycheproof_test_script])
+
+        if target in ['acvp']:
+            acvp_test_script = os.path.join(root_dir, 'src/scripts/acvp_tests.py')
+            cmds.append([py_interp, acvp_test_script])
 
         if target in ['shared', 'static']:
             cmds.append(make_cmd + ['install'])

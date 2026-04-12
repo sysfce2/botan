@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
 """
-Run NIST ACVP test vectors against Botan's Python bindings.
+Validate against NIST ACVP test vectors
 
 Requires a checkout of https://github.com/usnistgov/ACVP-Server. Point
-ACVP_TESTDATA_DIR (or pass a positional argument) at the
-gen-val/json-files directory.
+$ACVP_TESTDATA_DIR at the gen-val/json-files directory.
 
 (C) 2026 Jack Lloyd
 
@@ -29,7 +28,7 @@ from pathlib import Path
 import botan3 as botan
 
 
-# ---- Framework ----
+# ---- Infra ----
 
 
 class TestSkip(Exception):
@@ -240,7 +239,11 @@ def _git_rev(directory: str) -> str | None:
             check=True,
         )
         return result.stdout.strip() or None
-    except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
+    except (
+        FileNotFoundError,
+        subprocess.TimeoutExpired,
+        subprocess.CalledProcessError,
+    ):
         return None
 
 
@@ -288,7 +291,7 @@ def run(
 
     for fr in file_results:
         if fr.output:
-            sys.stderr.write(fr.output)
+            sys.stdout.write(fr.output)
 
         if fr.category == "ignored":
             files_ignored += 1
@@ -359,28 +362,30 @@ def _opt_hex(d: dict, key: str) -> bytes:
     return _from_hex(v) if v else b""
 
 
-
-# Canonical ACVP → Botan hash name mapping. All other hash/HMAC/KDF maps
-# are derived from this to keep them in sync.
 _HASH_MAP = {
-    "SHA-1":        "SHA-1",
-    "SHA2-224":     "SHA-224",
-    "SHA2-256":     "SHA-256",
-    "SHA2-384":     "SHA-384",
-    "SHA2-512":     "SHA-512",
-    "SHA2-512/224": None,        # not implemented in Botan
+    "SHA-1": "SHA-1",
+    "SHA2-224": "SHA-224",
+    "SHA2-256": "SHA-256",
+    "SHA2-384": "SHA-384",
+    "SHA2-512": "SHA-512",
+    "SHA2-512/224": None,  # not implemented
     "SHA2-512/256": "SHA-512-256",
-    "SHA3-224":     "SHA-3(224)",
-    "SHA3-256":     "SHA-3(256)",
-    "SHA3-384":     "SHA-3(384)",
-    "SHA3-512":     "SHA-3(512)",
-    "SHAKE-128":    "SHAKE-128(256)",
-    "SHAKE-256":    "SHAKE-256(512)",
+    "SHA3-224": "SHA-3(224)",
+    "SHA3-256": "SHA-3(256)",
+    "SHA3-384": "SHA-3(384)",
+    "SHA3-512": "SHA-3(512)",
+    "SHAKE-128": "SHAKE-128(256)",
+    "SHAKE-256": "SHAKE-256(512)",
 }
 
-# Derived maps — built from _HASH_MAP so they stay in sync.
-_HMAC_ALGO_MAP = {f"HMAC-{k}": f"HMAC({v})" for k, v in _HASH_MAP.items() if v is not None}
-_PBKDF_HMAC_MAP = {k: f"PBKDF2({v})" for k, v in _HASH_MAP.items() if v is not None and not k.startswith("SHAKE")}
+_HMAC_ALGO_MAP = {
+    f"HMAC-{k}": f"HMAC({v})" for k, v in _HASH_MAP.items() if v is not None
+}
+_PBKDF_HMAC_MAP = {
+    k: f"PBKDF2({v})"
+    for k, v in _HASH_MAP.items()
+    if v is not None and not k.startswith("SHAKE")
+}
 _HMAC_DRBG_MODE_MAP = {k: v for k, v in _HASH_MAP.items() if not k.startswith("SHAKE")}
 _KDF_HASH_MAP = {k: v for k, v in _HASH_MAP.items() if not k.startswith("SHAKE")}
 
@@ -390,14 +395,6 @@ _CURVE_MAP = {
     "P-256": "secp256r1",
     "P-384": "secp384r1",
     "P-521": "secp521r1",
-    "B-233": "sect233r1",
-    "B-283": "sect283r1",
-    "B-409": "sect409r1",
-    "B-571": "sect571r1",
-    "K-233": "sect233k1",
-    "K-283": "sect283k1",
-    "K-409": "sect409k1",
-    "K-571": "sect571k1",
 }
 
 
@@ -430,7 +427,7 @@ def _set_group_state(group: dict, key: str, value) -> None:
 def _hash_aft(algo: str, test: dict, exp: dict) -> None:
     bit_len = test["len"]
     if bit_len % 8 != 0:
-        raise TestSkip("Bit-oriented input not supported via FFI")
+        raise TestSkip("Bit-oriented input not supported")
 
     h = botan.HashFunction(algo)
     msg = _opt_hex(test, "msg")[: bit_len // 8]
@@ -466,8 +463,12 @@ def _sha3_mct(algo: str, test: dict, exp: dict) -> None:
             md = h.final()
         if md.hex() != result["md"].lower():
             raise TestFailure(
-                {"Algo": algo, "MctOuter": str(j), "MD": result["md"],
-                 "ComputedMD": md.hex()}
+                {
+                    "Algo": algo,
+                    "MctOuter": str(j),
+                    "MD": result["md"],
+                    "ComputedMD": md.hex(),
+                }
             )
 
 
@@ -493,13 +494,13 @@ def _hash_ldt(algo: str, test: dict, exp: dict) -> None:
 def _xof_aft(algo: str, test: dict, exp: dict) -> None:
     out_bits = test.get("outLen", test.get("outputLen", 256))
     if out_bits % 8 != 0:
-        raise TestSkip("Bit-oriented input not supported via FFI")
+        raise TestSkip("Bit-oriented input not supported")
     out_len = out_bits // 8
 
     msg = _opt_hex(test, "msg")
     bit_len = test.get("len", test.get("inLen", len(msg) * 8))
     if bit_len % 8 != 0:
-        raise TestSkip("Bit-oriented input not supported via FFI")
+        raise TestSkip("Bit-oriented input not supported")
     msg = msg[: bit_len // 8]
 
     xof = botan.XOF(algo)
@@ -543,8 +544,12 @@ def _sha2_mct(algo: str, test: dict, exp: dict) -> None:
             md = [md[1], md[2], h.final()]
         if md[2].hex() != result["md"].lower():
             raise TestFailure(
-                {"Algo": algo, "MctOuter": str(j), "MD": result["md"],
-                 "ComputedMD": md[2].hex()}
+                {
+                    "Algo": algo,
+                    "MctOuter": str(j),
+                    "MD": result["md"],
+                    "ComputedMD": md[2].hex(),
+                }
             )
         md = [md[2], md[2], md[2]]
 
@@ -594,9 +599,6 @@ def handle_hash(header: dict, group: dict, test: dict, exp: dict) -> None:
     "SHAKE-256-FIPS202",
 )
 def handle_shake(header: dict, group: dict, test: dict, exp: dict) -> None:
-    # Note: _HASH_MAP has SHAKE entries too, but those map to fixed-output
-    # names like "SHAKE-128(256)" for ECDSA use. XOF tests need the bare
-    # "SHAKE-128" name since the output length varies per test vector.
     algo_name = header["algorithm"]
     if algo_name in ("SHAKE-128", "SHAKE128"):
         algo = "SHAKE-128"
@@ -633,7 +635,6 @@ def handle_cshake(header: dict, group: dict, test: dict, exp: dict) -> None:
     if test_type != "AFT":
         raise TestSkip(f"testType {test_type} not supported")
 
-    # Botan's Python XOF API does not expose the cSHAKE N/S params.
     if test.get("functionName"):
         raise TestSkip("cSHAKE function_name not exposed in Python XOF API")
     if test.get("customization"):
@@ -648,9 +649,7 @@ def handle_cshake(header: dict, group: dict, test: dict, exp: dict) -> None:
     xof.update(msg)
     output = xof.output(out_len).hex()
     if output != exp["output"].lower():
-        raise TestFailure(
-            {"Algo": algo, "Expected": exp["output"], "Got": output}
-        )
+        raise TestFailure({"Algo": algo, "Expected": exp["output"], "Got": output})
 
 
 # ---- Ascon ----
@@ -665,9 +664,9 @@ def handle_ascon_aead(_header: dict, group: dict, test: dict, exp: dict) -> None
     if test["tagLen"] != 128:
         raise TestSkip("Ascon truncated tag lengths not implemented")
     if test["payloadLen"] % 8 != 0:
-        raise TestSkip("Bit-oriented input not supported via FFI")
+        raise TestSkip("Bit-oriented input not supported")
     if test["adLen"] % 8 != 0:
-        raise TestSkip("Bit-oriented input not supported via FFI")
+        raise TestSkip("Bit-oriented input not supported")
 
     _aead_aft(
         algo="Ascon-AEAD128",
@@ -675,7 +674,8 @@ def handle_ascon_aead(_header: dict, group: dict, test: dict, exp: dict) -> None
         key=_from_hex(test["key"]),
         nonce=_from_hex(test["nonce"]),
         aad=_opt_hex(test, "ad"),
-        test=test, exp=exp,
+        test=test,
+        exp=exp,
         tag_bytes=16,
         combined_ct=False,
     )
@@ -710,7 +710,7 @@ def _resolve_cipher_or_skip(algo: str, group: dict) -> None:
         raise TestSkip(f"Unsupported: {algo}") from e
 
 
-def _aead_aft(  # pylint: disable=too-many-positional-arguments
+def _aead_aft(
     algo: str,
     direction: str,
     key: bytes,
@@ -745,8 +745,13 @@ def _aead_aft(  # pylint: disable=too-many-positional-arguments
             computed_ct_tag = ct_tag.hex()
             if computed_ct_tag != expected_ct_tag.lower():
                 raise TestFailure(
-                    {"Algo": algo, "Key": test["key"], "IV": test.get("iv", test.get("nonce", "")),
-                     "CT": expected_ct_tag, "ComputedCT": computed_ct_tag}
+                    {
+                        "Algo": algo,
+                        "Key": test["key"],
+                        "IV": test.get("iv", test.get("nonce", "")),
+                        "CT": expected_ct_tag,
+                        "ComputedCT": computed_ct_tag,
+                    }
                 )
             return
 
@@ -757,12 +762,17 @@ def _aead_aft(  # pylint: disable=too-many-positional-arguments
         expected_tag = exp["tag"]
         if computed_ct != expected_ct.lower() or computed_tag != expected_tag.lower():
             raise TestFailure(
-                {"Algo": algo, "Key": test["key"],
-                 "IV": test.get("iv", test.get("nonce", "")),
-                 "AAD": test.get("aad", test.get("ad", "")),
-                 "PT": test.get("pt", ""),
-                 "CT": expected_ct, "Tag": expected_tag,
-                 "ComputedCT": computed_ct, "ComputedTag": computed_tag}
+                {
+                    "Algo": algo,
+                    "Key": test["key"],
+                    "IV": test.get("iv", test.get("nonce", "")),
+                    "AAD": test.get("aad", test.get("ad", "")),
+                    "PT": test.get("pt", ""),
+                    "CT": expected_ct,
+                    "Tag": expected_tag,
+                    "ComputedCT": computed_ct,
+                    "ComputedTag": computed_tag,
+                }
             )
         return
 
@@ -782,8 +792,11 @@ def _aead_aft(  # pylint: disable=too-many-positional-arguments
     except botan.BotanException as e:
         if should_pass:
             raise TestFailure(
-                {"Algo": algo, "Key": test["key"],
-                 "Note": "Valid AEAD decryption failed"}
+                {
+                    "Algo": algo,
+                    "Key": test["key"],
+                    "Note": "Valid AEAD decryption failed",
+                }
             ) from e
         return
 
@@ -793,9 +806,7 @@ def _aead_aft(  # pylint: disable=too-many-positional-arguments
         )
     expected_pt = exp.get("pt", "")
     if pt.hex() != expected_pt.lower():
-        raise TestFailure(
-            {"Algo": algo, "PT": expected_pt, "ComputedPT": pt.hex()}
-        )
+        raise TestFailure({"Algo": algo, "PT": expected_pt, "ComputedPT": pt.hex()})
 
 
 # ---- AES-GCM ----
@@ -816,7 +827,8 @@ def handle_aes_gcm(_header: dict, group: dict, test: dict, exp: dict) -> None:
         key=_from_hex(test["key"]),
         nonce=_from_hex(test["iv"]),
         aad=_opt_hex(test, "aad"),
-        test=test, exp=exp,
+        test=test,
+        exp=exp,
         tag_bytes=tag_bytes,
         combined_ct=False,
     )
@@ -842,7 +854,8 @@ def handle_aes_ccm(_header: dict, group: dict, test: dict, exp: dict) -> None:
         key=_from_hex(test["key"]),
         nonce=_from_hex(test["iv"]),
         aad=_opt_hex(test, "aad"),
-        test=test, exp=exp,
+        test=test,
+        exp=exp,
         tag_bytes=tag_bytes,
         combined_ct=True,
     )
@@ -850,25 +863,29 @@ def handle_aes_ccm(_header: dict, group: dict, test: dict, exp: dict) -> None:
 
 # ---- Block cipher modes (AES / TDES) ----
 
-# CTR: ACVP generates the IV internally and uses bit-level payloads, which
-# is not testable through Botan's SymmetricCipher API.
-
 _BLOCK_MODE_MAP = {
-    "ACVP-AES-CBC":    ("AES-{keyLen}", "CBC/NoPadding"),
-    "ACVP-AES-ECB":    ("AES-{keyLen}", "ECB"),
-    "ACVP-AES-OFB":    ("AES-{keyLen}", "OFB"),
-    "ACVP-AES-CFB8":   ("AES-{keyLen}", "CFB(8)"),
+    "ACVP-AES-CBC": ("AES-{keyLen}", "CBC/NoPadding"),
+    "ACVP-AES-ECB": ("AES-{keyLen}", "ECB"),
+    "ACVP-AES-OFB": ("AES-{keyLen}", "OFB"),
+    "ACVP-AES-CFB8": ("AES-{keyLen}", "CFB(8)"),
     "ACVP-AES-CFB128": ("AES-{keyLen}", "CFB"),
-    "ACVP-TDES-ECB":   ("TripleDES", "ECB"),
-    "ACVP-TDES-CBC":   ("TripleDES", "CBC/NoPadding"),
-    "ACVP-TDES-OFB":   ("TripleDES", "OFB"),
+    "ACVP-TDES-ECB": ("TripleDES", "ECB"),
+    "ACVP-TDES-CBC": ("TripleDES", "CBC/NoPadding"),
+    "ACVP-TDES-OFB": ("TripleDES", "OFB"),
     "ACVP-TDES-CFB64": ("TripleDES", "CFB"),
-    "ACVP-TDES-CFB8":  ("TripleDES", "CFB(8)"),
+    "ACVP-TDES-CFB8": ("TripleDES", "CFB(8)"),
 }
 
 
-def _block_mode_aft(bc_name: str, mode: str, key: bytes, test: dict,  # pylint: disable=too-many-positional-arguments
-                    exp: dict, encrypt: bool, group: dict) -> None:
+def _block_mode_aft(
+    bc_name: str,
+    mode: str,
+    key: bytes,
+    test: dict,
+    exp: dict,
+    encrypt: bool,
+    group: dict,
+) -> None:
     if mode == "ECB":
         bc = botan.BlockCipher(bc_name)
         bc.set_key(key)
@@ -896,28 +913,24 @@ def _block_mode_aft(bc_name: str, mode: str, key: bytes, test: dict,  # pylint: 
     if encrypt:
         got = cipher.finish(_opt_hex(test, "pt")).hex()
         if got != exp["ct"].lower():
-            raise TestFailure(
-                {"Algo": algo, "CT": exp["ct"], "ComputedCT": got}
-            )
+            raise TestFailure({"Algo": algo, "CT": exp["ct"], "ComputedCT": got})
     else:
         got = cipher.finish(_opt_hex(test, "ct")).hex()
         if got != exp["pt"].lower():
-            raise TestFailure(
-                {"Algo": algo, "PT": exp["pt"], "ComputedPT": got}
-            )
+            raise TestFailure({"Algo": algo, "PT": exp["pt"], "ComputedPT": got})
 
 
 @register(
     "ACVP-AES-CBC-1.0",
+    "ACVP-AES-CFB128-1.0",
+    "ACVP-AES-CFB8-1.0",
     "ACVP-AES-ECB-1.0",
     "ACVP-AES-OFB-1.0",
-    "ACVP-AES-CFB8-1.0",
-    "ACVP-AES-CFB128-1.0",
-    "ACVP-TDES-ECB-1.0",
     "ACVP-TDES-CBC-1.0",
-    "ACVP-TDES-OFB-1.0",
     "ACVP-TDES-CFB64-1.0",
     "ACVP-TDES-CFB8-1.0",
+    "ACVP-TDES-ECB-1.0",
+    "ACVP-TDES-OFB-1.0",
 )
 def handle_block_modes(header: dict, group: dict, test: dict, exp: dict) -> None:
     test_type = group.get("testType", "AFT")
@@ -933,9 +946,11 @@ def handle_block_modes(header: dict, group: dict, test: dict, exp: dict) -> None
     bc_name = bc_template.format(keyLen=group.get("keyLen", ""))
 
     encrypt = group["direction"] == "encrypt"
-    # TDES vectors split key into key1/key2/key3; AES has a single key field.
+    # TDES vectors split key into key1/key2/key3
     if "key1" in test:
-        key = _from_hex(test["key1"]) + _from_hex(test["key2"]) + _from_hex(test["key3"])
+        key = (
+            _from_hex(test["key1"]) + _from_hex(test["key2"]) + _from_hex(test["key3"])
+        )
     else:
         key = _from_hex(test["key"])
 
@@ -951,14 +966,13 @@ def handle_aes_xts(_header: dict, group: dict, test: dict, exp: dict) -> None:
 
     tweak_mode = group.get("tweakMode", "hex")
 
-    # XTS 1.0 puts payloadLen on the group; XTS 2.0 puts dataUnitLen/payloadLen
-    # on each test.
+    # XTS 1.0 puts payloadLen on the group; XTS 2.0 puts dataUnitLen/payloadLen on each test.
     data_unit = test.get("dataUnitLen") or group.get("payloadLen")
     payload_len = test.get("payloadLen") or group.get("payloadLen") or data_unit
     if data_unit is not None and data_unit % 8 != 0:
-        raise TestSkip("Bit-oriented input not supported via FFI")
+        raise TestSkip("Bit-oriented input not supported")
     if payload_len is not None and payload_len % 8 != 0:
-        raise TestSkip("Bit-oriented input not supported via FFI")
+        raise TestSkip("Bit-oriented input not supported")
     if data_unit is not None and payload_len != data_unit:
         raise TestSkip("XTS multi-data-unit not supported")
 
@@ -982,16 +996,32 @@ def handle_aes_xts(_header: dict, group: dict, test: dict, exp: dict) -> None:
         got = cipher.finish(pt).hex()
         if got != exp["ct"].lower():
             raise TestFailure(
-                {"Algo": algo, "Key": test["key"], "Tweak": test.get("tweakValue", str(test.get("sequenceNumber", ""))),
-                 "PT": test.get("pt", ""), "CT": exp["ct"], "ComputedCT": got}
+                {
+                    "Algo": algo,
+                    "Key": test["key"],
+                    "Tweak": test.get(
+                        "tweakValue", str(test.get("sequenceNumber", ""))
+                    ),
+                    "PT": test.get("pt", ""),
+                    "CT": exp["ct"],
+                    "ComputedCT": got,
+                }
             )
     else:
         ct = _opt_hex(test, "ct")
         got = cipher.finish(ct).hex()
         if got != exp["pt"].lower():
             raise TestFailure(
-                {"Algo": algo, "Key": test["key"], "Tweak": test.get("tweakValue", str(test.get("sequenceNumber", ""))),
-                 "CT": test.get("ct", ""), "PT": exp["pt"], "ComputedPT": got}
+                {
+                    "Algo": algo,
+                    "Key": test["key"],
+                    "Tweak": test.get(
+                        "tweakValue", str(test.get("sequenceNumber", ""))
+                    ),
+                    "CT": test.get("ct", ""),
+                    "PT": exp["pt"],
+                    "ComputedPT": got,
+                }
             )
 
 
@@ -1018,8 +1048,13 @@ def handle_aes_key_wrap(header: dict, group: dict, test: dict, exp: dict) -> Non
         got = wrap_fn(key, pt).hex()
         if got != exp["ct"].lower():
             raise TestFailure(
-                {"Algo": name, "Key": test["key"], "PT": test["pt"],
-                 "CT": exp["ct"], "ComputedCT": got}
+                {
+                    "Algo": name,
+                    "Key": test["key"],
+                    "PT": test["pt"],
+                    "CT": exp["ct"],
+                    "ComputedCT": got,
+                }
             )
         return
 
@@ -1030,15 +1065,17 @@ def handle_aes_key_wrap(header: dict, group: dict, test: dict, exp: dict) -> Non
     except botan.BotanException as e:
         if should_pass:
             raise TestFailure(
-                {"Algo": name, "Key": test["key"], "CT": test["ct"],
-                 "Note": "Valid unwrap failed"}
+                {
+                    "Algo": name,
+                    "Key": test["key"],
+                    "CT": test["ct"],
+                    "Note": "Valid unwrap failed",
+                }
             ) from e
         return
 
     if not should_pass:
-        raise TestFailure(
-            {"Algo": name, "Note": "Invalid test unwrapped successfully"}
-        )
+        raise TestFailure({"Algo": name, "Note": "Invalid test unwrapped successfully"})
     if pt.hex() != exp.get("pt", "").lower():
         raise TestFailure(
             {"Algo": name, "PT": exp.get("pt", ""), "ComputedPT": pt.hex()}
@@ -1103,22 +1140,32 @@ def handle_hmac(header: dict, group: dict, test: dict, exp: dict) -> None:
     got = mac.final()[:mac_len].hex()
     if got != exp["mac"].lower():
         raise TestFailure(
-            {"Algo": algo, "Key": test["key"], "Msg": test.get("msg", ""),
-             "Tag": exp["mac"], "ComputedTag": got}
+            {
+                "Algo": algo,
+                "Key": test["key"],
+                "Msg": test.get("msg", ""),
+                "Tag": exp["mac"],
+                "ComputedTag": got,
+            }
         )
 
 
 # ---- CMAC ----
 
 
-@register("CMAC-AES-1.0")
+@register("CMAC-AES-1.0", "CMAC-TDES-1.0")
 def handle_cmac(_header: dict, group: dict, test: dict, exp: dict) -> None:
     _require_aft(group)
 
     direction = group.get("direction", "gen")
     key = _from_hex(test["key"])
     msg = _opt_hex(test, "message")
-    algo = f"CMAC(AES-{len(key) * 8})"
+
+    if "key1" in test:
+        algo = "CMAC(3DES)"
+    else:
+        algo = f"CMAC(AES-{len(key) * 8})"
+
     mac_len = test.get("macLen", group.get("macLen", 128)) // 8
 
     mac = botan.MsgAuthCode(algo)
@@ -1129,8 +1176,13 @@ def handle_cmac(_header: dict, group: dict, test: dict, exp: dict) -> None:
     if direction == "gen":
         if computed.hex() != exp["mac"].lower():
             raise TestFailure(
-                {"Algo": algo, "Key": test["key"], "Msg": test.get("message", ""),
-                 "Tag": exp["mac"], "ComputedTag": computed.hex()}
+                {
+                    "Algo": algo,
+                    "Key": test["key"],
+                    "Msg": test.get("message", ""),
+                    "Tag": exp["mac"],
+                    "ComputedTag": computed.hex(),
+                }
             )
         return
 
@@ -1138,13 +1190,16 @@ def handle_cmac(_header: dict, group: dict, test: dict, exp: dict) -> None:
     should_pass = exp.get("testPassed", True)
     if should_pass and computed != expected_mac:
         raise TestFailure(
-            {"Algo": algo, "Key": test["key"], "Note": "Valid CMAC did not verify",
-             "Tag": test["mac"], "ComputedTag": computed.hex()}
+            {
+                "Algo": algo,
+                "Key": test["key"],
+                "Note": "Valid CMAC did not verify",
+                "Tag": test["mac"],
+                "ComputedTag": computed.hex(),
+            }
         )
     if not should_pass and computed == expected_mac:
-        raise TestFailure(
-            {"Algo": algo, "Note": "Invalid CMAC test matched"}
-        )
+        raise TestFailure({"Algo": algo, "Note": "Invalid CMAC test matched"})
 
 
 # ---- KMAC ----
@@ -1153,11 +1208,8 @@ def handle_cmac(_header: dict, group: dict, test: dict, exp: dict) -> None:
 @register("KMAC-128-1.0", "KMAC-256-1.0")
 def handle_kmac(header: dict, group: dict, test: dict, exp: dict) -> None:
     algo_name = header["algorithm"]
-    if algo_name == "KMAC-128":
-        base_algo = "KMAC-128"
-    elif algo_name == "KMAC-256":
-        base_algo = "KMAC-256"
-    else:
+
+    if algo_name not in ["KMAC-128", "KMAC-256"]:
         raise TestSkip(f"Unsupported: {algo_name}")
 
     test_type = group.get("testType", "AFT")
@@ -1173,18 +1225,18 @@ def handle_kmac(header: dict, group: dict, test: dict, exp: dict) -> None:
         raise TestSkip("KMAC hex customization not exposed via Python bindings")
 
     if test["macLen"] % 8 != 0:
-        raise TestSkip("Bit-oriented input not supported via FFI")
+        raise TestSkip("Bit-oriented input not supported")
     if test.get("msgLen", 0) % 8 != 0:
-        raise TestSkip("Bit-oriented input not supported via FFI")
+        raise TestSkip("Bit-oriented input not supported")
     if test.get("keyLen", 0) % 8 != 0:
-        raise TestSkip("Bit-oriented input not supported via FFI")
+        raise TestSkip("Bit-oriented input not supported")
 
     key = _from_hex(test["key"])
     msg = _opt_hex(test, "msg")
     mac_len = test["macLen"] // 8
     customization = test.get("customization", "")
 
-    algo = f"{base_algo}({mac_len * 8})"
+    algo = f"{algo_name}({mac_len * 8})"
     mac = botan.MsgAuthCode(algo)
     try:
         mac.set_key(key)
@@ -1200,8 +1252,13 @@ def handle_kmac(header: dict, group: dict, test: dict, exp: dict) -> None:
     if test_type == "AFT":
         if computed.hex() != exp["mac"].lower():
             raise TestFailure(
-                {"Algo": algo, "Key": test["key"], "Msg": test.get("msg", ""),
-                 "Tag": exp["mac"], "ComputedTag": computed.hex()}
+                {
+                    "Algo": algo,
+                    "Key": test["key"],
+                    "Msg": test.get("msg", ""),
+                    "Tag": exp["mac"],
+                    "ComputedTag": computed.hex(),
+                }
             )
         return
 
@@ -1209,11 +1266,121 @@ def handle_kmac(header: dict, group: dict, test: dict, exp: dict) -> None:
     should_pass = exp.get("testPassed", True)
     if should_pass and computed != expected_mac:
         raise TestFailure(
-            {"Algo": algo, "Note": "Valid KMAC did not verify",
-             "Tag": test["mac"], "ComputedTag": computed.hex()}
+            {
+                "Algo": algo,
+                "Note": "Valid KMAC did not verify",
+                "Tag": test["mac"],
+                "ComputedTag": computed.hex(),
+            }
         )
     if not should_pass and computed == expected_mac:
         raise TestFailure({"Algo": algo, "Note": "Invalid KMAC matched"})
+
+
+# ---- Finite-field DSA sigVer / sigGen ----
+
+
+_DSA_GROUP_MAP = {
+    (2048, 256): "dsa/botan/2048",
+    (3072, 256): "dsa/botan/3072",
+}
+
+
+@register("DSA-SigVer-1.0")
+def handle_dsa_sigver(_header: dict, group: dict, test: dict, exp: dict) -> None:
+    _require_aft(group)
+
+    if group.get("conformance") == "SP800-106":
+        raise TestSkip("SP800-106 randomized hashing not supported")
+
+    hash_algo = _map_hash(group["hashAlg"])
+
+    p = botan.MPI("0x" + group["p"])
+    q = botan.MPI("0x" + group["q"])
+    g = botan.MPI("0x" + group["g"])
+
+    expected_valid = exp.get("testPassed", True)
+
+    try:
+        y = botan.MPI("0x" + test["y"])
+        pub = botan.PublicKey.load_dsa(p, q, g, y)
+    except botan.BotanException as e:
+        if expected_valid:
+            raise TestFailure(
+                {
+                    "L": group["l"],
+                    "N": group["n"],
+                    "Note": "DSA public key load failed on a valid test",
+                }
+            ) from e
+        return
+
+    # Pad r and s to N/8 bytes; test vectors may omit leading zeros.
+    n_bytes = group["n"] // 8
+    r = _from_hex(test["r"]).rjust(n_bytes, b"\x00")
+    s = _from_hex(test["s"]).rjust(n_bytes, b"\x00")
+    sig = r + s
+    msg = _from_hex(test["message"])
+
+    try:
+        verifier = botan.PKVerify(pub, hash_algo, der=False)
+        verifier.update(msg)
+        valid = verifier.check_signature(sig)
+    except botan.BotanException:
+        valid = False
+
+    if valid != expected_valid:
+        raise TestFailure(
+            {
+                "L": group["l"],
+                "N": group["n"],
+                "Hash": group["hashAlg"],
+                "R": test["r"],
+                "S": test["s"],
+                "Expected": "valid" if expected_valid else "invalid",
+                "Got": "valid" if valid else "invalid",
+            }
+        )
+
+
+@register("DSA-SigGen-1.0")
+def handle_dsa_siggen(_header: dict, group: dict, test: dict, _exp: dict) -> None:
+    _require_aft(group)
+
+    group_l = group["l"]
+    group_n = group["n"]
+    group_name = _DSA_GROUP_MAP.get((group_l, group_n))
+    if group_name is None:
+        raise TestSkip(f"No named DSA group for L={group_l}, N={group_n}")
+
+    hash_algo = _map_hash(group["hashAlg"])
+
+    priv = _group_state(group, "priv")
+    if priv is None:
+        rng = botan.RandomNumberGenerator("system")
+        priv = botan.PrivateKey.create("DSA", group_name, rng)
+        _set_group_state(group, "priv", priv)
+
+    msg = _from_hex(test["message"])
+    rng = botan.RandomNumberGenerator("system")
+
+    signer = botan.PKSign(priv, hash_algo, der=False)
+    signer.update(msg)
+    sig = signer.finish(rng)
+
+    pub = priv.get_public_key()
+    verifier = botan.PKVerify(pub, hash_algo, der=False)
+    verifier.update(msg)
+    if not verifier.check_signature(sig):
+        raise TestFailure(
+            {
+                "L": group_l,
+                "N": group_n,
+                "Hash": group["hashAlg"],
+                "Sig": sig.hex(),
+                "Note": "Self-produced DSA signature failed to verify",
+            }
+        )
 
 
 # ---- ECDSA sig ver ----
@@ -1243,8 +1410,12 @@ def handle_ecdsa_sigver(_header: dict, group: dict, test: dict, exp: dict) -> No
     except botan.BotanException as e:
         if expected_valid:
             raise TestFailure(
-                {"Curve": curve, "Qx": test["qx"], "Qy": test["qy"],
-                 "Note": "Public key load failed on a valid test"}
+                {
+                    "Curve": curve,
+                    "Qx": test["qx"],
+                    "Qy": test["qy"],
+                    "Note": "Public key load failed on a valid test",
+                }
             ) from e
         return
 
@@ -1260,22 +1431,18 @@ def handle_ecdsa_sigver(_header: dict, group: dict, test: dict, exp: dict) -> No
 
     if valid != expected_valid:
         raise TestFailure(
-            {"Curve": curve, "Hash": group["hashAlg"], "R": test["r"], "S": test["s"],
-             "Expected": "valid" if expected_valid else "invalid",
-             "Got": "valid" if valid else "invalid"}
+            {
+                "Curve": curve,
+                "Hash": group["hashAlg"],
+                "R": test["r"],
+                "S": test["s"],
+                "Expected": "valid" if expected_valid else "invalid",
+                "Got": "valid" if valid else "invalid",
+            }
         )
 
 
-# ---- EdDSA sig ver ----
-
 # ---- ECDSA keyGen / keyVer / sigGen ----
-
-# ACVP keyGen/sigGen semantics: the IUT generates its own key and reports
-# its outputs for validation. We can't match NIST's reference d/qx/qy/r/s
-# byte-for-byte (different RNG), so we check the generated artifacts are
-# internally consistent. For DetECDSA we additionally check that signing
-# the same message twice under the same key produces the same signature
-# (Botan's ECDSA is RFC 6979 by default).
 
 
 def _ecdsa_resolve_curve(group: dict) -> str:
@@ -1319,9 +1486,13 @@ def _ecdsa_siggen_aft(group: dict, test: dict, *, deterministic: bool) -> None:
         sig2 = signer2.finish(rng)
         if sig != sig2:
             raise TestFailure(
-                {"Curve": curve, "Hash": group.get("hashAlg", "Raw"),
-                 "Sig1": sig.hex(), "Sig2": sig2.hex(),
-                 "Note": "ECDSA is not deterministic under the same key/message"}
+                {
+                    "Curve": curve,
+                    "Hash": group.get("hashAlg", "Raw"),
+                    "Sig1": sig.hex(),
+                    "Sig2": sig2.hex(),
+                    "Note": "ECDSA is not deterministic under the same key/message",
+                }
             )
 
     pub = priv.get_public_key()
@@ -1329,8 +1500,12 @@ def _ecdsa_siggen_aft(group: dict, test: dict, *, deterministic: bool) -> None:
     verifier.update(msg)
     if not verifier.check_signature(sig):
         raise TestFailure(
-            {"Curve": curve, "Hash": group.get("hashAlg", "Raw"), "Sig": sig.hex(),
-             "Note": "Self-produced ECDSA signature failed to verify"}
+            {
+                "Curve": curve,
+                "Hash": group.get("hashAlg", "Raw"),
+                "Sig": sig.hex(),
+                "Note": "Self-produced ECDSA signature failed to verify",
+            }
         )
 
 
@@ -1361,8 +1536,7 @@ def handle_ecdsa_keygen(_header: dict, group: dict, _test: dict, _exp: dict) -> 
     verifier.update(b"acvp keygen self-test")
     if not verifier.check_signature(sig):
         raise TestFailure(
-            {"Curve": curve,
-             "Note": "Fresh ECDSA key sign/verify round-trip failed"}
+            {"Curve": curve, "Note": "Fresh ECDSA key sign/verify round-trip failed"}
         )
 
 
@@ -1382,9 +1556,13 @@ def handle_ecdsa_keyver(_header: dict, group: dict, test: dict, exp: dict) -> No
 
     if valid != expected_valid:
         raise TestFailure(
-            {"Curve": curve, "Qx": test["qx"], "Qy": test["qy"],
-             "Expected": "valid" if expected_valid else "invalid",
-             "Got": "valid" if valid else "invalid"}
+            {
+                "Curve": curve,
+                "Qx": test["qx"],
+                "Qy": test["qy"],
+                "Expected": "valid" if expected_valid else "invalid",
+                "Got": "valid" if valid else "invalid",
+            }
         )
 
 
@@ -1393,19 +1571,43 @@ def handle_ecdsa_keyver(_header: dict, group: dict, test: dict, exp: dict) -> No
 # Same IUT-generates-its-own-key pattern as ECDSA sigGen. ACVP supplies raw
 # Ed25519/Ed448 public keys; wrap them in a SubjectPublicKeyInfo before
 # handing to Botan's generic pubkey loader.
-_ED25519_SPKI_PREFIX = bytes([
-    0x30, 0x2a, 0x30, 0x05,
-    0x06, 0x03, 0x2b, 0x65, 0x70,  # OID 1.3.101.112
-    0x03, 0x21, 0x00,
-])
-_ED448_SPKI_PREFIX = bytes([
-    0x30, 0x43, 0x30, 0x05,
-    0x06, 0x03, 0x2b, 0x65, 0x71,  # OID 1.3.101.113
-    0x03, 0x3a, 0x00,
-])
+_ED25519_SPKI_PREFIX = bytes(
+    [
+        0x30,
+        0x2A,
+        0x30,
+        0x05,
+        0x06,
+        0x03,
+        0x2B,
+        0x65,
+        0x70,  # OID 1.3.101.112
+        0x03,
+        0x21,
+        0x00,
+    ]
+)
+_ED448_SPKI_PREFIX = bytes(
+    [
+        0x30,
+        0x43,
+        0x30,
+        0x05,
+        0x06,
+        0x03,
+        0x2B,
+        0x65,
+        0x71,  # OID 1.3.101.113
+        0x03,
+        0x3A,
+        0x00,
+    ]
+)
 
-_EDDSA_CURVE_MAP = {"ED-25519": ("Ed25519", _ED25519_SPKI_PREFIX),
-                    "ED-448":   ("Ed448",   _ED448_SPKI_PREFIX)}
+_EDDSA_CURVE_MAP = {
+    "ED-25519": ("Ed25519", _ED25519_SPKI_PREFIX),
+    "ED-448": ("Ed448", _ED448_SPKI_PREFIX),
+}
 
 
 def _eddsa_resolve(group: dict) -> tuple[str, bytes]:
@@ -1430,9 +1632,7 @@ def handle_eddsa_keygen(_header: dict, group: dict, _test: dict, _exp: dict) -> 
     verifier = botan.PKVerify(pub, "")
     verifier.update(b"acvp eddsa keygen self-test")
     if not verifier.check_signature(sig):
-        raise TestFailure(
-            {"Algo": algo, "Note": "EdDSA key round-trip failed"}
-        )
+        raise TestFailure({"Algo": algo, "Note": "EdDSA key round-trip failed"})
 
 
 @register("EDDSA-KeyVer-1.0")
@@ -1457,9 +1657,12 @@ def handle_eddsa_keyver(_header: dict, group: dict, test: dict, exp: dict) -> No
 
     if valid != expected_valid:
         raise TestFailure(
-            {"Curve": group["curve"], "Q": test["q"],
-             "Expected": "valid" if expected_valid else "invalid",
-             "Got": "valid" if valid else "invalid"}
+            {
+                "Curve": group["curve"],
+                "Q": test["q"],
+                "Expected": "valid" if expected_valid else "invalid",
+                "Got": "valid" if valid else "invalid",
+            }
         )
 
 
@@ -1488,8 +1691,11 @@ def handle_eddsa_siggen(_header: dict, group: dict, test: dict, _exp: dict) -> N
     verifier.update(msg)
     if not verifier.check_signature(sig):
         raise TestFailure(
-            {"Algo": algo, "Sig": sig.hex(),
-             "Note": "Self-produced EdDSA signature failed to verify"}
+            {
+                "Algo": algo,
+                "Sig": sig.hex(),
+                "Note": "Self-produced EdDSA signature failed to verify",
+            }
         )
 
 
@@ -1528,8 +1734,11 @@ def handle_rsa_siggen(_header: dict, group: dict, test: dict, _exp: dict) -> Non
     verifier.update(msg)
     if not verifier.check_signature(sig):
         raise TestFailure(
-            {"Padding": padding, "Modulo": str(group["modulo"]),
-             "Note": "Self-produced RSA signature failed to verify"}
+            {
+                "Padding": padding,
+                "Modulo": str(group["modulo"]),
+                "Note": "Self-produced RSA signature failed to verify",
+            }
         )
 
 
@@ -1542,7 +1751,9 @@ def handle_rsa_keygen(_header: dict, group: dict, _test: dict, _exp: dict) -> No
     if test_type not in ("GDT",):
         # AFT/KAT require seed-based deterministic prime generation per
         # FIPS 186-4 appendix B.3, which Botan's keygen does not expose.
-        raise TestSkip(f"RSA KeyGen testType {test_type} requires seed-based generation")
+        raise TestSkip(
+            f"RSA KeyGen testType {test_type} requires seed-based generation"
+        )
 
     modulo = group["modulo"]
     rng = botan.RandomNumberGenerator("system")
@@ -1557,8 +1768,10 @@ def handle_rsa_keygen(_header: dict, group: dict, _test: dict, _exp: dict) -> No
     verifier.update(b"acvp rsa keygen self-test")
     if not verifier.check_signature(sig):
         raise TestFailure(
-            {"Modulo": str(modulo),
-             "Note": "Fresh RSA key sign/verify round-trip failed"}
+            {
+                "Modulo": str(modulo),
+                "Note": "Fresh RSA key sign/verify round-trip failed",
+            }
         )
 
 
@@ -1617,9 +1830,7 @@ def handle_rsa_sig_primitive(_header: dict, group: dict, test: dict, exp: dict) 
         )
 
     if sig.hex() != exp["signature"].lower():
-        raise TestFailure(
-            {"Sig": exp["signature"], "ComputedSig": sig.hex()}
-        )
+        raise TestFailure({"Sig": exp["signature"], "ComputedSig": sig.hex()})
 
 
 @register("RSA-DecryptionPrimitive-Sp800-56Br2")
@@ -1671,9 +1882,7 @@ def handle_rsa_dec_primitive(_header: dict, group: dict, test: dict, exp: dict) 
     pt = bytes(mod_bytes - len(pt)) + pt if len(pt) < mod_bytes else pt
 
     if pt.hex() != exp["pt"].lower():
-        raise TestFailure(
-            {"PT": exp["pt"], "ComputedPT": pt.hex()}
-        )
+        raise TestFailure({"PT": exp["pt"], "ComputedPT": pt.hex()})
 
 
 # ---- AES-GMAC ----
@@ -1701,9 +1910,14 @@ def handle_aes_gmac(_header: dict, group: dict, test: dict, exp: dict) -> None:
     if group["direction"] == "encrypt":
         if computed.hex() != exp["tag"].lower():
             raise TestFailure(
-                {"Algo": algo, "Key": test["key"], "IV": test["iv"],
-                 "AAD": test.get("aad", ""),
-                 "Tag": exp["tag"], "ComputedTag": computed.hex()}
+                {
+                    "Algo": algo,
+                    "Key": test["key"],
+                    "IV": test["iv"],
+                    "AAD": test.get("aad", ""),
+                    "Tag": exp["tag"],
+                    "ComputedTag": computed.hex(),
+                }
             )
         return
 
@@ -1711,13 +1925,15 @@ def handle_aes_gmac(_header: dict, group: dict, test: dict, exp: dict) -> None:
     should_pass = exp.get("testPassed", True)
     if should_pass and computed != expected_mac:
         raise TestFailure(
-            {"Algo": algo, "Tag": test["tag"], "ComputedTag": computed.hex(),
-             "Note": "Valid GMAC did not match"}
+            {
+                "Algo": algo,
+                "Tag": test["tag"],
+                "ComputedTag": computed.hex(),
+                "Note": "Valid GMAC did not match",
+            }
         )
     if not should_pass and computed == expected_mac:
-        raise TestFailure(
-            {"Algo": algo, "Note": "Invalid GMAC matched"}
-        )
+        raise TestFailure({"Algo": algo, "Note": "Invalid GMAC matched"})
 
 
 # ---- PBKDF2 ----
@@ -1736,12 +1952,18 @@ def handle_pbkdf(_header: dict, group: dict, test: dict, exp: dict) -> None:
     iters = test["iterationCount"]
     dk_len = test["keyLen"] // 8
 
-    _, _, dk = botan.pbkdf(algo, password.decode("utf-8"), dk_len,
-                           iterations=iters, salt=salt)
+    _, _, dk = botan.pbkdf(
+        algo, password.decode("utf-8"), dk_len, iterations=iters, salt=salt
+    )
     if dk.hex() != exp["derivedKey"].lower():
         raise TestFailure(
-            {"Algo": algo, "Iters": str(iters), "DkLen": str(dk_len),
-             "Expected": exp["derivedKey"], "Got": dk.hex()}
+            {
+                "Algo": algo,
+                "Iters": str(iters),
+                "DkLen": str(dk_len),
+                "Expected": exp["derivedKey"],
+                "Got": dk.hex(),
+            }
         )
 
 
@@ -1760,7 +1982,9 @@ def _kda_party_info(party: dict) -> bytes:
 def _kda_fixed_info(pattern: str, party_u: dict, party_v: dict, l_bits: int) -> bytes:
     if pattern != "uPartyInfo||vPartyInfo||l":
         raise TestSkip(f"fixedInfoPattern {pattern!r} not supported")
-    return _kda_party_info(party_u) + _kda_party_info(party_v) + l_bits.to_bytes(4, "big")
+    return (
+        _kda_party_info(party_u) + _kda_party_info(party_v) + l_bits.to_bytes(4, "big")
+    )
 
 
 @register("HKDF-1.0")
@@ -1788,7 +2012,7 @@ def handle_hkdf_standalone(_header: dict, group: dict, test: dict, exp: dict) ->
 
 
 _KDA_ONESTEP_AUX_MAP = {
-    "SHA-1":    "SP800-56A(SHA-1)",
+    "SHA-1": "SP800-56A(SHA-1)",
     "SHA2-224": "SP800-56A(SHA-224)",
     "SHA2-256": "SP800-56A(SHA-256)",
     "SHA2-384": "SP800-56A(SHA-384)",
@@ -1835,8 +2059,11 @@ def _kda_aft(algo: str, salt: bytes, group: dict, test: dict, exp: dict) -> None
         passed = dkm == expected_dkm
         if passed != exp.get("testPassed", True):
             raise TestFailure(
-                {"Algo": algo, "Expected": str(exp.get("testPassed")),
-                 "Got": str(passed)}
+                {
+                    "Algo": algo,
+                    "Expected": str(exp.get("testPassed")),
+                    "Got": str(passed),
+                }
             )
 
 
@@ -1873,8 +2100,12 @@ def _kda_resolve(group: dict, test: dict) -> tuple[str, bytes]:
     raise TestSkip(f"Unsupported kdfType: {kdf_type}")
 
 
-@register("KDA-HKDF-Sp800-56Cr1", "KDA-HKDF-Sp800-56Cr2",
-          "KDA-OneStep-Sp800-56Cr1", "KDA-OneStep-Sp800-56Cr2")
+@register(
+    "KDA-HKDF-Sp800-56Cr1",
+    "KDA-HKDF-Sp800-56Cr2",
+    "KDA-OneStep-Sp800-56Cr1",
+    "KDA-OneStep-Sp800-56Cr2",
+)
 def handle_kda(_header: dict, group: dict, test: dict, exp: dict) -> None:
     algo, salt = _kda_resolve(group, test)
     _kda_aft(algo, salt, group, test, exp)
@@ -1906,9 +2137,7 @@ def handle_tls12_kdf_ems(_header: dict, group: dict, test: dict, exp: dict) -> N
 
     kb = botan.kdf(algo, ms, kb_len, sr + cr, b"key expansion")
     if kb.hex() != exp["keyBlock"].lower():
-        raise TestFailure(
-            {"Algo": algo, "KB": exp["keyBlock"], "ComputedKB": kb.hex()}
-        )
+        raise TestFailure({"Algo": algo, "KB": exp["keyBlock"], "ComputedKB": kb.hex()})
 
 
 # ---- ANSI X9.63 KDF (SEC 1) ----
@@ -1921,7 +2150,7 @@ def handle_kdf_ansix963(_header: dict, group: dict, test: dict, exp: dict) -> No
     hash_name = _KDF_HASH_MAP.get(group["hashAlg"])
     if hash_name is None:
         raise TestSkip(f"Hash {group['hashAlg']} not supported")
-    # ANSI X9.63 KDF is Botan's KDF2.
+    # ANSI X9.63 KDF == IEEE KDF2.
     algo = f"KDF2({hash_name})"
 
     z = _from_hex(test["z"])
@@ -1946,7 +2175,9 @@ _TLS12_PRF_HASH_MAP = {
 
 
 @register("kdf-components-tls-1.0")
-def handle_kdf_components_tls(_header: dict, group: dict, test: dict, exp: dict) -> None:
+def handle_kdf_components_tls(
+    _header: dict, group: dict, test: dict, exp: dict
+) -> None:
     _require_aft(group)
 
     version = group["tlsVersion"]
@@ -1972,16 +2203,16 @@ def handle_kdf_components_tls(_header: dict, group: dict, test: dict, exp: dict)
 
     kb = botan.kdf(algo, ms, kb_len, sr + cr, b"key expansion")
     if kb.hex() != exp["keyBlock"].lower():
-        raise TestFailure(
-            {"Algo": algo, "KB": exp["keyBlock"], "ComputedKB": kb.hex()}
-        )
+        raise TestFailure({"Algo": algo, "KB": exp["keyBlock"], "ComputedKB": kb.hex()})
 
 
 # ---- RSA sig ver FIPS 186-2 ----
 
 
 @register("RSA-SigVer-FIPS186-2")
-def handle_rsa_sigver_fips186_2(header: dict, group: dict, test: dict, exp: dict) -> None:
+def handle_rsa_sigver_fips186_2(
+    header: dict, group: dict, test: dict, exp: dict
+) -> None:
     # Same handler as RSA-SigVer-FIPS186-5 — reuses the same padding logic
     # and the same X9.31 skip.
     handle_rsa_sigver(header, group, test, exp)
@@ -1989,24 +2220,19 @@ def handle_rsa_sigver_fips186_2(header: dict, group: dict, test: dict, exp: dict
 
 # ---- LMS keyGen ----
 
-# ACVP LMS keyGen provides a seed + 16-byte identifier. Botan's HSS-LMS key
-# generation reads `m()` bytes for the seed and then 16 bytes for the
-# identifier from its RNG (see hss.cpp:123), so a FixedOutputRNG primed
-# with seed || i reproduces the NIST reference key bit-for-bit.
-
 _LMS_HASH_FROM_MODE = {
     "LMS_SHA256_M32": "SHA-256",
     "LMS_SHA256_M24": "Truncated(SHA-256,192)",
-    "LMS_SHAKE_M32":  "SHAKE-256(256)",
-    "LMS_SHAKE_M24":  "SHAKE-256(192)",
+    "LMS_SHAKE_M32": "SHAKE-256(256)",
+    "LMS_SHAKE_M24": "SHAKE-256(192)",
 }
 
 _LMOTS_W_FROM_SUFFIX = {"W1": 1, "W2": 2, "W4": 4, "W8": 8}
 
 
 def _lms_botan_params(lms_mode: str, lmots_mode: str) -> str:
-    # lms_mode like 'LMS_SHA256_M24_H5' → prefix 'LMS_SHA256_M24' and h=5.
-    # lmots_mode like 'LMOTS_SHA256_N24_W1' → w=1.
+    # lms_mode like 'LMS_SHA256_M24_H5' -> prefix 'LMS_SHA256_M24' and h=5.
+    # lmots_mode like 'LMOTS_SHA256_N24_W1' -> w=1.
     prefix, _, h_tag = lms_mode.rpartition("_")
     if not h_tag.startswith("H"):
         raise ValueError(f"Unexpected LMS mode: {lms_mode}")
@@ -2042,8 +2268,12 @@ def handle_lms_keygen(_header: dict, group: dict, test: dict, exp: dict) -> None
     computed = raw[4:].hex()
     if computed != exp["publicKey"].lower():
         raise TestFailure(
-            {"LmsMode": group["lmsMode"], "LmOtsMode": group["lmOtsMode"],
-             "PublicKey": exp["publicKey"], "ComputedPublicKey": computed}
+            {
+                "LmsMode": group["lmsMode"],
+                "LmOtsMode": group["lmOtsMode"],
+                "PublicKey": exp["publicKey"],
+                "ComputedPublicKey": computed,
+            }
         )
 
 
@@ -2051,10 +2281,23 @@ def handle_lms_keygen(_header: dict, group: dict, test: dict, exp: dict) -> None
 
 # OID for id-alg-hss-lms-hashsig (1.2.840.113549.1.9.16.3.17), as used in
 # RFC 8708's SPKI encoding for HSS/LMS public keys.
-_HSS_LMS_OID_DER = bytes([
-    0x06, 0x0b,
-    0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 0x10, 0x03, 0x11,
-])
+_HSS_LMS_OID_DER = bytes(
+    [
+        0x06,
+        0x0B,
+        0x2A,
+        0x86,
+        0x48,
+        0x86,
+        0xF7,
+        0x0D,
+        0x01,
+        0x09,
+        0x10,
+        0x03,
+        0x11,
+    ]
+)
 
 
 def _der_seq(body: bytes) -> bytes:
@@ -2103,10 +2346,13 @@ def handle_lms_sigver(_header: dict, group: dict, test: dict, exp: dict) -> None
 
     if valid != expected_valid:
         raise TestFailure(
-            {"LmsMode": group.get("lmsMode"), "LmOtsMode": group.get("lmOtsMode"),
-             "Msg": test["message"][:80] + "...",
-             "Expected": "valid" if expected_valid else "invalid",
-             "Got": "valid" if valid else "invalid"}
+            {
+                "LmsMode": group.get("lmsMode"),
+                "LmOtsMode": group.get("lmOtsMode"),
+                "Msg": test["message"][:80] + "...",
+                "Expected": "valid" if expected_valid else "invalid",
+                "Got": "valid" if valid else "invalid",
+            }
         )
 
 
@@ -2150,9 +2396,13 @@ def handle_eddsa_sigver(_header: dict, group: dict, test: dict, exp: dict) -> No
 
     if valid != expected_valid:
         raise TestFailure(
-            {"Curve": curve, "Msg": test["message"], "Sig": test["signature"],
-             "Expected": "valid" if expected_valid else "invalid",
-             "Got": "valid" if valid else "invalid"}
+            {
+                "Curve": curve,
+                "Msg": test["message"],
+                "Sig": test["signature"],
+                "Expected": "valid" if expected_valid else "invalid",
+                "Got": "valid" if valid else "invalid",
+            }
         )
 
 
@@ -2209,9 +2459,13 @@ def handle_rsa_sigver(_header: dict, group: dict, test: dict, exp: dict) -> None
 
     if valid != expected_valid:
         raise TestFailure(
-            {"Padding": padding, "Msg": test["message"], "Sig": test["signature"],
-             "Expected": "valid" if expected_valid else "invalid",
-             "Got": "valid" if valid else "invalid"}
+            {
+                "Padding": padding,
+                "Msg": test["message"],
+                "Sig": test["signature"],
+                "Expected": "valid" if expected_valid else "invalid",
+                "Got": "valid" if valid else "invalid",
+            }
         )
 
 
@@ -2252,8 +2506,13 @@ def handle_mlkem_encapdecap(_header: dict, group: dict, test: dict, exp: dict) -
         k, c = kem_e.create_shared_key(rng, b"", len(expected_k))
         if c.hex() != exp["c"].lower() or k.hex() != exp["k"].lower():
             raise TestFailure(
-                {"Mode": param_set, "C": exp["c"], "K": exp["k"],
-                 "ComputedC": c.hex(), "ComputedK": k.hex()}
+                {
+                    "Mode": param_set,
+                    "C": exp["c"],
+                    "K": exp["k"],
+                    "ComputedC": c.hex(),
+                    "ComputedK": k.hex(),
+                }
             )
         return
 
@@ -2267,12 +2526,13 @@ def handle_mlkem_encapdecap(_header: dict, group: dict, test: dict, exp: dict) -
         except botan.BotanException:
             return  # Implicit rejection is acceptable
         if k.hex() != exp["k"].lower():
-            raise TestFailure(
-                {"Mode": param_set, "K": exp["k"], "ComputedK": k.hex()}
-            )
+            raise TestFailure({"Mode": param_set, "K": exp["k"], "ComputedK": k.hex()})
         return
 
-    if function in ("encapsulationKeyCheck", "decapsulationKeyCheck") and test_type == "VAL":
+    if (
+        function in ("encapsulationKeyCheck", "decapsulationKeyCheck")
+        and test_type == "VAL"
+    ):
         expected_pass = exp.get("testPassed", True)
         try:
             if function == "encapsulationKeyCheck":
@@ -2284,8 +2544,12 @@ def handle_mlkem_encapdecap(_header: dict, group: dict, test: dict, exp: dict) -
             passed = False
         if passed != expected_pass:
             raise TestFailure(
-                {"Mode": param_set, "Function": function,
-                 "Expected": str(expected_pass), "Got": str(passed)}
+                {
+                    "Mode": param_set,
+                    "Function": function,
+                    "Expected": str(expected_pass),
+                    "Got": str(passed),
+                }
             )
         return
 
@@ -2359,8 +2623,12 @@ def handle_mldsa_siggen(_header: dict, group: dict, test: dict, exp: dict) -> No
         sig = signer.finish(rng).hex()
     if sig != exp["signature"].lower():
         raise TestFailure(
-            {"Mode": mode, "Msg": test["message"],
-             "Sig": exp["signature"], "ComputedSig": sig}
+            {
+                "Mode": mode,
+                "Msg": test["message"],
+                "Sig": exp["signature"],
+                "ComputedSig": sig,
+            }
         )
 
 
@@ -2394,9 +2662,13 @@ def handle_mldsa_sigver(_header: dict, group: dict, test: dict, exp: dict) -> No
 
     if valid != expected_valid:
         raise TestFailure(
-            {"Mode": mode, "Msg": test["message"], "Sig": test["signature"],
-             "Expected": "valid" if expected_valid else "invalid",
-             "Got": "valid" if valid else "invalid"}
+            {
+                "Mode": mode,
+                "Msg": test["message"],
+                "Sig": test["signature"],
+                "Expected": "valid" if expected_valid else "invalid",
+                "Got": "valid" if valid else "invalid",
+            }
         )
 
 
@@ -2408,12 +2680,16 @@ def handle_slhdsa_keygen(_header: dict, group: dict, test: dict, exp: dict) -> N
     _require_aft(group)
 
     param_set = group["parameterSet"]
-    seed = _from_hex(test["skSeed"]) + _from_hex(test["skPrf"]) + _from_hex(test["pkSeed"])
+    seed = (
+        _from_hex(test["skSeed"]) + _from_hex(test["skPrf"]) + _from_hex(test["pkSeed"])
+    )
 
     try:
         priv = botan.PrivateKey.load_slh_dsa(param_set, seed)
     except botan.BotanException as e:
-        raise TestSkip(f"SLH-DSA key loading from seed not supported for {param_set}") from e
+        raise TestSkip(
+            f"SLH-DSA key loading from seed not supported for {param_set}"
+        ) from e
 
     pub = priv.get_public_key()
     if pub.to_raw().hex() != exp["pk"].lower():
@@ -2446,9 +2722,13 @@ def handle_slhdsa_sigver(_header: dict, group: dict, test: dict, exp: dict) -> N
 
     if valid != expected_valid:
         raise TestFailure(
-            {"Mode": param_set, "Msg": test["message"], "Sig": test["signature"],
-             "Expected": "valid" if expected_valid else "invalid",
-             "Got": "valid" if valid else "invalid"}
+            {
+                "Mode": param_set,
+                "Msg": test["message"],
+                "Sig": test["signature"],
+                "Expected": "valid" if expected_valid else "invalid",
+                "Got": "valid" if valid else "invalid",
+            }
         )
 
 
@@ -2486,8 +2766,12 @@ def handle_slhdsa_siggen(_header: dict, group: dict, test: dict, exp: dict) -> N
 
     if sig != exp["signature"].lower():
         raise TestFailure(
-            {"Mode": param_set, "Msg": test["message"][:40] + "...",
-             "Sig": exp["signature"][:40] + "...", "ComputedSig": sig[:40] + "..."}
+            {
+                "Mode": param_set,
+                "Msg": test["message"][:40] + "...",
+                "Sig": exp["signature"][:40] + "...",
+                "ComputedSig": sig[:40] + "...",
+            }
         )
 
 
@@ -2529,82 +2813,85 @@ def handle_hmac_drbg(_header: dict, group: dict, test: dict, exp: dict) -> None:
 
     if out.hex() != exp["returnedBits"].lower():
         raise TestFailure(
-            {"Mode": group["mode"],
-             "ReturnedBits": exp["returnedBits"],
-             "ComputedBits": out.hex()}
+            {
+                "Mode": group["mode"],
+                "ReturnedBits": exp["returnedBits"],
+                "ComputedBits": out.hex(),
+            }
         )
 
 
 # ---- Ignored algorithms ----
 
-# Directories that we don't plan to implement right now. These are skipped
-# silently (not counted as unclaimed) to keep the summary focused on work
-# that's actually pending.
 _registry.ignore(
-    # CTR: ACVP generates IV internally, bit-oriented payloads — not
-    # testable via SymmetricCipher.
+    # Botan follows SP800-108s presentation of combining counter, label and
+    # context with domain separation and the length encoding. For whatever
+    # reason the ACVP tests completely skip this and just provide a block of data
+    # that should be fed to the raw PRF. Since we follow the spec (?!?) it's
+    # not possible to run these tests.
+    #
+    # NIST is not my favorite standards organization
+    "KDF-1.0",
+    "KDA-TwoStep-Sp800-56Cr1",
+    "KDA-TwoStep-Sp800-56Cr2",
+    # ACVP's CTR tests are strange and possibly impossible for us to implement
     "ACVP-AES-CTR-1.0",
-    # CBC ciphertext-stealing variants — not in Botan.
+    "ACVP-TDES-CTR-1.0",
+    # Unimplemented CBC ciphertext-stealing variants
     "ACVP-AES-CBC-CS1-1.0",
     "ACVP-AES-CBC-CS2-1.0",
     "ACVP-AES-CBC-CS3-1.0",
-    # CCM ECMA variant — not in Botan.
-    "ACVP-AES-CCM-ECMA-1.0",
-    # Botan's CFB only supports bit widths divisible by 8.
+    # We don't support 1-bit CFB
     "ACVP-AES-CFB1-1.0",
-    # AEAD variants not implemented in Botan.
+    "ACVP-TDES-CFB1-1.0",
+    # GCM-SIV currently not implemented
     "ACVP-AES-GCM-SIV-1.0",
-    # Format-preserving encryption — not implemented.
+    # Unimplemented FPE schemes
     "ACVP-AES-FF1-1.0",
     "ACVP-AES-FF3-1-1.0",
-    # XPN — not implemented.
+    # Weirdo modes
     "ACVP-AES-XPN-1.0",
-    # TDES non-standard modes (CBC-Interleaved, CFB-Pipelined, OFB-Interleaved).
+    "ACVP-AES-CCM-ECMA-1.0",
     "ACVP-TDES-CBCI-1.0",
     "ACVP-TDES-CFBP1-1.0",
     "ACVP-TDES-CFBP64-1.0",
     "ACVP-TDES-CFBP8-1.0",
     "ACVP-TDES-OFBI-1.0",
-    # TDES bit-level CFB, like AES-CFB1.
-    "ACVP-TDES-CFB1-1.0",
-    # TDES CTR: like AES-CTR, ACVP generates IV internally.
-    "ACVP-TDES-CTR-1.0",
-    # TDES CMAC: not implemented in Botan.
-    "ACVP-TDES-CMAC-1.0",
-    "CMAC-TDES-1.0",
-    # TDES key wrap: not implemented in Botan.
+    # Unimplemented, I didn't even know this was a thing
     "ACVP-TDES-KW-1.0",
-    # Ascon cXOF not implemented in Botan.
-    "Ascon-CXOF128-SP800-232",
-    # SP800-90B entropy source conditioning components.
-    "ConditioningComponent-AES-CBC-MAC-Sp800-90B",
-    "ConditioningComponent-BlockCipher_DF-Sp800-90B",
-    "ConditioningComponent-Hash_DF-Sp800-90B",
-    # Legacy DSA — Botan no longer supports signing, verify is deprecated.
+    # Finite Field DSA
     "DSA-KeyGen-1.0",
     "DSA-PQGGen-1.0",
     "DSA-PQGVer-1.0",
-    "DSA-SigGen-1.0",
-    "DSA-SigVer-1.0",
-    # ParallelHash / TupleHash — not implemented.
+    # Unimplemented
+    "Ascon-CXOF128-SP800-232",
     "ParallelHash-128-1.0",
     "ParallelHash-256-1.0",
     "TupleHash-128-1.0",
     "TupleHash-256-1.0",
-    # safePrimes — not directly testable.
+    # Doesn't seem relevant
     "safePrimes-keyVer-1.0",
     "safePrimes-keyGen-1.0",
-    # LMS sigGen: deterministic signing from a specific key state is not
-    # exposed via the Python bindings.
-    "LMS-sigGen-1.0",
-    # RSA primitive v1.0 tests: the IUT generates its own key and the
-    # validator supplies ciphertexts for it. Cannot match NIST's reference
-    # since we'd need the same key.
+    # Unimplemented DRBGs and support fns
+    "ctrDRBG-1.0",
+    "hashDRBG-1.0",
+    "ConditioningComponent-AES-CBC-MAC-Sp800-90B",
+    "ConditioningComponent-BlockCipher_DF-Sp800-90B",
+    "ConditioningComponent-Hash_DF-Sp800-90B",
+    # Unimplemented KDFs
+    "kdf-components-IKEv1-1.0",
+    "kdf-components-ansix9.42-1.0",
+    "kdf-components-ikev2-1.0",
+    "kdf-components-snmp-1.0",
+    "kdf-components-srtp-1.0",
+    "kdf-components-ssh-1.0",
+    "kdf-components-tpm-1.0",
+    "KDF-KMAC-Sp800-108r1",
+    "KDA-OneStepNoCounter-Sp800-56Cr2",
+    # These are all some kind of multi-step protocol rather than
+    # just testing a primitive
     "RSA-signaturePrimitive-1.0",
     "RSA-decryptionPrimitive-1.0",
-    # Multi-step key agreement / transport protocols. Botan implements the
-    # building blocks (ECDH, DH, RSA-OAEP, HKDF, etc.) but does not expose
-    # the full KAS/KTS protocol compositions through a single API.
     "KAS-ECC-1.0",
     "KAS-ECC-CDH-Component-1.0",
     "KAS-ECC-CDH-Component-Sp800-56Ar3",
@@ -2617,36 +2904,7 @@ _registry.ignore(
     "KAS-IFC-Sp800-56Br2",
     "KAS-KC-Sp800-56",
     "KTS-IFC-Sp800-56Br2",
-    # TLS 1.3 KDF: multi-step HKDF-Expand-Label protocol not directly
-    # exposed as a single KDF.
     "TLS-v1.3-KDF-RFC8446",
-    # ctrDRBG / hashDRBG: not implemented in Botan.
-    "ctrDRBG-1.0",
-    "hashDRBG-1.0",
-    # kdf-components for KDFs not implemented in Botan.
-    "kdf-components-IKEv1-1.0",
-    "kdf-components-ansix9.42-1.0",
-    "kdf-components-ikev2-1.0",
-    "kdf-components-snmp-1.0",
-    "kdf-components-srtp-1.0",
-    "kdf-components-ssh-1.0",
-    "kdf-components-tpm-1.0",
-    # SP800-108 KDFs (Counter, Feedback, Pipeline): Botan's implementation
-    # hardcodes the PRF input structure as counter || Label || 0x00 || Context
-    # || [L] (see sp800_108.cpp). ACVP's KDF-1.0 vectors instead treat the
-    # entire fixed input as an opaque blob and vary only the counter position
-    # relative to it. The hardcoded 0x00 delimiter and always-appended output
-    # length encoding make it impossible to use Botan's SP800-108 KDFs with
-    # ACVP's pre-concatenated fixedData. This also blocks KDA-TwoStep (which
-    # uses SP800-108-Feedback internally for the expand step).
-    "KDF-1.0",
-    "KDA-TwoStep-Sp800-56Cr1",
-    "KDA-TwoStep-Sp800-56Cr2",
-    # SP800-108r1 KMAC-based KDF: not implemented in Botan.
-    "KDF-KMAC-Sp800-108r1",
-    # KDA-OneStepNoCounter: SP800-56C variant without a counter; niche and
-    # not implemented in Botan.
-    "KDA-OneStepNoCounter-Sp800-56Cr2",
 )
 
 
