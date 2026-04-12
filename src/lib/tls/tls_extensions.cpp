@@ -263,7 +263,11 @@ std::vector<uint8_t> Extensions::serialize(Connection_Side whoami) const {
 std::set<Extension_Code> Extensions::extension_types() const {
    std::set<Extension_Code> offers;
    for(const auto& [extn_type, extn] : m_extensions) {
-      offers.insert(extn_type);
+      // Consistent with serialize(): empty extensions are not placed on
+      // the wire so they must not appear in the "offered" set either.
+      if(!extn->empty()) {
+         offers.insert(extn_type);
+      }
    }
    return offers;
 }
