@@ -390,6 +390,8 @@ secure_vector<uint8_t> TLS::Callbacks::tls_ephemeral_key_agreement(
          // This exception means that the public key was invalid. However,
          // TLS' DecodeError would imply that a protocol message was invalid.
          throw TLS_Exception(Alert::IllegalParameter, ex.what());
+      } catch(const Invalid_Argument& ex) {
+         throw TLS_Exception(Alert::IllegalParameter, ex.what());
       }
    }();
 
