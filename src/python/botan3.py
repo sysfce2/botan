@@ -158,6 +158,8 @@ def _set_prototypes(dll):
     ffi_api(dll.botan_rng_reseed, [c_void_p, c_size_t])
     ffi_api(dll.botan_rng_reseed_from_rng, [c_void_p, c_void_p, c_size_t])
     ffi_api(dll.botan_rng_add_entropy, [c_void_p, c_char_p, c_size_t])
+    ffi_api(dll.botan_rng_init_drbg, [c_void_p, c_char_p, c_char_p, c_size_t])
+    ffi_api(dll.botan_rng_generate_with_input, [c_void_p, c_char_p, c_size_t, c_char_p, c_size_t])
     ffi_api(dll.botan_rng_destroy, [c_void_p])
 
     #  HASH
@@ -913,6 +915,11 @@ class RandomNumberGenerator:
         * 'custom': Adapter to user-defined callbacks
                     (needs additional named arguments get_callback= and, optionally, add_entropy_callback=)
         """
+        obj = kwargs.pop("_obj", None)
+        if isinstance(obj, c_void_p):
+            self.__obj = obj
+            return
+
         self.__obj = c_void_p(0)
         if rng_type == 'custom':
             custom_rng_ctx = _CustomRngContext(kwargs.pop("get_callback", None), kwargs.pop("add_entropy_callback", None))
@@ -964,6 +971,24 @@ class RandomNumberGenerator:
         out = create_string_buffer(length)
         _DLL.botan_rng_get(self.__obj, out, c_size_t(length))
         return _ctype_bufout(out)
+
+    def generate_with_input(self, length: int, additional_input: bytes) -> bytes:
+        """Generate random bytes with additional input mixed in (for DRBGs)"""
+        out = create_string_buffer(length)
+        _DLL.botan_rng_generate_with_input(
+            self.__obj, out, c_size_t(length),
+            additional_input, c_size_t(len(additional_input)))
+        return _ctype_bufout(out)
+
+    @staticmethod
+    def drbg(drbg_name: str, seed: bytes) -> RandomNumberGenerator:
+        """Create a seeded DRBG (e.g. "HMAC_DRBG(SHA-256)")
+
+        The seed should be the concatenation of entropy, nonce, and
+        personalization string."""
+        obj = c_void_p(0)
+        _DLL.botan_rng_init_drbg(byref(obj), _ctype_str(drbg_name), seed, c_size_t(len(seed)))
+        return RandomNumberGenerator(_obj=obj)
 
 #
 # Block cipher
