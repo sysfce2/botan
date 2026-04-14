@@ -664,6 +664,7 @@ def process_command_line(args):
                              help='set the include file install dir')
     install_group.add_option('--cmakeconfigdir', metavar='DIR',
                              help='set the CMake config (botan-config.cmake, botan-config-version.cmake) install dir')
+    add_with_without_pair(install_group, 'include-namespace', default=True, msg="don't add a 'botan-%d/' namespace to the include path" % (Version.major()))
 
     info_group = optparse.OptionGroup(parser, 'Informational')
 
@@ -2375,10 +2376,18 @@ def create_template_vars(source_paths, build_paths, options, modules, disabled_m
         'disabled_mod_list': sorted([m.basename for m in disabled_modules]),
     }
 
+    variables['namespaced_includedir'] = os.path.join(
+        variables['includedir'],
+        ('botan-%d' % Version.major()) if options.with_include_namespace else '')
     variables['installed_include_dir'] = os.path.join(
         variables['prefix'],
-        variables['includedir'],
-        'botan-%d' % (Version.major()), 'botan')
+        variables['namespaced_includedir'],
+        'botan')
+
+    variables['libdir_rel'] = normalize_source_path(os.path.relpath(variables['libdir'], variables['prefix']))
+    variables['bindir_rel'] = normalize_source_path(os.path.relpath(variables['bindir'], variables['prefix']))
+    variables['includedir_rel'] = normalize_source_path(os.path.relpath(absolute_install_dir(variables['includedir']), variables['prefix']))
+    variables['namespaced_includedir_rel'] = normalize_source_path(os.path.relpath(absolute_install_dir(variables['namespaced_includedir']), variables['prefix']))
 
     # On MSVC, the "ABI flags" should be passed to the compiler only, on other platforms, the
     # ABI flags are passed to both the compiler and the linker and the compiler flags are also
@@ -2408,8 +2417,6 @@ def create_template_vars(source_paths, build_paths, options, modules, disabled_m
         if not is_subpath(cmake_install_dir, variables['prefix']):
             logging.error("The CMake module must be installed into a subdirectory of the install prefix.")
         variables['cmake_install_dir'] = normalize_source_path(cmake_install_dir)
-        variables['libdir_rel'] = normalize_source_path(os.path.relpath(variables['libdir'], variables['prefix']))
-        variables['bindir_rel'] = normalize_source_path(os.path.relpath(variables['bindir'], variables['prefix']))
         cmake_rel = os.path.relpath(cmake_install_dir, variables['prefix'])
         variables['cmake_relpath_components'] = [p for p in cmake_rel.replace('\\', '/').split('/') if p and p != '.']
 
