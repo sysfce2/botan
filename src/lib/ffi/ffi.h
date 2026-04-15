@@ -371,6 +371,35 @@ BOTAN_FFI_EXPORT(2, 8) int botan_rng_reseed_from_rng(botan_rng_t rng, botan_rng_
 BOTAN_FFI_EXPORT(2, 8) int botan_rng_add_entropy(botan_rng_t rng, const uint8_t* entropy, size_t entropy_len);
 
 /**
+* Create and seed a DRBG
+*
+* @param rng_out the new DRBG object
+* @param drbg_name the name of the DRBG (e.g. "HMAC_DRBG(SHA-256)")
+* @param seed the seed material (entropy || nonce || personalization_string)
+* @param seed_len length of seed in bytes
+* @return 0 on success, negative on failure
+*/
+BOTAN_FFI_EXPORT(3, 12)
+int botan_rng_init_drbg(botan_rng_t* rng_out, const char* drbg_name, const uint8_t* seed, size_t seed_len);
+
+/**
+* Generate random bytes from an RNG with additional input.
+*
+* For a DRBG, the additional input is mixed in before generating.
+* Many other RNG types (eg RDRAND or system RNG) will ignore the input.
+*
+* @param rng the RNG object
+* @param out output buffer
+* @param out_len number of bytes to generate
+* @param addl_input additional input to mix in (may be NULL if addl_len is 0)
+* @param addl_len length of additional input
+* @return 0 on success, negative on failure
+*/
+BOTAN_FFI_EXPORT(3, 12)
+int botan_rng_generate_with_input(
+   botan_rng_t rng, uint8_t* out, size_t out_len, const uint8_t* addl_input, size_t addl_len);
+
+/**
 * Frees all resources of the random number generator object
 * @param rng rng object
 * @return 0 if success, error if invalid object handle

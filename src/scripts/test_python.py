@@ -180,6 +180,30 @@ class BotanPythonTests(unittest.TestCase):
 
         user_rng.add_entropy('seed material...')
 
+    def test_drbg(self):
+        seed = bytes.fromhex(
+            '000102030405060708090a0b0c0d0e0f'
+            '101112131415161718191a1b1c1d1e1f'
+            '2021222324252627')
+
+        drbg = botan.RandomNumberGenerator.drbg('HMAC_DRBG(SHA-256)', seed)
+        out = drbg.get(32)
+        self.assertEqual(out.hex(),
+                         '3f56de71d4c5155cea215d45b6a8a161e623ca06345ce68c29c8cb3326c64595')
+
+        # generate_with_input mixes additional data before generating
+        drbg2 = botan.RandomNumberGenerator.drbg('HMAC_DRBG(SHA-256)', seed)
+        out2 = drbg2.generate_with_input(32, b'additional input')
+        self.assertEqual(out2.hex(),
+                         'e327411d65fd4004cd78ee6849177bc205a11a1ba1191c9d648890a7a3aa5dae')
+
+        # add_entropy reseeds the DRBG state
+        drbg3 = botan.RandomNumberGenerator.drbg('HMAC_DRBG(SHA-256)', seed)
+        drbg3.add_entropy(bytes(32))
+        out3 = drbg3.get(32)
+        self.assertEqual(out3.hex(),
+                         '404b055a2d802320c5a288e0f46559c554425d70938326bf408efb361c7424bf')
+
     def test_custom_rng(self):
         class CustomRngHandler:
             def __init__(self, hardcoded=False):

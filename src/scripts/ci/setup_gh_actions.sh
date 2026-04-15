@@ -65,6 +65,10 @@ if type -p "apt-get"; then
     elif [ "$TARGET" = "wycheproof" ]; then
         git clone --depth 1 "${WYCHEPROOF_GIT_URL}" wycheproof-git
         echo "WYCHEPROOF_DIR=$(pwd)/wycheproof-git" >> "$GITHUB_ENV"
+
+    elif [ "$TARGET" = "acvp" ]; then
+        git clone --depth 1 "${ACVP_SERVER_GIT_URL}" acvp-server-git
+        echo "ACVP_TESTDATA_DIR=$(pwd)/acvp-server-git/gen-val/json-files" >> "$GITHUB_ENV"
     fi
 
     if [ "$TARGET" = "coverage" ] || [ "$TARGET" = "sanitizer" ]; then

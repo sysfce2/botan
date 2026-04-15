@@ -162,6 +162,24 @@ jobs:
       - name: Build and Test Botan
         run: python3 ./src/scripts/ci_build.py --cc='${{ matrix.compiler }}' --ci-image='${{ matrix.host_os }}' --make-tool='${{ matrix.make_tool }}' --test-results-dir=junit_results ${{ matrix.target }}
 
+  acvp:
+    name: "ACVP"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Read Repository Configuration
+        uses: ./.github/actions/read-repo-config
+      - name: Setup Build Agent
+        uses: ./.github/actions/setup-build-agent
+        with:
+          target: acvp
+          compiler: gcc
+          cache-key: linux-x86_64-acvp
+      - name: Run ACVP Tests
+        run: python3 ./src/scripts/ci_build.py --cc=gcc --make-tool=make acvp
+
   clang-tidy:
     name: "Clang Tidy"
     runs-on: ubuntu-24.04

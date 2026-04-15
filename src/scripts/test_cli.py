@@ -1034,7 +1034,9 @@ def cli_marvin_tests(tmp_dir):
 
     for i in range(test_inputs):
         output_file = os.path.join(data_dir, "invalid%d" % i)
-        ctext = bytes([i] * 128)
+        ctext = bytearray(os.urandom(1024 // 8))
+        # Clear high bit so ciphertext is smaller than the modulus
+        ctext[0] &= 0x7F
 
         with open(output_file, 'bw') as out:
             out.write(ctext)

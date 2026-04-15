@@ -558,8 +558,8 @@ class RSA_Private_Operation {
             throw Decoding_Error("RSA input is too long for this key");
          }
          const BigInt input_bn(input.data(), input.size());
-         if(input_bn >= m_public->get_n()) {
-            throw Decoding_Error("RSA input is too large for this key");
+         if(input_bn.is_zero() || input_bn >= m_public->get_n()) {
+            throw Decoding_Error("RSA input is not in the valid range");
          }
          // TODO: This should be a function on blinder
          // BigInt Blinder::run_blinded_function(std::function<BigInt, BigInt> fn, const BigInt& input);
