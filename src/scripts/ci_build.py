@@ -946,6 +946,7 @@ def main(args=None):
 
             cmds.append(['indir:%s' % (runner_dir),
                          'go', 'test', '-pipe',
+                         '-allow-unimplemented',
                          '-num-workers', str(4*get_concurrency()),
                          '-shim-path', os.path.abspath(os.path.join(build_dir, 'botan_bogo_shim')),
                          '-shim-config', shim_config] + extra_args)

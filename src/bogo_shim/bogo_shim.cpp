@@ -37,6 +37,10 @@
 #include <botan/internal/stl_util.h>
 #include <botan/internal/target_info.h>
 
+#if defined(BOTAN_HAS_TLS_13)
+   #include <botan/tls_psk_13.h>
+#endif
+
 #include <cstring>
 #include <ctime>
 #include <fstream>
@@ -184,6 +188,7 @@ std::string map_to_bogo_error(const std::string& e) noexcept {
       {"Invalid CertificateRequest: Length field outside parameters", ":DECODE_ERROR:"},
       {"Invalid ServerHello: Length field outside parameters", ":DECODE_ERROR:"},
       {"Invalid CertificateVerify: Extra bytes at end of message", ":DECODE_ERROR:"},
+      {"Invalid Certificate_Status message: too small", ":DECODE_ERROR:"},
       {"Invalid Certificate_Status: invalid length field", ":DECODE_ERROR:"},
       {"Invalid ChangeCipherSpec", ":BAD_CHANGE_CIPHER_SPEC:"},
       {"Invalid ClientHello: Length field outside parameters", ":DECODE_ERROR:"},
@@ -320,6 +325,10 @@ std::string map_to_bogo_error(const std::string& e) noexcept {
        ":UNEXPECTED_MESSAGE:"},
       {"Unexpected state transition in handshake got a server_key_exchange not expecting messages",
        ":BAD_HELLO_REQUEST:"},
+      {"Unexpected state transition in handshake got a certificate_request expected finished seen server_hello+encrypted_extensions",
+       ":UNEXPECTED_MESSAGE:"},
+      {"Unexpected state transition in handshake got a certificate expected finished seen server_hello+encrypted_extensions",
+       ":UNEXPECTED_MESSAGE:"},
       {"Unexpected state transition in handshake got a finished expected certificate_verify seen server_hello+certificate+encrypted_extensions",
        ":BAD_HELLO_REQUEST:"},
       {"Unknown TLS handshake message type 43", ":UNEXPECTED_MESSAGE:"},
@@ -352,6 +361,7 @@ std::string map_to_bogo_error(const std::string& e) noexcept {
       {"We did not offer the usage of RSA_PSS_SHA256 as a signature scheme", ":WRONG_SIGNATURE_TYPE:"},
       {"X25519 public point appears to be of low order", ":BAD_ECPOINT:"},
       {"TLS signature extension did not allow for RSA/SHA-256 signature", ":WRONG_SIGNATURE_TYPE:"},
+      {"No sufficient server certificate available", ":PSK_IDENTITY_NOT_FOUND:"},
    };
 
    auto err_map_i = err_map.find(e);
@@ -645,6 +655,8 @@ class Shim_Arguments final {
          return false;
       }
 
+      const std::vector<std::string>& raw_argv() const { return m_raw_argv; }
+
    private:
       std::string get_opt(const std::string& key) const {
          auto i = m_parsed_opts.find(key);
@@ -664,9 +676,71 @@ class Shim_Arguments final {
       std::set<std::string> m_parsed_flags;
       std::map<std::string, std::string> m_parsed_opts;
       std::map<std::string, std::vector<size_t>> m_parsed_int_vec_opts;
+      std::vector<std::string> m_raw_argv;
 };
 
+#if defined(BOTAN_HAS_TLS_13)
+
+// Parse PSK credential blocks from raw argv.
+// Each block starts with -new-psk-credential and includes subsequent
+// -psk-importer-* flags until the next -new-*-credential or end of args.
+std::vector<Botan::TLS::PSKImporter> parse_psk_credentials(const std::vector<std::string>& argv) {
+   std::vector<Botan::TLS::PSKImporter> creds;
+
+   Botan::secure_vector<uint8_t> key;
+   std::vector<uint8_t> identity;
+   std::vector<uint8_t> context;
+   std::string hash;
+   bool building = false;
+
+   auto flush = [&]() {
+      if(building) {
+         creds.emplace_back(key, identity, context, hash.empty() ? "SHA-256" : hash);
+         key.clear();
+         identity.clear();
+         context.clear();
+         hash.clear();
+         building = false;
+      }
+   };
+
+   for(size_t i = 1; i < argv.size(); ++i) {
+      const auto& arg = argv[i];
+      if(arg == "-new-psk-credential") {
+         flush();
+         building = true;
+      } else if(building) {
+         if(arg == "-psk-importer-key" && i + 1 < argv.size()) {
+            key = Botan::base64_decode(argv[++i]);
+         } else if(arg == "-psk-importer-identity" && i + 1 < argv.size()) {
+            auto decoded = Botan::base64_decode(argv[++i]);
+            identity.assign(decoded.begin(), decoded.end());
+         } else if(arg == "-psk-importer-context" && i + 1 < argv.size()) {
+            auto decoded = Botan::base64_decode(argv[++i]);
+            context.assign(decoded.begin(), decoded.end());
+         } else if(arg == "-psk-importer-sha256") {
+            hash = "SHA-256";
+         } else if(arg == "-psk-importer-sha384") {
+            hash = "SHA-384";
+         } else if(arg.starts_with("-new-")) {
+            // Start of a non-PSK credential block; stop filling current PSK
+            flush();
+         }
+      }
+   }
+
+   flush();
+   return creds;
+}
+
+#endif
+
 void Shim_Arguments::parse_args(char* argv[]) {
+   // Store raw argv for later credential parsing
+   for(int j = 0; argv[j] != nullptr; ++j) {
+      m_raw_argv.emplace_back(argv[j]);
+   }
+
    int i = 1;  // skip argv[0]
 
    while(argv[i] != nullptr) {
@@ -725,6 +799,7 @@ std::unique_ptr<Shim_Arguments> parse_options(char* argv[]) {
       //"expect-accept-early-data",
       "expect-extended-master-secret",
       "expect-no-offer-early-data",
+      "expect-no-peer-cert",
       "expect-no-secure-renegotiation",
       "expect-no-session",
       "expect-no-session-id",
@@ -759,6 +834,8 @@ std::unique_ptr<Shim_Arguments> parse_options(char* argv[]) {
       "is-handshaker-supported",
       //"jdk11-workaround",
       "key-update",
+      "no-key-shares",
+      "new-psk-credential",
       "no-check-client-certificate-type",
       "no-check-ecdsa-curve",
       "no-op-extra-handshake",
@@ -768,10 +845,16 @@ std::unique_ptr<Shim_Arguments> parse_options(char* argv[]) {
       "no-tls11",
       "no-tls12",
       "no-tls13",
+      "on-resume-expect-no-session",
+      //"on-resume-new-psk-credential",
       "on-resume-no-ticket",
+      //"on-resume-psk-importer-sha256",
+      //"on-resume-psk-importer-sha384",
       //"on-resume-verify-fail",
       //"partial-write",
       //"peek-then-read",
+      "psk-importer-sha256",
+      "psk-importer-sha384",
       //"read-with-unfinished-write",
       "reject-alpn",
       "renegotiate-freely",
@@ -842,6 +925,12 @@ std::unique_ptr<Shim_Arguments> parse_options(char* argv[]) {
       //"expect-quic-transport-params",
       //"expect-signed-cert-timestamps",
       "ocsp-response",
+      "on-resume-psk-importer-context",
+      "on-resume-psk-importer-identity",
+      "on-resume-psk-importer-key",
+      "psk-importer-context",
+      "psk-importer-identity",
+      "psk-importer-key",
       //"quic-transport-params",
       //"signed-cert-timestamps",
       //"ticket-key", /* we use a different ticket format from Boring */
@@ -851,7 +940,9 @@ std::unique_ptr<Shim_Arguments> parse_options(char* argv[]) {
    const std::set<std::string> bogo_shim_int_opts{
       "expect-cipher-aes",
       "expect-cipher-no-aes",
+      "expect-client-certificate-type",
       "expect-curve-id",
+      "expect-selected-credential",
       "expect-peer-signature-algorithm",
       "expect-ticket-age-skew",
       "expect-token-binding-param",
@@ -875,8 +966,10 @@ std::unique_ptr<Shim_Arguments> parse_options(char* argv[]) {
    };
 
    const std::set<std::string> bogo_shim_int_vec_opts{
+      "accepted-peer-cert-types",
       "curves",
       "expect-peer-verify-pref",
+      "key-shares",
       "signing-prefs",
       "verify-prefs",
    };
@@ -1032,10 +1125,28 @@ class Shim_Policy final : public Botan::TLS::Policy {
       }
 
       std::vector<Botan::TLS::Group_Params> key_exchange_groups_to_offer() const override {
-         // BoGo expects key shares for both the first classical group and the
-         // first post-quantum group (matching BoringSSL's behavior), in the
-         // order they appear in the configured group list.
+         if(m_args.flag_set("no-key-shares")) {
+            return {};
+         }
+
          const auto groups = key_exchange_groups();
+
+         if(m_args.option_used("key-shares")) {
+            // BoGo's -key-shares specifies an explicit subset of -curves to
+            // pre-emptively send key_share entries for. The list must be in
+            // the same relative order as key_exchange_groups().
+            std::vector<Botan::TLS::Group_Params> to_offer;
+            for(const size_t pref : m_args.get_int_vec_opt("key-shares")) {
+               const auto group = static_cast<Botan::TLS::Group_Params>(pref);
+               if(group.to_string().has_value() && group.is_available()) {
+                  to_offer.push_back(group);
+               }
+            }
+            return to_offer;
+         }
+
+         // Default: offer key shares for the first classical group and the
+         // first post-quantum group, matching BoringSSL's default heuristic.
          std::vector<Botan::TLS::Group_Params> to_offer;
          bool have_classical = false;
          bool have_pq = false;
@@ -1131,6 +1242,18 @@ class Shim_Policy final : public Botan::TLS::Policy {
       }
 
       bool allow_tls12() const override {
+         // Botan implements RFC 7250 raw public keys only in its TLS 1.3 code
+         // path. When a test configures RawPublicKey as an accepted peer
+         // certificate type on the client side, disable TLS 1.2 so the TLS 1.3
+         // ClientHello builder does not filter RawPublicKey out of the
+         // advertised certificate_type extension.
+         if(m_args.option_used("accepted-peer-cert-types") && !m_args.flag_set("server")) {
+            for(const size_t t : m_args.get_int_vec_opt("accepted-peer-cert-types")) {
+               if(static_cast<Botan::TLS::Certificate_Type>(t) == Botan::TLS::Certificate_Type::RawPublicKey) {
+                  return false;
+               }
+            }
+         }
          return !m_args.flag_set("dtls") && !m_args.flag_set("no-tls12") &&
                 allow_version(Botan::TLS::Protocol_Version::TLS_V12);
       }
@@ -1217,6 +1340,28 @@ class Shim_Policy final : public Botan::TLS::Policy {
       }
 
       size_t maximum_certificate_chain_size() const override { return m_args.get_int_opt_or_else("max-cert-list", 0); }
+
+      std::vector<Botan::TLS::Certificate_Type> accepted_client_certificate_types() const override {
+         if(m_args.option_used("accepted-peer-cert-types") && m_args.flag_set("server")) {
+            std::vector<Botan::TLS::Certificate_Type> types;
+            for(const size_t t : m_args.get_int_vec_opt("accepted-peer-cert-types")) {
+               types.push_back(static_cast<Botan::TLS::Certificate_Type>(t));
+            }
+            return types;
+         }
+         return Botan::TLS::Policy::accepted_client_certificate_types();
+      }
+
+      std::vector<Botan::TLS::Certificate_Type> accepted_server_certificate_types() const override {
+         if(m_args.option_used("accepted-peer-cert-types") && !m_args.flag_set("server")) {
+            std::vector<Botan::TLS::Certificate_Type> types;
+            for(const size_t t : m_args.get_int_vec_opt("accepted-peer-cert-types")) {
+               types.push_back(static_cast<Botan::TLS::Certificate_Type>(t));
+            }
+            return types;
+         }
+         return Botan::TLS::Policy::accepted_server_certificate_types();
+      }
 
       bool tls_13_middlebox_compatibility_mode() const override {
          // These tests expect the client to send an alert in return of a malformed TLS 1.2 server hello.
@@ -1319,6 +1464,11 @@ class Shim_Credentials final : public Botan::Credentials_Manager {
                throw Shim_Exception("Failed to load trusted root certificate: " + std::string(ex.what()));
             }
          }
+
+#if defined(BOTAN_HAS_TLS_13)
+         // Parse TLS 1.3 PSK credentials from -new-psk-credential blocks
+         m_psk_credentials = parse_psk_credentials(m_args.raw_argv());
+#endif
       }
 
       std::vector<Botan::Certificate_Store*> trusted_certificate_authorities(const std::string& type,
@@ -1361,6 +1511,33 @@ class Shim_Credentials final : public Botan::Credentials_Manager {
          Botan::TLS::Connection_Side whoami,
          const std::vector<std::string>& identities = {},
          const std::optional<std::string>& prf = std::nullopt) override {
+#if defined(BOTAN_HAS_TLS_13)
+         // TLS 1.3 PSK credentials from -new-psk-credential blocks
+         if(!m_psk_credentials.empty()) {
+            std::vector<Botan::TLS::ExternalPSK> psks;
+            const Botan::TLS::Protocol_Version target_version(Botan::TLS::Protocol_Version::TLS_V13);
+
+            for(const auto& cred : m_psk_credentials) {
+               // Import each credential against both SHA-256 and SHA-384 cipher suites.
+               for(const auto& target_hash : {"SHA-256", "SHA-384"}) {
+                  if(prf.has_value() && *prf != target_hash) {
+                     continue;
+                  }
+
+                  auto imported = cred.derive_imported_psk(target_version, target_hash);
+
+                  if(!identities.empty() &&
+                     std::find(identities.begin(), identities.end(), imported.identity()) == identities.end()) {
+                     continue;
+                  }
+
+                  psks.push_back(std::move(imported));
+               }
+            }
+            return psks;
+         }
+#endif
+         // Legacy TLS 1.2 PSK from -psk / -psk-identity flags
          if(!m_psk_identity.has_value()) {
             return Botan::Credentials_Manager::find_preshared_keys(host, whoami, identities, prf);
          }
@@ -1377,12 +1554,6 @@ class Shim_Credentials final : public Botan::Credentials_Manager {
          }
 
          std::vector<Botan::TLS::ExternalPSK> psks;
-
-         // Currently, BoGo tests PSK with TLS 1.2 only. In TLS 1.2 the PRF does not
-         // need to be specified for PSKs.
-         //
-         // TODO: Once BoGo has tests for TLS 1.3 with externally provided PSKs, this
-         //       will need to be handled somehow.
          const std::string psk_prf = "SHA-256";
          psks.emplace_back(m_psk_identity.value(), psk_prf, m_psk->bits_of());
          return psks;
@@ -1422,6 +1593,9 @@ class Shim_Credentials final : public Botan::Credentials_Manager {
       std::shared_ptr<Botan::Private_Key> m_key;
       std::vector<Botan::X509_Certificate> m_cert_chain;
       Botan::Certificate_Store_In_Memory m_trust_roots;
+#if defined(BOTAN_HAS_TLS_13)
+      std::vector<Botan::TLS::PSKImporter> m_psk_credentials;
+#endif
 };
 
 class Shim_Callbacks final : public Botan::TLS::Callbacks {
