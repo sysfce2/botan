@@ -611,31 +611,31 @@ CertificatePathStatusCodes PKIX::check_crl(const std::vector<X509_Certificate>& 
          auto ca_key = ca.subject_public_key();
          if(crls[i]->check_signature(*ca_key) == false) {
             status.insert(Certificate_Status_Code::CRL_BAD_SIGNATURE);
-         }
+         } else {
+            status.insert(Certificate_Status_Code::VALID_CRL_CHECKED);
 
-         status.insert(Certificate_Status_Code::VALID_CRL_CHECKED);
-
-         if(crls[i]->is_revoked(subject)) {
-            status.insert(Certificate_Status_Code::CERT_IS_REVOKED);
-         }
-
-         const auto dp = subject.crl_distribution_points();
-         if(!dp.empty()) {
-            const auto crl_idp = crls[i]->crl_issuing_distribution_point();
-
-            if(std::find(dp.begin(), dp.end(), crl_idp) == dp.end()) {
-               status.insert(Certificate_Status_Code::NO_MATCHING_CRLDP);
+            if(crls[i]->is_revoked(subject)) {
+               status.insert(Certificate_Status_Code::CERT_IS_REVOKED);
             }
-         }
 
-         for(const auto& [extension, critical] : crls[i]->extensions().extensions()) {
-            if(critical) {
-               /* NIST Certificate Path Validation Testing document: "When an implementation does
-               * not recognize a critical extension in the crlExtensions field, it shall assume
-               * that identified certificates have been revoked and are no longer valid"
-               */
-               if(dynamic_cast<const Cert_Extension::Unknown_Extension*>(extension.get()) != nullptr) {
-                  status.insert(Certificate_Status_Code::CERT_IS_REVOKED);
+            const auto dp = subject.crl_distribution_points();
+            if(!dp.empty()) {
+               const auto crl_idp = crls[i]->crl_issuing_distribution_point();
+
+               if(std::find(dp.begin(), dp.end(), crl_idp) == dp.end()) {
+                  status.insert(Certificate_Status_Code::NO_MATCHING_CRLDP);
+               }
+            }
+
+            for(const auto& [extension, critical] : crls[i]->extensions().extensions()) {
+               if(critical) {
+                  /* NIST Certificate Path Validation Testing document: "When an implementation does
+                  * not recognize a critical extension in the crlExtensions field, it shall assume
+                  * that identified certificates have been revoked and are no longer valid"
+                  */
+                  if(dynamic_cast<const Cert_Extension::Unknown_Extension*>(extension.get()) != nullptr) {
+                     status.insert(Certificate_Status_Code::CERT_IS_REVOKED);
+                  }
                }
             }
          }
