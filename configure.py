@@ -2236,7 +2236,7 @@ def create_template_vars(source_paths, build_paths, options, modules, disabled_m
         'bindir': absolute_install_dir(options.bindir or osinfo.bin_dir),
         'libdir': absolute_install_dir(options.libdir or osinfo.lib_dir),
         'mandir': options.mandir or osinfo.man_dir,
-        'includedir': options.includedir or osinfo.header_dir,
+        'includedir': absolute_install_dir(options.includedir or osinfo.header_dir),
         'docdir': options.docdir or osinfo.doc_dir,
 
         'with_documentation': options.with_documentation,
@@ -2376,18 +2376,32 @@ def create_template_vars(source_paths, build_paths, options, modules, disabled_m
         'disabled_mod_list': sorted([m.basename for m in disabled_modules]),
     }
 
+    if not os.path.isabs(variables['prefix']):
+        raise UserError("The installation root must be an absolute path")
+
+    if not is_subpath(variables['libdir'], variables['prefix']):
+        raise UserError("The libdir must be a subdirectory of the prefix")
+
+    if not is_subpath(variables['includedir'], variables['prefix']):
+        raise UserError("The includedir must be a subdirectory of the prefix")
+
     variables['namespaced_includedir'] = os.path.join(
         variables['includedir'],
         ('botan-%d' % Version.major()) if options.with_include_namespace else '')
     variables['installed_include_dir'] = os.path.join(
-        variables['prefix'],
         variables['namespaced_includedir'],
         'botan')
 
+    # A long time ago some packages required a bindir that was outside the installation
+    # prefix. In the CMake config we need the bindir to find DLLs on Windows. If the
+    # bindir is configured to be outside the prefix, CMake will fall back to a hard-coded
+    # path instead of a relative path for relocatability.
+    if is_subpath(variables['bindir'], variables['prefix']):
+        variables['bindir_rel'] = normalize_source_path(os.path.relpath(variables['bindir'], variables['prefix']))
+
     variables['libdir_rel'] = normalize_source_path(os.path.relpath(variables['libdir'], variables['prefix']))
-    variables['bindir_rel'] = normalize_source_path(os.path.relpath(variables['bindir'], variables['prefix']))
-    variables['includedir_rel'] = normalize_source_path(os.path.relpath(absolute_install_dir(variables['includedir']), variables['prefix']))
-    variables['namespaced_includedir_rel'] = normalize_source_path(os.path.relpath(absolute_install_dir(variables['namespaced_includedir']), variables['prefix']))
+    variables['includedir_rel'] = normalize_source_path(os.path.relpath(variables['includedir'], variables['prefix']))
+    variables['namespaced_includedir_rel'] = normalize_source_path(os.path.relpath(variables['namespaced_includedir'], variables['prefix']))
 
     # On MSVC, the "ABI flags" should be passed to the compiler only, on other platforms, the
     # ABI flags are passed to both the compiler and the linker and the compiler flags are also
