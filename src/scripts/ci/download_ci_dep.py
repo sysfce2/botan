@@ -35,34 +35,31 @@ def load_config(dep_name):
 
     return url, sha256
 
-def download(url, max_mb):
+def download(url, fileobj, max_mb):
     max_bytes = max_mb * 1024 * 1024
     req = urllib.request.Request(url)
+    hasher = hashlib.sha256()
+    total = 0
     with urllib.request.urlopen(req) as resp:
         content_length = resp.headers.get('Content-Length')
-
         content_length = int(content_length) if content_length is not None else None
 
         if (content_length is not None) and (content_length > max_bytes):
-            print("Download of %s too large, server reports %d bytes" % (url, content_length))
-            sys.exit(1)
+            raise RuntimeError("Download of %s too large, server reports %d bytes" % (url, content_length))
 
-        chunks = []
-        total = 0
         while True:
             chunk = resp.read(256 * 1024)
             if not chunk:
                 break
             total += len(chunk)
             if (content_length is not None) and (total > content_length):
-                print("Server sent too much data for %s, reported %d" % (url, content_length))
-                sys.exit(1)
+                raise RuntimeError("Server sent too much data for %s, reported %d" % (url, content_length))
             if total > max_bytes:
-                print("Server sent too much data for %s" % (url))
-                sys.exit(1)
-            chunks.append(chunk)
+                raise RuntimeError("Server sent too much data for %s" % (url))
+            hasher.update(chunk)
+            fileobj.write(chunk)
 
-    return b''.join(chunks)
+    return hasher.hexdigest(), total
 
 def main():
     parser = argparse.ArgumentParser(description='Download a CI dependency with integrity verification')
@@ -77,37 +74,42 @@ def main():
 
     url, expected_sha256 = load_config(args.dep_name)
 
-    data = download(url, args.max_download_mb)
-
-    computed_sha256 = hashlib.sha256(data).hexdigest()
-    if computed_sha256 != expected_sha256:
-        print("Checksum failure downloading %s - got %s (%d bytes)" % (
-            url, computed_sha256, len(data)))
-        return 1
-
     if args.extract:
-        filename = os.path.basename(urllib.request.url2pathname(url.split('?')[0]))
-        with tempfile.NamedTemporaryFile(prefix='ci_dep_', suffix='_' + filename, delete=False) as f:
-            f.write(data)
-            tmp_path = f.name
-
-        cmd = args.extract.replace('{file}', tmp_path)
-        try:
-            subprocess.run(cmd, shell=True, check=True)
-        finally:
-            os.unlink(tmp_path)
+        final_path = None
+        fd, tmp_path = tempfile.mkstemp(prefix='ci_dep_')
     else:
         if args.output_path:
-            output = args.output_path
+            final_path = args.output_path
         else:
-            output = os.path.basename(urllib.request.url2pathname(url.split('?')[0]))
+            final_path = os.path.basename(urllib.request.url2pathname(url.split('?')[0]))
+        fd, tmp_path = tempfile.mkstemp(prefix='.ci_dep_',
+                                        dir=os.path.dirname(final_path) or '.')
 
-        with open(output, 'wb') as f:
-            f.write(data)
+    try:
+        with os.fdopen(fd, 'wb') as f:
+            computed_sha256, total = download(url, f, args.max_download_mb)
 
-        print(output)
+        if computed_sha256 != expected_sha256:
+            print("Checksum failure downloading %s - got %s (%d bytes)" % (
+                url, computed_sha256, total))
+            return 1
 
-    return 0
+        if args.extract:
+            cmd = args.extract.replace('{file}', tmp_path)
+            subprocess.run(cmd, shell=True, check=True)
+        else:
+            os.replace(tmp_path, final_path)
+            print(final_path)
+
+        return 0
+    except Exception as e:
+        print(str(e))
+        return 1
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except FileNotFoundError:
+            pass
 
 if __name__ == '__main__':
     sys.exit(main())
