@@ -58,7 +58,7 @@ std::optional<X509_Certificate> Certificate_Store_In_SQL::find_cert(const X509_D
    } else {
       stmt = m_database->new_statement("SELECT certificate FROM " + m_prefix +
                                        "certificates WHERE\
-                                        subject_dn == ?1 AND (key_id == NULL OR key_id == ?2) LIMIT 1");
+                                        subject_dn == ?1 AND (key_id IS NULL OR key_id == ?2) LIMIT 1");
       stmt->bind(1, dn_encoding);
       stmt->bind(2, key_id);
    }
@@ -85,7 +85,7 @@ std::vector<X509_Certificate> Certificate_Store_In_SQL::find_all_certs(const X50
    } else {
       stmt = m_database->new_statement("SELECT certificate FROM " + m_prefix +
                                        "certificates WHERE\
-                                        subject_dn == ?1 AND (key_id == NULL OR key_id == ?2)");
+                                        subject_dn == ?1 AND (key_id IS NULL OR key_id == ?2)");
       stmt->bind(1, dn_encoding);
       stmt->bind(2, key_id);
    }
