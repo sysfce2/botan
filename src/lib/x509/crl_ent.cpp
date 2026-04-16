@@ -79,34 +79,6 @@ void CRL_Entry::encode_into(DER_Encoder& der) const {
       .end_cons();
 }
 
-namespace {
-
-std::vector<uint8_t> decode_serial_number(const BER_Object& obj) {
-   obj.assert_is_a(ASN1_Type::Integer, ASN1_Class::Universal);
-
-   if(!obj.data().empty() && obj.data()[0] == 0x00) {
-      return std::vector<uint8_t>(obj.data().begin() + 1, obj.data().end());
-   } else if(!obj.data().empty() && ((obj.data()[0] & 0x80) == 0x80)) {
-      std::vector<uint8_t> vec(obj.data().begin(), obj.data().end());
-      for(size_t i = vec.size(); i > 0; --i) {
-         const bool gt0 = vec[i - 1] > 0;
-         vec[i - 1] -= 1;
-         if(gt0) {
-            break;
-         }
-      }
-      for(auto& b : vec) {
-         b = ~b;
-      }
-
-      return vec;
-   } else {
-      return std::vector<uint8_t>(obj.data().begin(), obj.data().end());
-   }
-}
-
-}  // namespace
-
 /*
 * Decode a BER encoded CRL_Entry
 */
@@ -115,7 +87,9 @@ void CRL_Entry::decode_from(BER_Decoder& source) {
 
    BER_Decoder entry = source.start_sequence();
 
-   data->m_serial = decode_serial_number(entry.get_next_object());
+   BigInt serial;
+   entry.decode(serial);
+   data->m_serial = serial.serialize();
 
    entry.decode(data->m_time);
 

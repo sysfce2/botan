@@ -1102,6 +1102,38 @@ Test::Result test_x509_cert(const Botan::Private_Key& ca_key,
    return result;
 }
 
+Test::Result test_crl_entry_negative_serial() {
+   Test::Result result("CRL entry with negative serial matches certificate serial");
+
+   const auto build_crl_entry = [](const std::vector<uint8_t>& serial_bytes) {
+      std::vector<uint8_t> der;
+      Botan::DER_Encoder enc(der);
+      enc.start_sequence()
+         .add_object(Botan::ASN1_Type::Integer, Botan::ASN1_Class::Universal, serial_bytes.data(), serial_bytes.size())
+         .encode(Botan::X509_Time(std::chrono::system_clock::now()))
+         .end_cons();
+
+      Botan::CRL_Entry entry;
+      Botan::BER_Decoder dec(der);
+      entry.decode_from(dec);
+      return entry;
+   };
+
+   // -129 in two's complement
+   auto entry = build_crl_entry({0xFF, 0x7F});
+   result.test_bin_eq("negative serial -129 magnitude", entry.serial_number(), Botan::BigInt(129).serialize());
+
+   // -1 in two's complement
+   entry = build_crl_entry({0xFF});
+   result.test_bin_eq("negative serial -1 magnitude", entry.serial_number(), Botan::BigInt(1).serialize());
+
+   // 128 (positive, high bit set so DER requires the leading zero)
+   entry = build_crl_entry({0x00, 0x80});
+   result.test_bin_eq("positive serial 128", entry.serial_number(), Botan::BigInt(128).serialize());
+
+   return result;
+}
+
 Test::Result test_usage(const Botan::Private_Key& ca_key,
                         const std::string& sig_algo,
                         const std::string& hash_fn,
@@ -1832,6 +1864,7 @@ class X509_Cert_Unit_Tests final : public Test {
          results.push_back(test_x509_dates());
          results.push_back(test_cert_status_strings());
          results.push_back(test_x509_uninit());
+         results.push_back(test_crl_entry_negative_serial());
 
          return results;
       }

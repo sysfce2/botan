@@ -23,6 +23,14 @@ Platform Support Deprecations
 
 * Support for building for Windows systems prior to Windows 10 is deprecated.
 
+X509/PKIX Deprecations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* Decoding or processing of certificates with negative serial numbers, or CRLs
+  containing any negative serial numbers in the revocation list, is
+  deprecated. In a future major release, any such certificate or CRL will be
+  rejected at parse time.
+
 TLS Protocol Deprecations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
