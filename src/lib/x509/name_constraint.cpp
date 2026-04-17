@@ -136,10 +136,15 @@ void GeneralName::decode_from(BER_Decoder& ber) {
       m_type = NameType::RFC822;
       m_name.emplace<RFC822_IDX>(ASN1::to_string(obj));
    } else if(obj.is_a(2, ASN1_Class::ContextSpecific)) {
-      m_type = NameType::DNS;
       // Store it in case insensitive form so we don't have to do it
       // again while matching
-      m_name.emplace<DNS_IDX>(canonicalize_dns_name(ASN1::to_string(obj)));
+      auto dns = canonicalize_dns_name(ASN1::to_string(obj));
+      // An empty DNS subtree has no clear meaning, reject immediately
+      if(dns.empty()) {
+         throw Decoding_Error("Empty DNS name in GeneralName");
+      }
+      m_type = NameType::DNS;
+      m_name.emplace<DNS_IDX>(std::move(dns));
    } else if(obj.is_a(6, ASN1_Class::ContextSpecific)) {
       m_type = NameType::URI;
       m_name.emplace<URI_IDX>(ASN1::to_string(obj));
