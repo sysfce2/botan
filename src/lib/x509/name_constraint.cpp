@@ -561,6 +561,8 @@ bool NameConstraints::is_excluded(const X509_Certificate& cert, bool reject_unkn
          return false;
       }
 
+      const bool name_has_wildcard = (name.find('*') != std::string::npos);
+
       for(const auto& c : m_excluded_subtrees) {
          if(c.base().matches_dns(name)) {
             return true;
@@ -573,7 +575,7 @@ bool NameConstraints::is_excluded(const X509_Certificate& cert, bool reject_unkn
          If the cert has a wildcard SAN (*.example.com), and that wildcard
          could be matched against an excluded name, it must be rejected.
          */
-         if(c.base().m_type == GeneralName::NameType::DNS) {
+         if(name_has_wildcard && c.base().m_type == GeneralName::NameType::DNS) {
             const auto& constraint = std::get<GeneralName::DNS_IDX>(c.base().m_name);
             if(host_wildcard_match(name, constraint)) {
                return true;
