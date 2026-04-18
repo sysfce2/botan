@@ -249,11 +249,21 @@ std::string tolower_string(std::string_view str) {
    return lower;
 }
 
-bool host_wildcard_match(std::string_view issued_, std::string_view host_) {
-   const std::string issued = tolower_string(issued_);
-   const std::string host = tolower_string(host_);
-
+bool host_wildcard_match(std::string_view issued, std::string_view host) {
    if(host.empty() || issued.empty()) {
+      return false;
+   }
+
+   // Maximum valid DNS name
+   if(host.size() > 253) {
+      return false;
+   }
+
+   /*
+   The wildcard if existing absorbs (host.size() - issued.size() + 1) chars,
+   which must be non-negative. So issued cannot possibly exceed host.size() + 1.
+   */
+   if(issued.size() > host.size() + 1) {
       return false;
    }
 
@@ -261,50 +271,63 @@ bool host_wildcard_match(std::string_view issued_, std::string_view host_) {
    If there are embedded nulls in your issued name
    Well I feel bad for you son
    */
-   if(std::count(issued.begin(), issued.end(), char(0)) > 0) {
-      return false;
-   }
-
-   // If more than one wildcard, then issued name is invalid
-   const size_t stars = std::count(issued.begin(), issued.end(), '*');
-   if(stars > 1) {
+   if(issued.find('\0') != std::string_view::npos) {
       return false;
    }
 
    // '*' is not a valid character in DNS names so should not appear on the host side
-   if(std::count(host.begin(), host.end(), '*') != 0) {
+   if(host.find('*') != std::string_view::npos) {
       return false;
    }
 
    // Similarly a DNS name can't end in .
-   if(host[host.size() - 1] == '.') {
+   if(host.back() == '.') {
       return false;
    }
 
    // And a host can't have an empty name component, so reject that
-   if(host.find("..") != std::string::npos) {
+   if(host.find("..") != std::string_view::npos) {
       return false;
    }
 
+   // ASCII-only case-insensitive char equality, avoids locale overhead from tolower
+   auto dns_char_eq = [](char a, char b) -> bool {
+      if(a == b) {
+         return true;
+      }
+      const auto la = static_cast<unsigned char>(a | 0x20);
+      const auto lb = static_cast<unsigned char>(b | 0x20);
+      return la == lb && la >= 'a' && la <= 'z';
+   };
+
+   auto dns_char_eq_range = [&](std::string_view a, std::string_view b) -> bool {
+      if(a.size() != b.size()) {
+         return false;
+      }
+      for(size_t i = 0; i != a.size(); ++i) {
+         if(!dns_char_eq(a[i], b[i])) {
+            return false;
+         }
+      }
+      return true;
+   };
+
    // Exact match: accept
-   if(issued == host) {
+   if(dns_char_eq_range(issued, host)) {
       return true;
    }
 
-   /*
-   Otherwise it might be a wildcard
+   // First detect offset of wildcard '*' if included
+   const size_t first_star = issued.find('*');
+   const bool has_wildcard = (first_star != std::string_view::npos);
 
-   If the issued size is strictly longer than the hostname size it
-   couldn't possibly be a match, even if the issued value is a
-   wildcard. The only exception is when the wildcard ends up empty
-   (eg www.example.com matches www*.example.com)
-   */
-   if(issued.size() > host.size() + 1) {
+   // At most one wildcard is allowed
+   if(has_wildcard && issued.find('*', first_star + 1) != std::string_view::npos) {
       return false;
    }
 
    // If no * at all then not a wildcard, and so not a match
-   if(stars != 1) {
+   if(!has_wildcard) {
       return false;
    }
 
@@ -344,13 +367,15 @@ bool host_wildcard_match(std::string_view issued_, std::string_view host_) {
          }
 
          // Can't be any intervening .s that we would have skipped
-         if(std::count(host.begin() + host_idx, host.begin() + host_idx + advance, '.') != 0) {
-            return false;
+         for(size_t k = host_idx; k != host_idx + advance; ++k) {
+            if(host[k] == '.') {
+               return false;
+            }
          }
 
          host_idx += advance;
       } else {
-         if(issued[i] != host[host_idx]) {
+         if(!dns_char_eq(issued[i], host[host_idx])) {
             return false;
          }
 
