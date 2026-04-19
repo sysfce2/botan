@@ -219,6 +219,143 @@ std::optional<uint32_t> string_to_ipv4(std::string_view str) {
    return ip;
 }
 
+std::optional<std::array<uint8_t, 16>> string_to_ipv6(std::string_view str) {
+   if(str.empty()) {
+      return {};
+   }
+
+   // Parsed hex groups, split by whether they appeared before or after a "::".
+   // If no "::" appears, only `pre` is populated and must reach exactly 8 groups.
+   std::array<uint16_t, 8> pre{};
+   std::array<uint16_t, 8> post{};
+   size_t pre_count = 0;
+   size_t post_count = 0;
+   bool seen_double_colon = false;
+
+   auto hex_value = [](char c) -> std::optional<uint8_t> {
+      if(c >= '0' && c <= '9') {
+         return c - '0';
+      } else if(c >= 'a' && c <= 'f') {
+         return 10 + (c - 'a');
+      } else if(c >= 'A' && c <= 'F') {
+         return 10 + (c - 'A');
+      } else {
+         return {};
+      }
+   };
+
+   size_t idx = 0;
+   bool expect_group = true;  // set after any separator, cleared after a group
+
+   while(idx < str.size()) {
+      if(str[idx] == ':') {
+         if(idx + 1 < str.size() && str[idx + 1] == ':') {
+            if(seen_double_colon) {
+               return {};  // at most one "::"
+            }
+            seen_double_colon = true;
+            idx += 2;
+            expect_group = (idx < str.size());
+            continue;
+         }
+         // single ':' separator between groups — only valid after a group
+         if(expect_group) {
+            return {};
+         }
+         expect_group = true;
+         idx += 1;
+         continue;
+      }
+
+      // Parse a hex group of 1..4 digits
+      uint32_t group = 0;
+      size_t hex_chars = 0;
+      while(idx < str.size() && hex_chars < 4) {
+         const auto digit = hex_value(str[idx]);
+         if(digit.has_value() == false) {
+            break;
+         }
+         group = (group << 4) | static_cast<uint32_t>(digit.value());
+         idx += 1;
+         hex_chars += 1;
+      }
+      if(hex_chars == 0) {
+         return {};
+      }
+      // If a 5th hex digit follows, the group is oversized.
+      if(hex_chars == 4 && idx < str.size() && hex_value(str[idx]).has_value()) {
+         return {};
+      }
+
+      if(seen_double_colon) {
+         if(post_count >= 8) {
+            return {};
+         }
+         post[post_count++] = static_cast<uint16_t>(group);
+      } else {
+         if(pre_count >= 8) {
+            return {};
+         }
+         pre[pre_count++] = static_cast<uint16_t>(group);
+      }
+      expect_group = false;
+   }
+
+   // Trailing single ':' is invalid
+   if(expect_group) {
+      return {};
+   }
+
+   const size_t total_groups = pre_count + post_count;
+   if(seen_double_colon) {
+      // "::" has to cover at least one zero group
+      if(total_groups > 7) {
+         return {};
+      }
+   } else {
+      if(total_groups != 8) {
+         return {};
+      }
+   }
+
+   std::array<uint8_t, 16> out{};
+   for(size_t i = 0; i != pre_count; ++i) {
+      out[2 * i] = get_byte<0>(pre[i]);
+      out[2 * i + 1] = get_byte<1>(pre[i]);
+   }
+   const size_t gap = 8 - total_groups;
+   for(size_t i = 0; i != post_count; ++i) {
+      const size_t target = pre_count + gap + i;
+      out[2 * target] = get_byte<0>(post[i]);
+      out[2 * target + 1] = get_byte<1>(post[i]);
+   }
+   return out;
+}
+
+std::string ipv6_to_string(const std::array<uint8_t, 16>& a) {
+   static const char* hex = "0123456789abcdef";
+
+   std::string out;
+   out.reserve(39);
+
+   for(size_t i = 0; i != 16; i += 2) {
+      if(i != 0) {
+         out.push_back(':');
+      }
+      const uint16_t group = make_uint16(a[i], a[i + 1]);
+      bool started = false;
+      // Write each nibble omitting leading 0s
+      for(int s = 12; s >= 0; s -= 4) {
+         const auto nibble = (group >> s) & 0xF;
+         if(nibble != 0 || started || s == 0) {
+            out.push_back(hex[nibble]);
+            started = true;
+         }
+      }
+   }
+   return out;
+}
+
 /*
 * Convert an IP address to decimal-dotted string
 */

@@ -41,12 +41,7 @@ bool is_ipv4(std::string_view ip) {
 }
 
 bool is_ipv6(std::string_view ip) {
-   const std::string ip_str(ip);
-   sockaddr_storage in6addr{};
-
-   // TODO use string_to_ipv6 here
-   // NOLINTNEXTLINE(*-implicit-bool-conversion)
-   return !!inet_pton(AF_INET6, ip_str.c_str(), &in6addr);
+   return string_to_ipv6(ip).has_value();
 }
 
 uint16_t parse_port_number(const char* func_name, std::string_view uri, size_t pos) {
