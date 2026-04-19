@@ -973,6 +973,7 @@ Path_Validation_Result x509_path_validate(const std::vector<X509_Certificate>& e
       paths_checked += 1;
       certs_checked += cert_path->size();
       if(paths_checked > max_paths || certs_checked > max_verifications) {
+         first_path_error = Path_Validation_Result(Certificate_Status_Code::EXCEEDED_SEARCH_LIMITS);
          break;
       }
 

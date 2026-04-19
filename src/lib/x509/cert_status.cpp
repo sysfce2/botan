@@ -125,6 +125,8 @@ const char* to_string(Certificate_Status_Code code) {
          return "Certificate signed with unknown/unavailable algorithm";
       case Certificate_Status_Code::SIGNATURE_ALGO_BAD_PARAMS:
          return "Certificate signature has invalid parameters";
+      case Certificate_Status_Code::EXCEEDED_SEARCH_LIMITS:
+         return "Exceeded search limitations while pathfinding";
 
          // intentionally no default so we are warned if new enum values are added
    }
