@@ -55,6 +55,18 @@ Hostname = a.EXAMPLE.com
 Issued = b*z.example.net
 Hostname = bz.example.net
 
+Issued = 1example.com
+Hostname = 1EXAMPLE.com
+
+Issued = my-host.example.com
+Hostname = my-HOST.example.com
+
+Issued = *.example.com
+Hostname = averylongsubdomainname.example.com
+
+Issued = www*.example.com
+Hostname = www.example.com
+
 [Invalid]
 Issued =
 Hostname = empty.com
@@ -134,3 +146,9 @@ Hostname = foo.example.com
 
 Issued = *.*.example.com
 Hostname = foo.bar.example.com
+
+Issued = O.example.com
+Hostname = 0.example.com
+
+Issued = @.example.com
+Hostname = `.example.com
