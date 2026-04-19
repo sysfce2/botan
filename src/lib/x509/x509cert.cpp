@@ -216,12 +216,16 @@ std::unique_ptr<X509_Certificate_Data> parse_x509_cert_body(const X509_Object& o
             data->m_key_constraints.includes(Key_Constraints::KeyCertSign) || data->m_key_constraints.empty();
 
          /*
-         * If the extended key usages are set then we must restrict the
-         * usage in accordance with it as well.
+         * If the extended key usages are set then we must restrict the usage in
+         * accordance with it as well.
          *
-         * RFC 5280 does not define any extended key usages compatible
-         * with certificate signing, but some CAs seem to use serverAuth
-         * or clientAuth here.
+         * RFC 5280 does not define any extended key usages compatible with certificate
+         * signing, but some CAs use serverAuth, clientAuth, OCSPSigning, or AnyExtendedKeyUsage
+         * for this purpose, even though clearly all of these (besides AEKU) are invalid.
+         * This check at least allows excluding a certificate which is set for only eg
+         * timestamping or code signing, and that seems about the best we can possibly enforce.
+         * OpenSSL, BoringSSL, and Go all completely ignore EKUs in determining ability to
+         * issue certs.
          */
          const bool allowed_by_ext_ku = [](const std::vector<OID>& ext_ku) -> bool {
             if(ext_ku.empty()) {

@@ -136,10 +136,15 @@ void GeneralName::decode_from(BER_Decoder& ber) {
       m_type = NameType::RFC822;
       m_name.emplace<RFC822_IDX>(ASN1::to_string(obj));
    } else if(obj.is_a(2, ASN1_Class::ContextSpecific)) {
-      m_type = NameType::DNS;
       // Store it in case insensitive form so we don't have to do it
       // again while matching
-      m_name.emplace<DNS_IDX>(canonicalize_dns_name(ASN1::to_string(obj)));
+      auto dns = canonicalize_dns_name(ASN1::to_string(obj));
+      // An empty DNS subtree has no clear meaning, reject immediately
+      if(dns.empty()) {
+         throw Decoding_Error("Empty DNS name in GeneralName");
+      }
+      m_type = NameType::DNS;
+      m_name.emplace<DNS_IDX>(std::move(dns));
    } else if(obj.is_a(6, ASN1_Class::ContextSpecific)) {
       m_type = NameType::URI;
       m_name.emplace<URI_IDX>(ASN1::to_string(obj));
@@ -374,7 +379,7 @@ bool exceeds_limit(size_t dn_count, size_t alt_count, size_t constraint_count) {
    * OpenSSL uses a similar limit, but applies it to the total number of
    * constraints, while we apply it to permitted and excluded independently.
    */
-   constexpr size_t MAX_NC_CHECKS = (1 << 20);
+   constexpr size_t MAX_NC_CHECKS = (1 << 16);
 
    if(auto names = checked_add(dn_count, alt_count)) {
       if(auto product = checked_mul(*names, constraint_count)) {
@@ -556,6 +561,8 @@ bool NameConstraints::is_excluded(const X509_Certificate& cert, bool reject_unkn
          return false;
       }
 
+      const bool name_has_wildcard = (name.find('*') != std::string::npos);
+
       for(const auto& c : m_excluded_subtrees) {
          if(c.base().matches_dns(name)) {
             return true;
@@ -568,7 +575,7 @@ bool NameConstraints::is_excluded(const X509_Certificate& cert, bool reject_unkn
          If the cert has a wildcard SAN (*.example.com), and that wildcard
          could be matched against an excluded name, it must be rejected.
          */
-         if(c.base().m_type == GeneralName::NameType::DNS) {
+         if(name_has_wildcard && c.base().m_type == GeneralName::NameType::DNS) {
             const auto& constraint = std::get<GeneralName::DNS_IDX>(c.base().m_name);
             if(host_wildcard_match(name, constraint)) {
                return true;

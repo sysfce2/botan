@@ -67,9 +67,11 @@ tests_that_succeed_unexpectedly = {
     'rfc5280::nc::nc-forbids-othername': 'Othername is a NULL which we drop',
     'webpki::san::wildcard-embedded-ulabel-san': 'Needs investigation',
 
-    # A number of tests (736, 737, ...) seem to make the implicit assumption
-    # that if a name constraint applies to a certificate then we should not
-    # ever use the CN as the hostname, even if the ee cert does not have a SAN
+    # These tests are despite the nameconstraints prefix actually
+    # testing that no CN fallback exists - the end entity certs have a
+    # CN but no SAN, and are checking if we accept a DNS name that is
+    # set in the CN. Since currently we do consult the CN if (and only
+    # if) the SAN is completely absent, the tests fail
     'bettertls::nameconstraints::tc736': 'See comment above',
     'bettertls::nameconstraints::tc737': 'Same as 736',
     'bettertls::nameconstraints::tc738': 'Same as 736',
