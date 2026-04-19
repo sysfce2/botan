@@ -398,6 +398,22 @@ void Client_Impl_13::handle(const Encrypted_Extensions& encrypted_extensions_msg
    // Note: As per RFC 6066 3. we can check for an empty SNI extensions to
    // determine if the server used the SNI we sent here.
 
+   if(exts.has<Application_Layer_Protocol_Notification>()) {
+      // RFC 7301 3.2
+      //    The "extension_data" field of the [...] "application_layer_protocol_negotiation"
+      //    extension [...] SHALL include the server's selection of a protocol from among
+      //    the list that was advertised by the client.
+      const auto* server_alpn = exts.get<Application_Layer_Protocol_Notification>();
+      const auto selected = server_alpn->single_protocol();
+      const auto* client_alpn =
+         m_handshake_state.client_hello().extensions().get<Application_Layer_Protocol_Notification>();
+      BOTAN_ASSERT_NONNULL(client_alpn);  // unrequested extension check above ensures this
+      const auto& offered = client_alpn->protocols();
+      if(!value_exists(offered, selected)) {
+         throw TLS_Exception(Alert::IllegalParameter, "Server selected an ALPN protocol not offered by the client");
+      }
+   }
+
    if(exts.has<Record_Size_Limit>() && m_handshake_state.client_hello().extensions().has<Record_Size_Limit>()) {
       // RFC 8449 4.
       //     The record size limit only applies to records sent toward the

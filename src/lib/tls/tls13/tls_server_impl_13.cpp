@@ -245,10 +245,10 @@ void Server_Impl_13::handle_reply_to_client_hello(Server_Hello_13 server_hello) 
                                },
                                [&, this](ExternalPSK psk) {
                                   m_psk_identity = psk.identity();
-                                  return Cipher_State::init_with_psk(Connection_Side::Server,
-                                                                     Cipher_State::PSK_Type::External,
-                                                                     psk.extract_master_secret(),
-                                                                     cipher.prf_algo());
+                                  const auto psk_type = psk.is_imported() ? Cipher_State::PSK_Type::Imported
+                                                                          : Cipher_State::PSK_Type::External;
+                                  return Cipher_State::init_with_psk(
+                                     Connection_Side::Server, psk_type, psk.extract_master_secret(), cipher.prf_algo());
                                }},
                     psk_extension->take_session_to_resume_or_psk());
 
@@ -308,7 +308,8 @@ void Server_Impl_13::handle_reply_to_client_hello(Server_Hello_13 server_hello) 
    }();
 
    auto flight = aggregate_handshake_messages();
-   flight.add(m_handshake_state.sending(Encrypted_Extensions(client_hello, policy(), callbacks())));
+   flight.add(m_handshake_state.sending(
+      Encrypted_Extensions(client_hello, policy(), callbacks(), m_resumed_session.has_value())));
 
    if(!uses_psk) {
       // RFC 8446 4.3.2

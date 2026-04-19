@@ -146,7 +146,10 @@ class BOTAN_UNSTABLE_API Hello_Retry_Request final : public Server_Hello_13 {
 class BOTAN_UNSTABLE_API Encrypted_Extensions final : public Handshake_Message {
    public:
       explicit Encrypted_Extensions(const std::vector<uint8_t>& buf);
-      Encrypted_Extensions(const Client_Hello_13& client_hello, const Policy& policy, Callbacks& cb);
+      Encrypted_Extensions(const Client_Hello_13& client_hello,
+                           const Policy& policy,
+                           Callbacks& cb,
+                           bool is_resumption);
 
       Handshake_Type type() const override { return Handshake_Type::EncryptedExtensions; }
 

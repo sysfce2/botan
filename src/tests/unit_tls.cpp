@@ -467,7 +467,7 @@ class TLS_Handshake_Test final {
                m_results.test_sz_eq("ALPN protocol count", protos.size(), 2);
                m_results.test_str_eq("ALPN protocol 1", protos[0], "test/1");
                m_results.test_str_eq("ALPN protocol 2", protos[1], "test/2");
-               return "test/3";
+               return "test/1";
             }
 
             std::unique_ptr<Botan::PK_Key_Agreement_Key> tls_generate_ephemeral_key(
@@ -620,7 +620,7 @@ void TLS_Handshake_Test::go() {
       }
 
       if(client->is_active() && !client_has_written) {
-         m_results.test_str_eq("client ALPN protocol", client->application_protocol(), "test/3");
+         m_results.test_str_eq("client ALPN protocol", client->application_protocol(), "test/1");
 
          size_t sent_so_far = 0;
          while(sent_so_far != client_msg.size()) {
@@ -636,7 +636,7 @@ void TLS_Handshake_Test::go() {
       }
 
       if(m_server->is_active() && !server_has_written) {
-         m_results.test_str_eq("server ALPN protocol", m_server->application_protocol(), "test/3");
+         m_results.test_str_eq("server ALPN protocol", m_server->application_protocol(), "test/1");
 
          size_t sent_so_far = 0;
          while(sent_so_far != server_msg.size()) {

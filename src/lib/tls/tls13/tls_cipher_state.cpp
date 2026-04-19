@@ -14,7 +14,7 @@
  *                                     v
  *                           PSK ->  HKDF-Extract = Early Secret
  *                                     |
- *                                     +-----> Derive-Secret(., "ext binder" | "res binder", "")
+ *                                     +-----> Derive-Secret(., "ext binder" | "res binder" | "imp binder", "")
  *                                     |                     = binder_key
  *                              STATE PSK BINDER
  * This state is reached by constructing the Cipher_State using init_with_psk().
@@ -480,7 +480,18 @@ void Cipher_State::advance_with_psk(PSK_Type type, secure_vector<uint8_t>&& psk)
 
    m_early_secret = hkdf_extract(std::move(psk));
 
-   const char* binder_label = (type == PSK_Type::Resumption) ? "res binder" : "ext binder";
+   // RFC 8446 and RFC 9258 specify these strings
+   const char* binder_label = [type]() -> const char* {
+      switch(type) {
+         case PSK_Type::Resumption:
+            return "res binder";
+         case PSK_Type::External:
+            return "ext binder";
+         case PSK_Type::Imported:
+            return "imp binder";
+      }
+      BOTAN_ASSERT_UNREACHABLE();
+   }();
 
    // RFC 8446 4.2.11.2
    //    The PskBinderEntry is computed in the same way as the Finished message

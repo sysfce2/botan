@@ -121,32 +121,24 @@ Client_Hello_13::Client_Hello_13(std::unique_ptr<Client_Hello_Internal> data) : 
       //    Clients MUST NOT offer any KeyShareEntry values for groups not
       //    listed in the client's "supported_groups" extension.
       //
+      //    Servers MAY check for violations of these rules and abort the
+      //    handshake with an "illegal_parameter" alert if one is violated.
+      //
       // Note: We can assume that both `offers` and `supports` are unique lists
       //       as this is ensured in the parsing code of the extensions.
-      auto found_in_supported_groups = [&supports, support_offset = -1](auto group) mutable {
-         const auto i = std::find(supports.begin(), supports.end(), group);
-         if(i == supports.end()) {
-            return false;
-         }
-
-         const auto found_at = std::distance(supports.begin(), i);
-         if(found_at <= support_offset) {
-            return false;  // The order that groups appear in "key_share" and
-                           // "supported_groups" must be the same
-         }
-
-         support_offset = static_cast<decltype(support_offset)>(found_at);
-         return true;
-      };
-
+      //
+      // Since offers must appear in the same order as supports, a single
+      // forward sweep of `supports` suffices: after finding each offered group
+      // we advance past its position so the next offered group is searched for
+      // only in the remaining suffix.
+      auto supports_it = supports.begin();
       for(const auto offered : offers) {
-         // RFC 8446 4.2.8
-         //    Servers MAY check for violations of these rules and abort the
-         //    handshake with an "illegal_parameter" alert if one is violated.
-         if(!found_in_supported_groups(offered)) {
+         supports_it = std::find(supports_it, supports.end(), offered);
+         if(supports_it == supports.end()) {
             throw TLS_Exception(Alert::IllegalParameter,
                                 "Offered key exchange groups do not align with claimed supported groups");
          }
+         ++supports_it;
       }
    }
 
@@ -227,16 +219,20 @@ Client_Hello_13::Client_Hello_13(const Policy& policy,
       m_data->extensions().add(new Record_Size_Limit(policy.record_size_limit().value()));
    }
 
+   /*
+   * Right now raw public key support is not implemented for TLS 1.2, so we only offer
+   * certificate_types (which is used to request raw public key) if additionally TLS 1.2
+   * support is disabled. Otherwise a peer might reply with a 1.2 server hello + a certificate_type
+   * extension indicating it wishes to use RPK, which would lead to errors later.
+   */
+   if(!policy.allow_tls12()) {
+      m_data->extensions().add(new Client_Certificate_Type(policy.accepted_client_certificate_types()));
+      m_data->extensions().add(new Server_Certificate_Type(policy.accepted_server_certificate_types()));
+   }
+
    if(!next_protocols.empty()) {
       m_data->extensions().add(new Application_Layer_Protocol_Notification(next_protocols));
    }
-
-   // RFC 7250 4.1
-   //    In order to indicate the support of raw public keys, clients include
-   //    the client_certificate_type and/or the server_certificate_type
-   //    extensions in an extended client hello message.
-   m_data->extensions().add(new Client_Certificate_Type(policy.accepted_client_certificate_types()));
-   m_data->extensions().add(new Server_Certificate_Type(policy.accepted_server_certificate_types()));
 
 #if defined(BOTAN_HAS_TLS_12)
    if(policy.allow_tls12()) {

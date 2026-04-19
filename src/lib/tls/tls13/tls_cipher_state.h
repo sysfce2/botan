@@ -61,8 +61,9 @@ class Secret_Logger;
 class BOTAN_TEST_API Cipher_State {
    public:
       enum class PSK_Type : uint8_t {
-         Resumption,
-         External,  // currently not implemented
+         Resumption,  // RFC 8446
+         External,    // RFC 8446
+         Imported,    // RFC 9258 PSK importer - uses "imp binder" label
       };
 
    public:

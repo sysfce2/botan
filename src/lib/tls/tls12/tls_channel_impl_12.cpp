@@ -13,6 +13,7 @@
 #include <botan/tls_messages_12.h>
 #include <botan/tls_policy.h>
 #include <botan/x509cert.h>
+#include <botan/internal/ct_utils.h>
 #include <botan/internal/loadstor.h>
 #include <botan/internal/mem_utils.h>
 #include <botan/internal/stl_util.h>
@@ -578,7 +579,8 @@ void Channel_Impl_12::secure_renegotiation_check(const Client_Hello_12* client_h
    if(secure_renegotiation) {
       const std::vector<uint8_t>& data = client_hello->renegotiation_info();
 
-      if(data != secure_renegotiation_data_for_client_hello()) {
+      const auto expected = secure_renegotiation_data_for_client_hello();
+      if(!CT::is_equal<uint8_t>(data, expected).as_bool()) {
          throw TLS_Exception(Alert::HandshakeFailure, "Client sent bad values for secure renegotiation");
       }
    }
@@ -600,7 +602,8 @@ void Channel_Impl_12::secure_renegotiation_check(const Server_Hello_12* server_h
    if(secure_renegotiation) {
       const std::vector<uint8_t>& data = server_hello->renegotiation_info();
 
-      if(data != secure_renegotiation_data_for_server_hello()) {
+      const auto expected = secure_renegotiation_data_for_server_hello();
+      if(!CT::is_equal<uint8_t>(data, expected).as_bool()) {
          throw TLS_Exception(Alert::HandshakeFailure, "Server sent bad values for secure renegotiation");
       }
    }

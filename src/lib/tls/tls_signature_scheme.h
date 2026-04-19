@@ -92,6 +92,15 @@ class BOTAN_PUBLIC_API(3, 0) Signature_Scheme {
       std::optional<Signature_Format> format() const noexcept;
 
       bool is_compatible_with(const Protocol_Version& protocol_version) const noexcept;
+
+      /**
+      * Checks that @p private_key is suitable for use with this signature
+      * scheme, enforcing the curve-hash binding required by TLS 1.3 (e.g.
+      * ECDSA_SHA256 only with P-256 keys). This must not be used for TLS
+      * 1.2 scheme selection, where signature schemes are (hash, algorithm)
+      * pairs with no curve binding -- any hash may be used with any ECDSA
+      * curve per RFC 5246.
+      */
       bool is_suitable_for(const Private_Key& private_key) const noexcept;
 
       bool operator==(const Signature_Scheme& rhs) const { return m_code == rhs.m_code; }
