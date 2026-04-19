@@ -260,6 +260,105 @@ Test::Result test_asn1_negative_int_encoding() {
    return result;
 }
 
+Test::Result test_ber_indefinite_length_trailing_data() {
+   Test::Result result("BER indefinite length trailing data");
+
+   // Case 1: verify_end after consuming indef SEQUENCE
+   try {
+      const std::vector<uint8_t> enc = {0x30, 0x80, 0x02, 0x01, 0x42, 0x00, 0x00};
+      Botan::BER_Decoder dec(enc);
+      Botan::BigInt x;
+      dec.start_sequence().decode(x).end_cons();
+      dec.verify_end();
+      result.test_bn_eq("verify_end decoded x", x, Botan::BigInt(0x42));
+   } catch(Botan::Exception& e) {
+      result.test_failure("verify_end after indef SEQUENCE", e.what());
+   }
+
+   // Case 2: two back-to-back indef SEQUENCES at top level
+   try {
+      const std::vector<uint8_t> enc = {
+         0x30, 0x80, 0x02, 0x01, 0x42, 0x00, 0x00, 0x30, 0x80, 0x02, 0x01, 0x43, 0x00, 0x00};
+      Botan::BER_Decoder dec(enc);
+      Botan::BigInt x;
+      Botan::BigInt y;
+      dec.start_sequence().decode(x).end_cons();
+      dec.start_sequence().decode(y).end_cons();
+      dec.verify_end();
+      result.test_bn_eq("back-to-back x", x, Botan::BigInt(0x42));
+      result.test_bn_eq("back-to-back y", y, Botan::BigInt(0x43));
+   } catch(Botan::Exception& e) {
+      result.test_failure("two back-to-back indef SEQUENCES", e.what());
+   }
+
+   // Case 3: nested indef SEQUENCES
+   try {
+      const std::vector<uint8_t> enc = {0x30, 0x80, 0x30, 0x80, 0x02, 0x01, 0x42, 0x00, 0x00, 0x00, 0x00};
+      Botan::BER_Decoder dec(enc);
+      Botan::BigInt x;
+      auto outer = dec.start_sequence();
+      outer.start_sequence().decode(x).end_cons();
+      outer.end_cons();
+      dec.verify_end();
+      result.test_bn_eq("nested x", x, Botan::BigInt(0x42));
+   } catch(Botan::Exception& e) {
+      result.test_failure("nested indef SEQUENCE", e.what());
+   }
+
+   // Case 4: while(more_items()) loop over an indef SEQUENCE
+   try {
+      const std::vector<uint8_t> enc = {0x30, 0x80, 0x02, 0x01, 0x42, 0x02, 0x01, 0x43, 0x00, 0x00};
+      Botan::BER_Decoder dec(enc);
+      auto seq = dec.start_sequence();
+      std::vector<Botan::BigInt> xs;
+      while(seq.more_items()) {
+         Botan::BigInt x;
+         seq.decode(x);
+         xs.push_back(x);
+      }
+      seq.end_cons();
+      dec.verify_end();
+      result.test_sz_eq("more_items count", xs.size(), 2);
+      if(xs.size() == 2) {
+         result.test_bn_eq("more_items xs[0]", xs[0], Botan::BigInt(0x42));
+         result.test_bn_eq("more_items xs[1]", xs[1], Botan::BigInt(0x43));
+      }
+   } catch(Botan::Exception& e) {
+      result.test_failure("more_items loop over indef SEQUENCE", e.what());
+   }
+
+   return result;
+}
+
+Test::Result test_ber_find_eoc() {
+   Test::Result result("BER indefinite length EOC matching");
+
+   const size_t num_siblings = 4096;
+
+   std::vector<uint8_t> ber;
+   ber.push_back(0x30);  // outer SEQUENCE | CONSTRUCTED
+   ber.push_back(0x80);  // indefinite length
+   for(size_t i = 0; i != num_siblings; ++i) {
+      ber.push_back(0x30);  // inner SEQUENCE | CONSTRUCTED
+      ber.push_back(0x80);  // indefinite length
+      ber.push_back(0x00);  // EOC tag
+      ber.push_back(0x00);  // EOC length
+   }
+   ber.push_back(0x00);  // outer EOC tag
+   ber.push_back(0x00);  // outer EOC length
+
+   try {
+      Botan::BER_Decoder dec(ber);
+      const Botan::BER_Object obj = dec.get_next_object();
+
+      result.test_sz_eq("object body includes children", obj.length(), num_siblings * 4);
+   } catch(Botan::Exception& e) {
+      result.test_failure("decode failed", e.what());
+   }
+
+   return result;
+}
+
 class ASN1_Tests final : public Test {
    public:
       std::vector<Test::Result> run() override {
@@ -267,6 +366,8 @@ class ASN1_Tests final : public Test {
 
          results.push_back(test_ber_stack_recursion());
          results.push_back(test_ber_eoc_decoding_limits());
+         results.push_back(test_ber_indefinite_length_trailing_data());
+         results.push_back(test_ber_find_eoc());
          results.push_back(test_asn1_utf8_ascii_parsing());
          results.push_back(test_asn1_utf8_parsing());
          results.push_back(test_asn1_ucs2_parsing());

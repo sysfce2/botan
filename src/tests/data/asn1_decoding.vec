@@ -194,3 +194,59 @@ ResultBER = Truncated OID value
 # Multibyte component that overflows 32 bits
 Input = 0606FFFFFFFFFF7F
 ResultBER = OID component overflow
+
+# Long-form tag with 0x80 as first subsequent octet (continuation, no data)
+# X.690 8.1.2.4.2(c) forbids bits 7-1 of the first subsequent octet being all zero
+Input = 1F8001
+ResultBER = Long form tag with leading zero
+
+# Long-form tag with 0x00 as first subsequent octet (encoding of tag value 0)
+# Without this check the 2-byte tag decodes as (Eoc, Universal) and collides
+# with the EOC marker, enabling BER malleability inside indefinite-length TLVs
+Input = 1F0000
+ResultBER = Long form tag with leading zero
+
+# Indefinite-length SEQUENCE whose content is a single fake-EOC TLV 1F 00 00
+# encoded with a long-form tag. Before the 0x00 check was added, find_eoc
+# stopped at the fake EOC and decode_length under-reported content_length
+# by one byte, silently accepting the input with truncated content.
+Input = 30801F0000000000
+ResultDER = Detected indefinite-length encoding in DER structure
+ResultBER = Long form tag with leading zero
+
+# Same malleability embedded after a valid INTEGER: find_eoc would accept the
+# 3-byte fake EOC and the trailing real 00 00 passed the EOC validator.
+Input = 30800201421F00000000
+ResultDER = Detected indefinite-length encoding in DER structure
+ResultBER = Long form tag with leading zero
+
+# Indefinite-length SEQUENCE whose first inner TLV is a malformed EOC
+# 00 02 00 00 (tag 0, length 2, content 00 00). Per X.690 8.1.5 EOC must be
+# exactly 00 00; find_eoc previously terminated on any (Eoc, Universal) tag
+# regardless of length and assigned bytes to the outer content.
+Input = 308000020000
+ResultDER = Detected indefinite-length encoding in DER structure
+ResultBER = EOC marker with non-zero length
+
+# Same bug with long-form (non-canonical) length on the EOC tag: 00 81 00 is
+# still tag 0 length 0, but the length field is 2 bytes not 1.
+Input = 3080008100
+ResultDER = Detected indefinite-length encoding in DER structure
+ResultBER = EOC marker with non-zero length
+
+# Malformed EOC at top level (outside any indefinite-length context). The
+# get_next_object loop used to read "content" bytes and continue silently;
+# the tag+length must be rejected before any content is consumed.
+Input = 00020000
+ResultBER = EOC marker with non-zero length
+
+# Long-form tag encoding of tag 1 (Boolean). Per X.690 8.1.2.2 tag values
+# 0-30 must use short form; long form is reserved for tag >= 31. Accepting
+# this produces a parser differential with strict BER parsers since the
+# bytes 1F 01 01 FF decode to the same value as short-form 01 01 FF.
+Input = 1F0101FF
+ResultBER = Long-form tag encoding used for small tag value
+
+# Long-form tag encoding of tag 30 (BMPString) - boundary case.
+Input = 1F1E00
+ResultBER = Long-form tag encoding used for small tag value

@@ -24,7 +24,7 @@ bool is_constructed(ASN1_Class class_tag) {
 /*
 * BER decode an ASN.1 type tag
 */
-size_t decode_tag(DataSource* ber, ASN1_Type& type_tag, ASN1_Class& class_tag, bool der_mode) {
+size_t decode_tag(DataSource* ber, ASN1_Type& type_tag, ASN1_Class& class_tag) {
    auto b = ber->read_byte();
 
    if(!b) {
@@ -42,7 +42,7 @@ size_t decode_tag(DataSource* ber, ASN1_Type& type_tag, ASN1_Class& class_tag, b
    size_t tag_bytes = 1;
    class_tag = ASN1_Class(*b & 0xE0);
 
-   size_t tag_buf = 0;
+   uint32_t tag_buf = 0;
    while(true) {
       b = ber->read_byte();
       if(!b) {
@@ -51,8 +51,11 @@ size_t decode_tag(DataSource* ber, ASN1_Type& type_tag, ASN1_Class& class_tag, b
       if((tag_buf >> 24) != 0) {
          throw BER_Decoding_Error("Long-form tag overflowed 32 bits");
       }
-      // This is required even by BER (see X.690 section 8.1.2.4.2 sentence c)
-      if(tag_bytes == 1 && b == 0x80) {
+      // This is required even by BER (see X.690 section 8.1.2.4.2 sentence c).
+      // Bits 7-1 of the first subsequent octet must not be all zero; this rules
+      // out both 0x80 (continuation with no data) and 0x00 (a long-form encoding
+      // of tag value 0, which collides with the EOC marker).
+      if(tag_bytes == 1 && (*b & 0x7F) == 0) {
          throw BER_Decoding_Error("Long form tag with leading zero");
       }
       ++tag_bytes;
@@ -61,40 +64,77 @@ size_t decode_tag(DataSource* ber, ASN1_Type& type_tag, ASN1_Class& class_tag, b
          break;
       }
    }
-   // DER requires short form for tag values that fit (0-30)
-   if(der_mode && tag_buf <= 30) {
-      throw BER_Decoding_Error("Detected long-form tag for small tag value in DER structure");
+   // Per X.690 8.1.2.2, tag values 0-30 shall be encoded in the short form.
+   // Long-form encoding is reserved for tag values >= 31 (X.690 8.1.2.3).
+   // This is unconditional and applies to BER as well as DER.
+   if(tag_buf <= 30) {
+      throw BER_Decoding_Error("Long-form tag encoding used for small tag value");
    }
 
    if(tag_buf == static_cast<uint32_t>(ASN1_Type::NoObject)) {
       throw BER_Decoding_Error("Tag value collides with internal sentinel");
    }
 
+   // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
    type_tag = ASN1_Type(tag_buf);
    return tag_bytes;
 }
 
 /*
-* Find the EOC marker
+* Find the EOC marker by scanning TLVs via peek, without buffering.
+* Returns the number of bytes before and including the EOC marker.
 */
-size_t find_eoc(DataSource* src, size_t allow_indef);
+size_t find_eoc(DataSource* src, size_t base_offset, size_t allow_indef);
+
+/*
+* Result of decoding a BER length field.
+*
+* If indefinite is true, indefinite-length encoding was used: content_length
+* is the number of content bytes (excluding the 2-byte EOC marker) and the
+* caller must consume the EOC bytes after reading the content.
+*/
+class BerDecodedLength {
+   public:
+      BerDecodedLength(size_t content_length, size_t field_length) :
+            BerDecodedLength(content_length, field_length, false) {}
+
+      static BerDecodedLength indefinite(size_t content_length, size_t field_length) {
+         return BerDecodedLength(content_length, field_length, true);
+      }
+
+      size_t content_length() const { return m_content_length; }
+
+      // Length plus the EOC bytes if an indefinite length field
+      size_t total_length() const { return m_indefinite ? m_content_length + 2 : m_content_length; }
+
+      size_t field_length() const { return m_field_length; }
+
+      bool indefinite_length() const { return m_indefinite; }
+
+   private:
+      BerDecodedLength(size_t content_length, size_t field_length, bool indefinite) :
+            m_content_length(content_length), m_field_length(field_length), m_indefinite(indefinite) {}
+
+      size_t m_content_length;
+      size_t m_field_length;
+      bool m_indefinite;
+};
 
 /*
 * BER decode an ASN.1 length field
 */
-size_t decode_length(DataSource* ber, size_t& field_size, size_t allow_indef, bool der_mode, bool constructed) {
+BerDecodedLength decode_length(DataSource* ber, size_t allow_indef, bool der_mode, bool constructed) {
    uint8_t b = 0;
    if(ber->read_byte(b) == 0) {
       throw BER_Decoding_Error("Length field not found");
    }
-   field_size = 1;
    if((b & 0x80) == 0) {
-      return b;
+      return BerDecodedLength(b, 1);
    }
 
    const size_t num_length_bytes = (b & 0x7F);
 
-   field_size += num_length_bytes;
+   const size_t field_size = 1 + num_length_bytes;
    if(field_size > 5) {
       throw BER_Decoding_Error("Length field is too large");
    }
@@ -108,18 +148,24 @@ size_t decode_length(DataSource* ber, size_t& field_size, size_t allow_indef, bo
       } else if(allow_indef == 0) {
          throw BER_Decoding_Error("Nested EOC markers too deep, rejecting to avoid stack exhaustion");
       } else {
-         return find_eoc(ber, allow_indef - 1);
+         // find_eoc returns bytes up to and including the EOC marker.
+         // Return the content length; the caller consumes the EOC separately.
+         const size_t eoc_len = find_eoc(ber, /*base_offset=*/0, allow_indef - 1);
+         if(eoc_len < 2) {
+            throw BER_Decoding_Error("Invalid EOC encoding");
+         }
+         return BerDecodedLength::indefinite(eoc_len - 2, field_size);
       }
    }
 
    size_t length = 0;
 
    for(size_t i = 0; i != num_length_bytes; ++i) {
-      if(get_byte<0>(length) != 0) {
-         throw BER_Decoding_Error("Field length overflow");
-      }
       if(ber->read_byte(b) == 0) {
          throw BER_Decoding_Error("Corrupted length field");
+      }
+      if(get_byte<0>(length) != 0) {
+         throw BER_Decoding_Error("Field length overflow");
       }
       length = (length << 8) | b;
    }
@@ -134,54 +180,148 @@ size_t decode_length(DataSource* ber, size_t& field_size, size_t allow_indef, bo
       }
    }
 
+   return BerDecodedLength(length, field_size);
+}
+
+/*
+* Peek a tag from the source at the given offset without consuming any data.
+* Returns the number of bytes consumed by the tag, or 0 on EOF.
+*/
+size_t peek_tag(DataSource* src, size_t offset, ASN1_Type& type_tag, ASN1_Class& class_tag) {
+   uint8_t b = 0;
+   if(src->peek(&b, 1, offset) == 0) {
+      type_tag = ASN1_Type::NoObject;
+      class_tag = ASN1_Class::NoObject;
+      return 0;
+   }
+
+   if((b & 0x1F) != 0x1F) {
+      type_tag = ASN1_Type(b & 0x1F);
+      class_tag = ASN1_Class(b & 0xE0);
+      return 1;
+   }
+
+   class_tag = ASN1_Class(b & 0xE0);
+   size_t tag_bytes = 1;
+   uint32_t tag_buf = 0;
+
+   while(true) {
+      if(src->peek(&b, 1, offset + tag_bytes) == 0) {
+         throw BER_Decoding_Error("Long-form tag truncated");
+      }
+      if((tag_buf >> 24) != 0) {
+         throw BER_Decoding_Error("Long-form tag overflowed 32 bits");
+      }
+      // Required even by BER (X.690 section 8.1.2.4.2 sentence c).
+      // Bits 7-1 of the first subsequent octet must not be all zero; this rules
+      // out both 0x80 (continuation with no data) and 0x00 (a long-form encoding
+      // of tag value 0, which collides with the EOC marker).
+      if(tag_bytes == 1 && (b & 0x7F) == 0) {
+         throw BER_Decoding_Error("Long form tag with leading zero");
+      }
+      ++tag_bytes;
+      tag_buf = (tag_buf << 7) | (b & 0x7F);
+      if((b & 0x80) == 0) {
+         break;
+      }
+   }
+
+   // Per X.690 8.1.2.2, tag values 0-30 shall be encoded in the short form.
+   // Long-form encoding is reserved for tag values >= 31 (X.690 8.1.2.3).
+   // This is unconditional and applies to BER as well as DER.
+   if(tag_buf <= 30) {
+      throw BER_Decoding_Error("Long-form tag encoding used for small tag value");
+   }
+
+   if(tag_buf == static_cast<uint32_t>(ASN1_Type::NoObject)) {
+      throw BER_Decoding_Error("Tag value collides with internal sentinel");
+   }
+
+   // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
+   type_tag = ASN1_Type(tag_buf);
+   return tag_bytes;
+}
+
+/*
+* Peek a length from the source at the given offset without consuming any data.
+* Returns the decoded length and sets field_size to the number of bytes consumed.
+* For indefinite-length encoding, recursively scans ahead to find the EOC marker.
+*/
+size_t peek_length(DataSource* src, size_t offset, size_t& field_size, size_t allow_indef, bool constructed) {
+   uint8_t b = 0;
+   if(src->peek(&b, 1, offset) == 0) {
+      throw BER_Decoding_Error("Length field not found");
+   }
+
+   field_size = 1;
+   if((b & 0x80) == 0) {
+      return b;
+   }
+
+   const size_t num_length_bytes = (b & 0x7F);
+   field_size += num_length_bytes;
+   if(field_size > 5) {
+      throw BER_Decoding_Error("Length field is too large");
+   }
+
+   if(num_length_bytes == 0) {
+      // Indefinite length is only valid for constructed types (X.690 8.1.3.2)
+      if(!constructed) {
+         throw BER_Decoding_Error("Indefinite-length encoding used with non-constructed type");
+      }
+      if(allow_indef == 0) {
+         throw BER_Decoding_Error("Nested EOC markers too deep, rejecting to avoid stack exhaustion");
+      }
+      return find_eoc(src, offset + 1, allow_indef - 1);
+   }
+
+   size_t length = 0;
+   for(size_t i = 0; i < num_length_bytes; ++i) {
+      if(src->peek(&b, 1, offset + 1 + i) == 0) {
+         throw BER_Decoding_Error("Corrupted length field");
+      }
+      if(get_byte<0>(length) != 0) {
+         throw BER_Decoding_Error("Field length overflow");
+      }
+      length = (length << 8) | b;
+   }
    return length;
 }
 
 /*
-* Find the EOC marker
+* Find the EOC marker by scanning TLVs via peek, without buffering.
+* Returns the number of bytes before and including the EOC marker.
 */
-size_t find_eoc(DataSource* ber, size_t allow_indef) {
-   secure_vector<uint8_t> buffer(DefaultBufferSize);
-   secure_vector<uint8_t> data;
+size_t find_eoc(DataSource* src, size_t base_offset, size_t allow_indef) {
+   size_t offset = base_offset;
 
-   while(true) {
-      const size_t got = ber->peek(buffer.data(), buffer.size(), data.size());
-      if(got == 0) {
-         break;
-      }
-
-      data += std::make_pair(buffer.data(), got);
-   }
-
-   DataSource_Memory source(data);
-   data.clear();
-
-   size_t length = 0;
    while(true) {
       ASN1_Type type_tag = ASN1_Type::NoObject;
       ASN1_Class class_tag = ASN1_Class::NoObject;
-      // der_mode is false because if we're in this function at all it's BER
-      const size_t tag_size = decode_tag(&source, type_tag, class_tag, false);
+      const size_t tag_size = peek_tag(src, offset, type_tag, class_tag);
       if(type_tag == ASN1_Type::NoObject) {
-         break;
+         throw BER_Decoding_Error("Missing EOC marker in indefinite-length encoding");
       }
 
       size_t length_size = 0;
-      const size_t item_size =
-         decode_length(&source, length_size, allow_indef, /*der_mode=*/false, is_constructed(class_tag));
-      source.discard_next(item_size);
+      const size_t item_size = peek_length(src, offset + tag_size, length_size, allow_indef, is_constructed(class_tag));
 
-      if(auto new_len = checked_add(length, item_size, tag_size, length_size)) {
-         length = new_len.value();
+      if(auto new_offset = checked_add(offset, tag_size, length_size, item_size)) {
+         offset = new_offset.value();
       } else {
-         throw Decoding_Error("Integer overflow while decoding DER");
+         throw Decoding_Error("Integer overflow while scanning for EOC");
       }
 
       if(type_tag == ASN1_Type::Eoc && class_tag == ASN1_Class::Universal) {
+         // Per X.690 8.1.5 the EOC marker is exactly two zero octets
+         if(length_size != 1 || item_size != 0) {
+            throw BER_Decoding_Error("EOC marker with non-zero length");
+         }
          break;
       }
    }
-   return length;
+
+   return offset - base_offset;
 }
 
 class DataSource_BERObject final : public DataSource {
@@ -295,23 +435,39 @@ BER_Object BER_Decoder::get_next_object() {
    for(;;) {
       ASN1_Type type_tag = ASN1_Type::NoObject;
       ASN1_Class class_tag = ASN1_Class::NoObject;
-      decode_tag(m_source, type_tag, class_tag, m_limits.require_der_encoding());
+      decode_tag(m_source, type_tag, class_tag);
       next.set_tagging(type_tag, class_tag);
       if(next.is_set() == false) {  // no more objects
          return next;
       }
 
-      size_t field_size = 0;
       const size_t allow_indef = m_limits.allow_ber_encoding() ? m_limits.max_nested_indefinite_length() : 0;
       const bool der_mode = m_limits.require_der_encoding();
-      const size_t length = decode_length(m_source, field_size, allow_indef, der_mode, is_constructed(class_tag));
-      if(!m_source->check_available(length)) {
+      const auto dl = decode_length(m_source, allow_indef, der_mode, is_constructed(class_tag));
+
+      // Per X.690 8.1.5 the only valid EOC encoding is the two-octet
+      // sequence 0x00 0x00. Reject any other length encoding on a tag of
+      // (Eoc, Universal) before we consume the "content" bytes.
+      if(type_tag == ASN1_Type::Eoc && class_tag == ASN1_Class::Universal &&
+         (dl.content_length() != 0 || dl.indefinite_length())) {
+         throw BER_Decoding_Error("EOC marker with non-zero length");
+      }
+
+      if(!m_source->check_available(dl.total_length())) {
          throw BER_Decoding_Error("Value truncated");
       }
 
-      uint8_t* out = next.mutable_bits(length);
-      if(m_source->read(out, length) != length) {
+      uint8_t* out = next.mutable_bits(dl.content_length());
+      if(m_source->read(out, dl.content_length()) != dl.content_length()) {
          throw BER_Decoding_Error("Value truncated");
+      }
+
+      if(dl.indefinite_length()) {
+         // After reading the data consume the 2-byte EOC
+         uint8_t eoc[2] = {0xFF, 0xFF};
+         if(m_source->read(eoc, 2) != 2 || eoc[0] != 0x00 || eoc[1] != 0x00) {
+            throw BER_Decoding_Error("Missing or malformed EOC marker");
+         }
       }
 
       if(next.tagging() == static_cast<uint32_t>(ASN1_Type::Eoc)) {
