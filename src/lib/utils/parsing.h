@@ -9,6 +9,7 @@
 #define BOTAN_PARSING_UTILS_H_
 
 #include <botan/types.h>
+#include <array>
 #include <iosfwd>
 #include <map>
 #include <optional>
@@ -68,6 +69,21 @@ std::optional<uint32_t> BOTAN_TEST_API string_to_ipv4(std::string_view ip_str);
 * @return string representation of the IPv4 address
 */
 std::string BOTAN_TEST_API ipv4_to_string(uint32_t ip_addr);
+
+/**
+* Convert a string representation of an IPv6 address to a 16-byte big-endian
+* array. Accepts the full form (eight colon-separated hex groups), the
+* "::"-compressed form (exactly one run of zero groups elided), and combinations
+* such as "2001:db8::1". Does not currently accept the IPv4-in-IPv6 trailing
+* dotted-quad form (e.g. "::ffff:192.0.2.1") or surrounding brackets.
+*/
+std::optional<std::array<uint8_t, 16>> BOTAN_TEST_API string_to_ipv6(std::string_view ip_str);
+
+/**
+* Convert an IPv6 address to normalized string format. Zero compression ("::")
+* is not applied.
+*/
+std::string BOTAN_TEST_API ipv6_to_string(const std::array<uint8_t, 16>& ip_addr);
 
 std::map<std::string, std::string> read_cfg(std::istream& is);
 

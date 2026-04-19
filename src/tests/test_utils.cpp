@@ -1198,6 +1198,57 @@ class IPv4_Parsing_Tests final : public Text_Based_Test {
 
 BOTAN_REGISTER_TEST("utils", "ipv4_parse", IPv4_Parsing_Tests);
 
+class IPv6_Parsing_Tests final : public Text_Based_Test {
+   public:
+      IPv6_Parsing_Tests() : Text_Based_Test("utils/ipv6.vec", "IPv6") {}
+
+      Test::Result run_one_test(const std::string& header, const VarMap& vars) override {
+         Test::Result result("IPv6 parsing");
+
+         const std::string input = vars.get_req_str("IPv6");
+         const bool valid = (header == "Valid");
+
+         auto ipv6 = Botan::string_to_ipv6(input);
+
+         result.test_bool_eq("string_to_ipv6 accepts only valid", ipv6.has_value(), valid);
+
+         if(ipv6) {
+            const std::string rt = Botan::ipv6_to_string(ipv6.value());
+            result.test_str_eq("ipv6_to_string and string_to_ipv6 round trip", input, rt);
+         }
+
+         return result;
+      }
+};
+
+BOTAN_REGISTER_TEST("utils", "ipv6_parse", IPv6_Parsing_Tests);
+
+class IPv6_Noncanonical_Parsing_Tests final : public Text_Based_Test {
+   public:
+      IPv6_Noncanonical_Parsing_Tests() : Text_Based_Test("utils/ipv6_nc.vec", "Input,Canonical") {}
+
+      Test::Result run_one_test(const std::string& /*header*/, const VarMap& vars) override {
+         Test::Result result("IPv6 parsing of non-canonical form");
+
+         const std::string input_str = vars.get_req_str("Input");
+         const std::string canonical_str = vars.get_req_str("Canonical");
+
+         const auto ipv6 = Botan::string_to_ipv6(input_str);
+         const auto canonical = Botan::string_to_ipv6(canonical_str);
+
+         result.test_is_true("IPv6 non-canonical parsing worked", ipv6.has_value());
+         result.test_is_true("IPv6 canonical parsing worked", canonical.has_value());
+
+         if(ipv6.has_value() && canonical.has_value()) {
+            result.test_bin_eq("IPv6 non-canonical decoding", ipv6.value(), canonical.value());
+         }
+
+         return result;
+      }
+};
+
+BOTAN_REGISTER_TEST("utils", "ipv6_parse_non_canonical", IPv6_Noncanonical_Parsing_Tests);
+
 class ReadKV_Tests final : public Text_Based_Test {
    public:
       ReadKV_Tests() : Text_Based_Test("utils/read_kv.vec", "Input,Expected") {}
