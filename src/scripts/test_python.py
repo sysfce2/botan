@@ -1383,6 +1383,51 @@ iWtHjIcunpiq6+IiB8IVu7Ncu6uPKoFS/mWzTvjgdNusmgNle9p3OAbE
         self.assertTrue(botan.ECGroup.unregister(secp256r1_oid))
         self.assertFalse(botan.ECGroup.unregister(secp256r1_oid))
 
+    def test_ec_points(self):
+        if not botan.ECGroup.supports_named_group("secp256r1"):
+            self.skipTest("No secp256r1 group support in this build")
+            return
+
+        group = botan.ECGroup.from_name("secp256r1")
+        rng = botan.RandomNumberGenerator()
+
+        identity = group.get_identity()
+        generator = group.get_generator()
+        one = botan.ECScalar.from_mpi(group, botan.MPI(1))
+        self.assertTrue(identity == identity + identity)
+
+        order_minus_one = group.get_order() - botan.MPI(1)
+        order_minus_one_scalar = botan.ECScalar.from_mpi(group, order_minus_one)
+        self.assertTrue(generator.mul(order_minus_one_scalar, rng) + generator == identity)
+        self.assertTrue(generator == generator.mul(one, rng))
+        self.assertTrue(identity == identity.mul(one, rng))
+        self.assertTrue(generator.negate() == generator.mul(order_minus_one_scalar, rng))
+
+        pkey = botan.PrivateKey.create_ec("ECDSA", group, rng)
+        private_value = pkey.get_private_key()
+        public_value = botan.ECPoint.from_bytes(group, pkey.get_public_key().get_public_point())
+
+        self.assertEqual(pkey.get_group(), group)
+        self.assertEqual(pkey.get_public_key().get_group(), group)
+
+        result = generator.mul(private_value, rng) + public_value
+        self.assertFalse(result.is_identity())
+
+        x_bytes = result.to_x_bytes().hex()
+        y_bytes = result.to_y_bytes().hex()
+        xy_bytes = result.to_xy_bytes().hex()
+        uncompressed_bytes = result.to_uncompressed().hex()
+        compressed_bytes = result.to_compressed().hex()
+
+        self.assertTrue(xy_bytes == x_bytes + y_bytes)
+        self.assertTrue(uncompressed_bytes == "04" + xy_bytes)
+        self.assertTrue(compressed_bytes.startswith("02") or compressed_bytes.startswith("03"))
+        self.assertTrue(compressed_bytes[2::] == x_bytes)
+
+        self.assertTrue(result == botan.ECPoint.from_xy(group, botan.MPI(x_bytes, 16), botan.MPI(y_bytes, 16)))
+        self.assertTrue(result == botan.ECPoint.from_bytes(group, result.to_uncompressed()))
+        self.assertTrue(result == botan.ECPoint.from_bytes(group, result.to_compressed()))
+
 
 class BotanPythonZfecTests(unittest.TestCase):
     """
