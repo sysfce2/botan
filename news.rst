@@ -24,6 +24,31 @@ Version 3.12.0, Not Yet Released
 
 * Change ``X509_Object`` to share immutable state between copies (GH #5504)
 
+* Require strict DER when decoding PKIX types such as certificates (GH #5521)
+
+* Make certificate path building DFS incremental (GH #5513 #5520 #5521)
+
+* Avoid sending the TLS ``certificate_type`` extension unless TLS 1.2 is
+  disabled, since raw public keys are not currently supported in 1.2 (GH #5523)
+
+* Add support for RFC 9258 PSK import in TLS 1.3 (GH #5523)
+
+* Avoid truncation of large handshake messages in DTLS (GH #5522)
+
+* Upgrade TLS-Anvil and add client-side TLS-Anvil testing (GH #5503)
+
+* Upgrade BoGo tests (GH #5523)
+
+* Optimize ``host_wildcard_match`` (GH #5535)
+
+* Add EC scalar and point operations to the C89/FFI interface (GH #5404)
+
+* Add DRBG helpers to the C89/FFI interface and Python binding
+
+* Add NIST key wrap with padding to the Python binding (GH #5521)
+
+* Enforce maximum input length limits for ChaCha20Poly1305 and GHASH/GCM (GH #5521)
+
 Version 3.11.1, 2026-03-31
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
