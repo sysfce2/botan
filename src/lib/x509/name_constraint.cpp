@@ -379,7 +379,7 @@ bool exceeds_limit(size_t dn_count, size_t alt_count, size_t constraint_count) {
    * OpenSSL uses a similar limit, but applies it to the total number of
    * constraints, while we apply it to permitted and excluded independently.
    */
-   constexpr size_t MAX_NC_CHECKS = (1 << 20);
+   constexpr size_t MAX_NC_CHECKS = (1 << 16);
 
    if(auto names = checked_add(dn_count, alt_count)) {
       if(auto product = checked_mul(*names, constraint_count)) {
