@@ -162,6 +162,7 @@ Test::Result find_certs_by_subject_dn_and_key_id(Botan::Certificate_Store& certs
          auto cns = certs.front().subject_dn().get_attribute("CN");
          result.test_sz_eq("exactly one CN", cns.size(), 1);
          result.test_str_eq("CN", cns.front(), get_subject_cn());
+         result.test_is_true("returned cert is considered contained", certstore.contains(certs.front()));
       }
    } catch(std::exception& e) {
       result.test_failure(e.what());
@@ -186,6 +187,11 @@ Test::Result find_all_certs_by_subject_dn(Botan::Certificate_Store& certstore) {
          if(certs[i - 1] == certs[i]) {
             result.test_failure("find_all_certs produced duplicated result");
          }
+      }
+
+      // check all returned certs are considered contained
+      for(const auto& cert : certs) {
+         result.test_is_true("contains returns true", certstore.contains(cert));
       }
 
       if(result.test_is_true("result not empty", !certs.empty())) {
@@ -237,6 +243,7 @@ Test::Result find_cert_by_issuer_dn_and_serial_number(Botan::Certificate_Store& 
          result.test_sz_eq("exactly one CN", cns.size(), 1);
          result.test_str_eq("CN", cns.front(), get_subject_cn());
          result.test_bin_eq("serial number", cert->serial_number(), get_serial_number());
+         result.test_is_true("returned cert is considered contained", certstore.contains(cert.value()));
       }
    } catch(std::exception& e) {
       result.test_failure(e.what());
@@ -286,6 +293,11 @@ Test::Result certificate_matching_with_dn_normalization(Botan::Certificate_Store
          result.test_str_eq(
             "it is the correct cert", certs.front().subject_dn().get_first_attribute("CN"), get_subject_cn());
          result.test_str_eq("it is the correct cert", cert->subject_dn().get_first_attribute("CN"), get_subject_cn());
+      }
+
+      // check all returned certs are considered contained
+      for(const auto& ret : certs) {
+         result.test_is_true("contains returns true", certstore.contains(ret));
       }
    } catch(std::exception& e) {
       result.test_failure(e.what());

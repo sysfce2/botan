@@ -44,8 +44,7 @@ X509_Certificate X509_Certificate_Cache::find_or_insert(std::span<const uint8_t>
 
    // Evict if required
    //
-   // Right now this is just an effectively random drop (lowest hash value)
-   // might make sense to add LRU here
+   // Effectively this is just a random drop, might make sense to add LRU here
    while(m_cache.size() >= m_max_entries) {
       m_cache.erase(m_cache.begin());
    }
