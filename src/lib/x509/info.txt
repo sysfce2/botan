@@ -33,6 +33,7 @@ x509self.h
 
 <header:internal>
 x509_utils.h
+x509_cert_cache.h
 </header:internal>
 
 <os_features>
