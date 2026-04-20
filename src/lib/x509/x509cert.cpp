@@ -85,13 +85,8 @@ X509_Certificate::X509_Certificate(DataSource& src) {
    load_data(src);
 }
 
-X509_Certificate::X509_Certificate(const std::vector<uint8_t>& vec) {
-   DataSource_Memory src(vec.data(), vec.size());
-   load_data(src);
-}
-
-X509_Certificate::X509_Certificate(const uint8_t data[], size_t len) {
-   DataSource_Memory src(data, len);
+X509_Certificate::X509_Certificate(std::span<const uint8_t> in) {
+   DataSource_Memory src(in);
    load_data(src);
 }
 
