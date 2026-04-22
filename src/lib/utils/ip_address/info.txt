@@ -1,0 +1,8 @@
+<module_info>
+name -> "IP address types"
+</module_info>
+
+<header:public>
+ipv4_address.h
+ipv6_address.h
+</header:public>
