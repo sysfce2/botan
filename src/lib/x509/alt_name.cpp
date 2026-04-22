@@ -44,9 +44,18 @@ void AlternativeName::add_ipv4_address(uint32_t ip) {
    m_ipv4_addr.insert(ip);
 }
 
+void AlternativeName::add_ipv6_address(const IPv6Address& ip) {
+   m_ipv6_addr.insert(ip);
+}
+
 size_t AlternativeName::count() const {
-   const auto sum = checked_add(
-      m_dns.size(), m_uri.size(), m_email.size(), m_ipv4_addr.size(), m_dn_names.size(), m_othernames.size());
+   const auto sum = checked_add(m_dns.size(),
+                                m_uri.size(),
+                                m_email.size(),
+                                m_ipv4_addr.size(),
+                                m_ipv6_addr.size(),
+                                m_dn_names.size(),
+                                m_othernames.size());
 
    BOTAN_ASSERT_NOMSG(sum.has_value());
    return sum.value();
@@ -106,6 +115,11 @@ void AlternativeName::encode_into(DER_Encoder& der) const {
       der.add_object(ASN1_Type(7), ASN1_Class::ContextSpecific, ip_buf.data(), 4);
    }
 
+   for(const auto& ip : m_ipv6_addr) {
+      // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
+      der.add_object(ASN1_Type(7), ASN1_Class::ContextSpecific, ip.address().data(), ip.address().size());
+   }
+
    der.end_cons();
 }
 
@@ -152,7 +166,10 @@ void AlternativeName::decode_from(BER_Decoder& source) {
          if(obj.length() == 4) {
             const uint32_t ip = load_be<uint32_t>(obj.bits(), 0);
             this->add_ipv4_address(ip);
-         } else if(obj.length() != 16) {
+         } else if(obj.length() == 16) {
+            const IPv6Address ip(std::span<const uint8_t, 16>{obj.bits(), 16});
+            this->add_ipv6_address(ip);
+         } else {
             throw Decoding_Error("Invalid IP constraint neither IPv4 or IPv6");
          }
       }

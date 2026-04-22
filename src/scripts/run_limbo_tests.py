@@ -50,6 +50,9 @@ tests_that_succeed_unexpectedly = {
 
     'webpki::cn::ipv4-hex-mismatch': 'CABF BR 7.1.4.3 applies to CAs not verifiers',
     'webpki::cn::ipv4-leading-zeros-mismatch': 'CABF BR 7.1.4.3 applies to CAs not verifiers',
+    'webpki::cn::ipv6-uppercase-mismatch': 'CABF BR 7.1.4.3 applies to CAs not verifiers',
+    'webpki::cn::ipv6-uncompressed-mismatch': 'CABF BR 7.1.4.3 applies to CAs not verifiers',
+    'webpki::cn::ipv6-non-rfc5952-mismatch': 'CABF BR 7.1.4.3 applies to CAs not verifiers',
     'webpki::cn::punycode-not-in-san': 'CABF BR 7.1.4.3 applies to CAs not verifiers',
     'webpki::cn::utf8-vs-punycode-mismatch':  'CABF BR 7.1.4.3 applies to CAs not verifiers',
     'webpki::cn::not-in-san':  'CABF BR 7.1.4.3 applies to CAs not verifiers',
@@ -111,8 +114,6 @@ tests_that_succeed_unexpectedly = {
 }
 
 tests_that_fail_unexpectedly = {
-    'rfc5280::nc::permitted-ipv6-match': 'IPv6 name constraints not implemented',
-
     'cve::cve-2024-0567': 'Possible path building bug',
     'rfc5280::root-and-intermediate-swapped': 'Possible path building bug',
 }

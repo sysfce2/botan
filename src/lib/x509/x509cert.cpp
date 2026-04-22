@@ -676,18 +676,23 @@ bool X509_Certificate::matches_dns_name(std::string_view name) const {
    if(auto req_ipv4 = string_to_ipv4(name)) {
       const auto& ipv4_names = subject_alt_name().ipv4_address();
       return ipv4_names.contains(req_ipv4.value());
-   } else {
-      auto issued_names = subject_info("DNS");
+   }
 
-      // Fall back to CN only if no SAN is included
-      if(!data().m_subject_alt_name_exists) {
-         issued_names = subject_info("Name");
-      }
+   if(auto req_ipv6 = IPv6Address::from_string(name)) {
+      const auto& ipv6_names = subject_alt_name().ipv6_address();
+      return ipv6_names.contains(req_ipv6.value());
+   }
 
-      for(const auto& issued_name : issued_names) {
-         if(host_wildcard_match(issued_name, name)) {
-            return true;
-         }
+   auto issued_names = subject_info("DNS");
+
+   // Fall back to CN only if no SAN is included
+   if(!data().m_subject_alt_name_exists) {
+      issued_names = subject_info("Name");
+   }
+
+   for(const auto& issued_name : issued_names) {
+      if(host_wildcard_match(issued_name, name)) {
+         return true;
       }
    }
 
