@@ -30,6 +30,7 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <numeric>
 #include <sstream>
 
 #if defined(BOTAN_HAS_BIGINT)
@@ -83,7 +84,18 @@ namespace Botan_CLI {
 
 namespace {
 
-class TimingTestTimer {
+void shuffle_idx(std::vector<size_t>& vec, Botan::RandomNumberGenerator& rng) {
+   const size_t n = vec.size();
+   for(size_t i = 0; i != n; ++i) {
+      uint8_t jb[sizeof(uint64_t)];
+      rng.randomize(jb, sizeof(jb));
+      const uint64_t j8 = Botan::load_le<uint64_t>(jb, 0);
+      const size_t j = i + static_cast<size_t>(j8) % (n - i);
+      std::swap(vec[i], vec[j]);
+   }
+}
+
+class TimingTestTimer final {
    public:
       TimingTestTimer() : m_start(get_high_resolution_clock()) {}
 
@@ -106,8 +118,12 @@ class Timing_Test {
          A constant seed is ok here since the timing test rng just needs to be
          "random" but not cryptographically secure - even std::rand() would be ok.
          */
-         const std::string drbg_seed(64, 'A');
-         m_rng = cli_make_rng("", drbg_seed);  // throws if it can't find anything to use
+
+#if defined(BOTAN_HAS_CHACHA_RNG)
+         m_rng = std::make_unique<Botan::ChaCha_RNG>(std::vector<uint8_t>(64, 0));
+#else
+         m_rng = std::make_unique<Botan::System_RNG>();
+#endif
       }
 
       virtual ~Timing_Test() = default;
@@ -129,7 +145,7 @@ class Timing_Test {
       Botan::RandomNumberGenerator& timing_test_rng() { return (*m_rng); }
 
    private:
-      std::shared_ptr<Botan::RandomNumberGenerator> m_rng;
+      std::unique_ptr<Botan::RandomNumberGenerator> m_rng;
 };
 
 #if defined(BOTAN_HAS_RSA) && defined(BOTAN_HAS_EME_PKCS1) && defined(BOTAN_HAS_EME_RAW)
@@ -402,9 +418,14 @@ std::vector<std::vector<uint64_t>> Timing_Test::execute_evaluation(const std::ve
    size_t total_runs = 0;
    std::vector<uint64_t> results(inputs.size());
 
+   std::vector<size_t> indexes(inputs.size());
+   std::iota(indexes.begin(), indexes.end(), size_t{0});
+
    while(total_runs < (warmup_runs + measurement_runs)) {
-      for(size_t i = 0; i != inputs.size(); ++i) {
-         results[i] = measure_critical_function(inputs[i]);
+      shuffle_idx(indexes, *m_rng);
+
+      for(const size_t testcase : indexes) {
+         results[testcase] = measure_critical_function(inputs[testcase]);
       }
 
       total_runs++;
@@ -640,10 +661,8 @@ class MARVIN_Test_Command final : public Command {
 
          const Botan::PK_Decryptor_EME op(*key, rng, "PKCS1v15");
 
-         std::vector<size_t> indexes;
-         for(size_t i = 0; i != testcases; ++i) {
-            indexes.push_back(i);
-         }
+         std::vector<size_t> indexes(testcases);
+         std::iota(indexes.begin(), indexes.end(), size_t{0});
 
          std::vector<std::vector<uint64_t>> measurements(testcases);
          for(auto& m : measurements) {
@@ -660,7 +679,7 @@ class MARVIN_Test_Command final : public Command {
                std::cerr << "Gathering sample # " << r << "\n";
             }
 
-            shuffle(indexes, rng);
+            shuffle_idx(indexes, rng);
 
             for(const size_t testcase : indexes) {
                // Load the test ciphertext in constant time to avoid cache pollution
@@ -737,18 +756,6 @@ class MARVIN_Test_Command final : public Command {
             } catch(std::exception&) {
                throw CLI_Usage_Error("Unexpected syntax for --runs option (try 1000, 1K, or 2M)");
             }
-         }
-      }
-
-      template <typename T>
-      void shuffle(std::vector<T>& vec, Botan::RandomNumberGenerator& rng) {
-         const size_t n = vec.size();
-         for(size_t i = 0; i != n; ++i) {
-            uint8_t jb[sizeof(uint64_t)];
-            rng.randomize(jb, sizeof(jb));
-            const uint64_t j8 = Botan::load_le<uint64_t>(jb, 0);
-            const size_t j = i + static_cast<size_t>(j8) % (n - i);
-            std::swap(vec[i], vec[j]);
          }
       }
 };
