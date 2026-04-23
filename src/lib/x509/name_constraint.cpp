@@ -1,7 +1,7 @@
 /*
 * X.509 Name Constraint
 * (C) 2015 Kai Michaelis
-*     2024 Jack Lloyd
+*     2024,2026 Jack Lloyd
 *
 * Botan is released under the Simplified BSD License (see license.txt)
 */
@@ -17,6 +17,7 @@
 #include <botan/internal/parsing.h>
 #include <botan/internal/stl_util.h>
 #include <botan/internal/x509_utils.h>
+#include <span>
 
 namespace Botan {
 
@@ -44,20 +45,14 @@ std::string GeneralName::type() const {
          return "DN";
       case NameType::IPv4:
          return "IP";
+      case NameType::IPv6:
+         return "IPv6";
       case NameType::Other:
          return "Other";
    }
 
    BOTAN_ASSERT_UNREACHABLE();
 }
-
-/**
- * Placeholder for "no subnet mask", i.e. "a specific IP address".
- * The GeneralName must be able to store both individual addresses, when used in
- * Subject/Issuer alternative names as well as IP subnet identifier as name
- * constraints.
- */
-constexpr static uint32_t blind_mask = 0xFFFFFFFF;
 
 GeneralName GeneralName::email(std::string_view email) {
    return GeneralName::make<RFC822_IDX>(email);
@@ -76,11 +71,31 @@ GeneralName GeneralName::directory_name(Botan::X509_DN dn) {
 }
 
 GeneralName GeneralName::ipv4_address(uint32_t ipv4) {
-   return GeneralName::ipv4_address(ipv4, blind_mask);
+   return GeneralName::ipv4_address(IPv4Address(ipv4));
 }
 
 GeneralName GeneralName::ipv4_address(uint32_t ipv4, uint32_t mask) {
-   return GeneralName::make<IPV4_IDX>(std::pair{ipv4 & mask, mask});
+   auto subnet = IPv4Subnet::from_address_and_mask(ipv4, mask);
+   if(!subnet.has_value()) {
+      throw Invalid_Argument("IPv4 subnet mask is not a contiguous CIDR prefix");
+   }
+   return GeneralName::make<IPV4_IDX>(*subnet);
+}
+
+GeneralName GeneralName::ipv4_address(IPv4Address ipv4) {
+   return GeneralName::make<IPV4_IDX>(IPv4Subnet::host(ipv4));
+}
+
+GeneralName GeneralName::ipv4_address(const IPv4Subnet& subnet) {
+   return GeneralName::make<IPV4_IDX>(subnet);
+}
+
+GeneralName GeneralName::ipv6_address(const IPv6Address& ipv6) {
+   return GeneralName::make<IPV6_IDX>(IPv6Subnet::host(ipv6));
+}
+
+GeneralName GeneralName::ipv6_address(const IPv6Subnet& subnet) {
+   return GeneralName::make<IPV6_IDX>(subnet);
 }
 
 std::string GeneralName::name() const {
@@ -95,12 +110,11 @@ std::string GeneralName::name() const {
    } else if(index == DN_IDX) {
       return std::get<DN_IDX>(m_name).to_string();
    } else if(index == IPV4_IDX) {
-      auto [net, mask] = std::get<IPV4_IDX>(m_name);
-      if(mask == blind_mask) {
-         return ipv4_to_string(net);
-      } else {
-         return fmt("{}/{}", ipv4_to_string(net), ipv4_to_string(mask));
-      }
+      const auto& subnet = std::get<IPV4_IDX>(m_name);
+      return subnet.is_host() ? subnet.address().to_string() : subnet.to_string();
+   } else if(index == IPV6_IDX) {
+      const auto& subnet = std::get<IPV6_IDX>(m_name);
+      return subnet.is_host() ? subnet.address().to_string() : subnet.to_string();
    } else {
       BOTAN_ASSERT_UNREACHABLE();
    }
@@ -109,13 +123,8 @@ std::string GeneralName::name() const {
 std::vector<uint8_t> GeneralName::binary_name() const {
    return std::visit(Botan::overloaded{
                         [](const Botan::X509_DN& dn) { return Botan::ASN1::put_in_sequence(dn.get_bits()); },
-                        [](const std::pair<uint32_t, uint32_t>& ip) {
-                           if(ip.second == blind_mask) {
-                              return store_be<std::vector<uint8_t>>(ip.first);
-                           } else {
-                              return concat<std::vector<uint8_t>>(store_be(ip.first), store_be(ip.second));
-                           }
-                        },
+                        [](const IPv4Subnet& subnet) { return subnet.serialize(); },
+                        [](const IPv6Subnet& subnet) { return subnet.serialize(); },
                         [](const auto&) -> std::vector<uint8_t> {
                            throw Invalid_State("Cannot convert GeneralName to binary string");
                         },
@@ -156,14 +165,23 @@ void GeneralName::decode_from(BER_Decoder& ber) {
       m_name.emplace<DN_IDX>(dn);
    } else if(obj.is_a(7, ASN1_Class::ContextSpecific)) {
       if(obj.length() == 8) {
-         const uint32_t net = load_be<uint32_t>(obj.bits(), 0);
-         const uint32_t mask = load_be<uint32_t>(obj.bits(), 1);
+         const auto addr_and_mask = std::span<const uint8_t, 8>{obj.bits(), 8};
+         auto subnet = IPv4Subnet::from_address_and_mask(addr_and_mask);
+         if(!subnet.has_value()) {
+            throw Decoding_Error("IPv4 name constraint mask is not a contiguous CIDR prefix");
+         }
 
          m_type = NameType::IPv4;
-         m_name.emplace<IPV4_IDX>(std::make_pair(net & mask, mask));
+         m_name.emplace<IPV4_IDX>(*subnet);
       } else if(obj.length() == 32) {
-         // IPv6 name constraints are not implemented
-         m_type = NameType::Unknown;
+         const auto addr_and_mask = std::span<const uint8_t, 32>{obj.bits(), 32};
+         auto subnet = IPv6Subnet::from_address_and_mask(addr_and_mask);
+         if(!subnet.has_value()) {
+            throw Decoding_Error("IPv6 name constraint mask is not a contiguous CIDR prefix");
+         }
+
+         m_type = NameType::IPv6;
+         m_name.emplace<IPV6_IDX>(*subnet);
       } else {
          throw Decoding_Error("Invalid IP name constraint size " + std::to_string(obj.length()));
       }
@@ -182,8 +200,14 @@ bool GeneralName::matches_dns(const std::string& dns_name) const {
 
 bool GeneralName::matches_ipv4(uint32_t ip) const {
    if(m_type == NameType::IPv4) {
-      auto [net, mask] = std::get<IPV4_IDX>(m_name);
-      return (ip & mask) == (net & mask);
+      return std::get<IPV4_IDX>(m_name).contains(IPv4Address(ip));
+   }
+   return false;
+}
+
+bool GeneralName::matches_ipv6(const IPv6Address& ip) const {
+   if(m_type == NameType::IPv6) {
+      return std::get<IPV6_IDX>(m_name).contains(ip);
    }
    return false;
 }
@@ -255,21 +279,23 @@ GeneralName::MatchResult GeneralName::matches(const X509_Certificate& cert) cons
          score.add(matches_dn(alt_dn, constraint));
       }
    } else if(m_type == NameType::IPv4) {
-      auto [net, mask] = std::get<IPV4_IDX>(m_name);
+      const auto& subnet = std::get<IPV4_IDX>(m_name);
 
       if(alt_name.count() == 0) {
          // Check CN instead...
          for(const std::string& cn : dn.get_attribute("CN")) {
             if(auto ipv4 = string_to_ipv4(cn)) {
-               const bool match = (ipv4.value() & mask) == (net & mask);
-               score.add(match);
+               score.add(subnet.contains(IPv4Address(*ipv4)));
             }
          }
       } else {
          for(const uint32_t ipv4 : alt_name.ipv4_address()) {
-            const bool match = (ipv4 & mask) == (net & mask);
-            score.add(match);
+            score.add(subnet.contains(IPv4Address(ipv4)));
          }
+      }
+   } else if(m_type == NameType::IPv6) {
+      for(const auto& ipv6 : alt_name.ipv6_address()) {
+         score.add(matches_ipv6(ipv6));
       }
    } else {
       // URI and email name constraint matching not implemented
@@ -452,9 +478,18 @@ bool NameConstraints::is_permitted(const X509_Certificate& cert, bool reject_unk
       return false;
    };
 
+   /*
+   RFC 5280 4.2.1.10: iPAddress is a single GeneralName element where
+   IPv4 and IPv6 are distinguished only by the length.
+
+   An iPAddress subtree of either version therefore restricts the iPAddress name
+   form for both versions.
+   */
+   const bool ip_form_restricted = m_permitted_name_types.contains(GeneralName::NameType::IPv4) ||
+                                   m_permitted_name_types.contains(GeneralName::NameType::IPv6);
+
    auto is_permitted_ipv4 = [&](uint32_t ipv4) {
-      // If no restrictions, then immediate accept
-      if(!m_permitted_name_types.contains(GeneralName::NameType::IPv4)) {
+      if(!ip_form_restricted) {
          return true;
       }
 
@@ -464,7 +499,26 @@ bool NameConstraints::is_permitted(const X509_Certificate& cert, bool reject_unk
          }
       }
 
-      // There is at least one permitted name and we didn't match
+      // We might here check if there are any IPv6 permitted names which are
+      // mapped IPv4 addresses, and if so check if any of those apply. It's not
+      // clear if this is desirable, and RFC 5280 is completely silent on the issue.
+
+      // There is at least one permitted iPAddress name and we didn't match
+      return false;
+   };
+
+   auto is_permitted_ipv6 = [&](const IPv6Address& ipv6) {
+      if(!ip_form_restricted) {
+         return true;
+      }
+
+      for(const auto& c : m_permitted_subtrees) {
+         if(c.base().matches_ipv6(ipv6)) {
+            return true;
+         }
+      }
+
+      // There is at least one permitted iPAddress name and we didn't match
       return false;
    };
 
@@ -486,6 +540,12 @@ bool NameConstraints::is_permitted(const X509_Certificate& cert, bool reject_unk
 
    for(const auto& alt_ipv4 : alt_name.ipv4_address()) {
       if(!is_permitted_ipv4(alt_ipv4)) {
+         return false;
+      }
+   }
+
+   for(const auto& alt_ipv6 : alt_name.ipv6_address()) {
+      if(!is_permitted_ipv6(alt_ipv6)) {
          return false;
       }
    }
@@ -588,18 +648,40 @@ bool NameConstraints::is_excluded(const X509_Certificate& cert, bool reject_unkn
    };
 
    auto is_excluded_ipv4 = [&](uint32_t ipv4) {
-      // If no restrictions, then immediate accept
-      if(!m_excluded_name_types.contains(GeneralName::NameType::IPv4)) {
-         return false;
-      }
-
-      for(const auto& c : m_excluded_subtrees) {
-         if(c.base().matches_ipv4(ipv4)) {
-            return true;
+      if(m_excluded_name_types.contains(GeneralName::NameType::IPv4)) {
+         for(const auto& c : m_excluded_subtrees) {
+            if(c.base().matches_ipv4(ipv4)) {
+               return true;
+            }
          }
       }
 
-      // There is at least one excluded name and we didn't match
+      // This name did not match any of the excluded names
+      return false;
+   };
+
+   auto is_excluded_ipv6 = [&](const IPv6Address& ipv6) {
+      if(m_excluded_name_types.contains(GeneralName::NameType::IPv6)) {
+         for(const auto& c : m_excluded_subtrees) {
+            if(c.base().matches_ipv6(ipv6)) {
+               return true;
+            }
+         }
+      }
+
+      // An IPv4-mapped IPv6 address names an IPv4 address so verify that
+      // address is not restricted by an IPv4 excludes rule
+      if(m_excluded_name_types.contains(GeneralName::NameType::IPv4)) {
+         if(auto embedded_v4 = ipv6.as_ipv4()) {
+            for(const auto& c : m_excluded_subtrees) {
+               if(c.base().matches_ipv4(*embedded_v4)) {
+                  return true;
+               }
+            }
+         }
+      }
+
+      // This name did not match any of the excluded names
       return false;
    };
 
@@ -621,6 +703,12 @@ bool NameConstraints::is_excluded(const X509_Certificate& cert, bool reject_unkn
 
    for(const auto& alt_ipv4 : alt_name.ipv4_address()) {
       if(is_excluded_ipv4(alt_ipv4)) {
+         return true;
+      }
+   }
+
+   for(const auto& alt_ipv6 : alt_name.ipv6_address()) {
+      if(is_excluded_ipv6(alt_ipv6)) {
          return true;
       }
    }

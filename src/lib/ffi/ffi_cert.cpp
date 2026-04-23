@@ -74,6 +74,13 @@ std::optional<Botan::GeneralName> extract_general_name_at(const Botan::Alternati
       std::advance(itr, index);
       return Botan::GeneralName::ipv4_address(*itr);
    }
+   index -= altnames.ipv4_address().size();
+
+   if(index < altnames.ipv6_address().size()) {
+      auto itr = altnames.ipv6_address().begin();
+      std::advance(itr, index);
+      return Botan::GeneralName::ipv6_address(*itr);
+   }
 
    return std::nullopt;
 }
@@ -87,7 +94,7 @@ std::optional<Botan::GeneralName> extract_general_name_at(const Botan::Alternati
  */
 size_t count_general_names_in(const Botan::AlternativeName& alt_names) {
    return alt_names.email().size() + alt_names.dns().size() + alt_names.directory_names().size() +
-          alt_names.uris().size() + alt_names.ipv4_address().size();
+          alt_names.uris().size() + alt_names.ipv4_address().size() + alt_names.ipv6_address().size();
 }
 
 std::optional<botan_x509_general_name_types> to_botan_x509_general_name_types(Botan::GeneralName::NameType gn_type) {
@@ -104,6 +111,7 @@ std::optional<botan_x509_general_name_types> to_botan_x509_general_name_types(Bo
       case Type::DN:
          return BOTAN_X509_DIRECTORY_NAME;
       case Type::IPv4:
+      case Type::IPv6:
          return BOTAN_X509_IP_ADDRESS;
       case Type::Other:
          return BOTAN_X509_OTHER_NAME;

@@ -13,6 +13,7 @@
 #include <iosfwd>
 #include <map>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -83,7 +84,7 @@ std::optional<std::array<uint8_t, 16>> BOTAN_TEST_API string_to_ipv6(std::string
 * Convert an IPv6 address to normalized string format. Zero compression ("::")
 * is not applied.
 */
-std::string BOTAN_TEST_API ipv6_to_string(const std::array<uint8_t, 16>& ip_addr);
+std::string BOTAN_TEST_API ipv6_to_string(std::span<const uint8_t, 16> ip_addr);
 
 std::map<std::string, std::string> read_cfg(std::istream& is);
 

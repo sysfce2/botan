@@ -332,7 +332,7 @@ std::optional<std::array<uint8_t, 16>> string_to_ipv6(std::string_view str) {
    return out;
 }
 
-std::string ipv6_to_string(const std::array<uint8_t, 16>& a) {
+std::string ipv6_to_string(std::span<const uint8_t, 16> a) {
    static const char* hex = "0123456789abcdef";
 
    std::string out;

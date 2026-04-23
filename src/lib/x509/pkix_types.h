@@ -13,6 +13,8 @@
 
 #include <botan/asn1_obj.h>
 
+#include <botan/ipv4_address.h>
+#include <botan/ipv6_address.h>
 #include <botan/pkix_enums.h>
 #include <initializer_list>
 #include <iosfwd>
@@ -165,6 +167,12 @@ class BOTAN_PUBLIC_API(2, 0) AlternativeName final : public ASN1_Object {
       /// Add an IP address to this alternative name
       void add_ipv4_address(uint32_t ipv4);
 
+      /// Add an IP address to this alternative name
+      void add_ipv4_address(IPv4Address ipv4) { add_ipv4_address(ipv4.value()); }
+
+      /// Add an IPv6 address to this alternative name
+      void add_ipv6_address(const IPv6Address& ipv6);
+
       /// Return the set of URIs included in this alternative name
       const std::set<std::string>& uris() const { return m_uri; }
 
@@ -176,6 +184,9 @@ class BOTAN_PUBLIC_API(2, 0) AlternativeName final : public ASN1_Object {
 
       /// Return the set of IPv4 addresses included in this alternative name
       const std::set<uint32_t>& ipv4_address() const { return m_ipv4_addr; }
+
+      /// Return the set of IPv6 addresses included in this alternative name
+      const std::set<IPv6Address>& ipv6_address() const { return m_ipv6_addr; }
 
       /// Return the set of "other names" included in this alternative name
       BOTAN_DEPRECATED("Support for other names is deprecated")
@@ -232,6 +243,7 @@ class BOTAN_PUBLIC_API(2, 0) AlternativeName final : public ASN1_Object {
       std::set<std::string> m_uri;
       std::set<std::string> m_email;
       std::set<uint32_t> m_ipv4_addr;
+      std::set<IPv6Address> m_ipv6_addr;
       std::set<X509_DN> m_dn_names;
       std::set<std::pair<OID, ASN1_String>> m_othernames;
 };
@@ -288,7 +300,8 @@ class BOTAN_PUBLIC_API(2, 0) GeneralName final : public ASN1_Object {
          URI = 3,
          DN = 4,
          IPv4 = 5,
-         Other = 6,
+         IPv6 = 6,
+         Other = 7,
       };
 
       BOTAN_DEPRECATED("Deprecated use NameConstraints") GeneralName() = default;
@@ -299,6 +312,10 @@ class BOTAN_PUBLIC_API(2, 0) GeneralName final : public ASN1_Object {
       static GeneralName directory_name(Botan::X509_DN dn);
       static GeneralName ipv4_address(uint32_t ipv4);
       static GeneralName ipv4_address(uint32_t ipv4, uint32_t mask);
+      static GeneralName ipv4_address(IPv4Address ipv4);
+      static GeneralName ipv4_address(const IPv4Subnet& subnet);
+      static GeneralName ipv6_address(const IPv6Address& ipv6);
+      static GeneralName ipv6_address(const IPv6Subnet& subnet);
 
       // Encoding is not implemented
       void encode_into(DER_Encoder& to) const override;
@@ -334,6 +351,10 @@ class BOTAN_PUBLIC_API(2, 0) GeneralName final : public ASN1_Object {
 
       bool matches_dns(const std::string& dns_name) const;
       bool matches_ipv4(uint32_t ip) const;
+
+      bool matches_ipv4(IPv4Address ip) const { return matches_ipv4(ip.value()); }
+
+      bool matches_ipv6(const IPv6Address& ip) const;
       bool matches_dn(const X509_DN& dn) const;
 
    private:
@@ -343,13 +364,14 @@ class BOTAN_PUBLIC_API(2, 0) GeneralName final : public ASN1_Object {
       static constexpr size_t URI_IDX = 2;
       static constexpr size_t DN_IDX = 3;
       static constexpr size_t IPV4_IDX = 4;
+      static constexpr size_t IPV6_IDX = 5;
 
-      using NameVariant = std::variant<std::string, std::string, std::string, X509_DN, std::pair<uint32_t, uint32_t>>;
+      using NameVariant = std::variant<std::string, std::string, std::string, X509_DN, IPv4Subnet, IPv6Subnet>;
 
       GeneralName(NameType type, NameVariant name) : m_type(type), m_name(std::move(name)) {}
 
       template <size_t idx, typename T>
-         requires(idx < 5)
+         requires(idx < 6)
       static GeneralName make(T&& value) {
          return {NameType(idx + 1 /* implicit enum relationship! */),
                  NameVariant(std::in_place_index_t<idx>(), std::forward<T>(value))};

@@ -1576,7 +1576,7 @@ class FFI_Cert_NameConstraints_Test final : public FFI_Test {
          const auto excluded = read_constraints(result, cert, false);
 
          result.test_sz_eq("permissions", permitted.size(), 72);
-         result.test_sz_eq("exclusions", excluded.size(), 1);
+         result.test_sz_eq("exclusions", excluded.size(), 2);
 
          using V = decltype(permitted)::value_type;
          result.test_is_true("email", Botan::value_exists(permitted, V{BOTAN_X509_EMAIL_ADDRESS, "pec.aruba.it"}));
@@ -1586,7 +1586,8 @@ class FFI_Cert_NameConstraints_Test final : public FFI_Test {
             Botan::value_exists(
                permitted,
                V{BOTAN_X509_DIRECTORY_NAME, R"(C="IT",X520.State="Roma",X520.Locality="Roma",O="Sogei S.p.A.")"}));
-         result.test_is_true("IP", Botan::value_exists(excluded, V{BOTAN_X509_IP_ADDRESS, "0.0.0.0/0.0.0.0"}));
+         result.test_is_true("IPv4", Botan::value_exists(excluded, V{BOTAN_X509_IP_ADDRESS, "0.0.0.0/0"}));
+         result.test_is_true("IPv6", Botan::value_exists(excluded, V{BOTAN_X509_IP_ADDRESS, "0:0:0:0:0:0:0:0/0"}));
 
          // below are more generic general_name_t tests
 
@@ -1634,7 +1635,7 @@ class FFI_Cert_NameConstraints_Test final : public FFI_Test {
          TEST_FFI_OK(botan_x509_general_name_view_binary_value, (ip, bin.delegate(), bin.callback()));
          result.test_sz_eq("ip has correct length", bin.get().size(), 8);
          TEST_FFI_OK(botan_x509_general_name_view_string_value, (ip, str.delegate(), str.callback()));
-         result.test_str_eq("ip has correct length", str.get(), "0.0.0.0/0.0.0.0");
+         result.test_str_eq("ip has correct length", str.get(), "0.0.0.0/0");
 
          TEST_FFI_OK(botan_x509_general_name_destroy, (email));
          TEST_FFI_OK(botan_x509_general_name_destroy, (dns));

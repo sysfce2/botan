@@ -41,6 +41,11 @@ class X509_Alt_Name_Tests final : public Test {
             0xC0A80102,
          };
 
+         const std::vector<Botan::IPv6Address> ipv6_names = {
+            Botan::IPv6Address({0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01}),
+            Botan::IPv6Address({0x26, 0x06, 0x47, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01}),
+         };
+
          Botan::AlternativeName alt_name;
          for(const auto& uri : uri_names) {
             alt_name.add_uri(uri);
@@ -50,6 +55,9 @@ class X509_Alt_Name_Tests final : public Test {
          }
          for(const auto ipv4 : ipv4_names) {
             alt_name.add_ipv4_address(ipv4);
+         }
+         for(const auto& ipv6 : ipv6_names) {
+            alt_name.add_ipv6_address(ipv6);
          }
          for(const auto& email : email_names) {
             alt_name.add_email(email);
@@ -87,6 +95,16 @@ class X509_Alt_Name_Tests final : public Test {
          result.test_sz_eq("Expected number of email", recoded.email().size(), email_names.size());
          for(const auto& name : email_names) {
             result.test_is_true("Has expected email name", recoded.email().contains(name));
+         }
+
+         result.test_sz_eq("Expected number of IPv4", recoded.ipv4_address().size(), ipv4_names.size());
+         for(const auto ipv4 : ipv4_names) {
+            result.test_is_true("Has expected IPv4 name", recoded.ipv4_address().contains(ipv4));
+         }
+
+         result.test_sz_eq("Expected number of IPv6", recoded.ipv6_address().size(), ipv6_names.size());
+         for(const auto& ipv6 : ipv6_names) {
+            result.test_is_true("Has expected IPv6 name", recoded.ipv6_address().contains(ipv6));
          }
 
          result.test_sz_eq("Expected number of DNs", recoded.directory_names().size(), 2);
