@@ -12,6 +12,7 @@
 #include <array>
 #include <cstring>
 #include <memory>
+#include <span>
 
 namespace Botan {
 
@@ -137,6 +138,16 @@ class BOTAN_PUBLIC_API(2, 0) X509_Certificate : public X509_Object {
       * SHA-256 of Raw subject DN
       */
       const std::vector<uint8_t>& raw_subject_dn_sha256() const;
+
+      /**
+      * SHA-1 of the entire certificate DER encoding
+      */
+      std::span<const uint8_t, 20> certificate_data_sha1() const;
+
+      /**
+      * SHA-256 of the entire certificate DER encoding
+      */
+      std::span<const uint8_t, 32> certificate_data_sha256() const;
 
       /**
       * Get the notBefore of the certificate as X509_Time
