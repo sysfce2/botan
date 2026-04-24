@@ -22,7 +22,6 @@
 #include <botan/internal/x509_utils.h>
 #include <algorithm>
 #include <set>
-#include <sstream>
 
 namespace Botan {
 
@@ -714,6 +713,9 @@ void Authority_Information_Access::decode_inner(const std::vector<uint8_t>& in) 
    BER_Decoder outer(in, BER_Decoder::Limits::DER());
    BER_Decoder ber = outer.start_sequence();
 
+   const OID ocsp_responder = OID::from_string("PKIX.OCSP");
+   const OID ca_issuer = OID::from_string("PKIX.CertificateAuthorityIssuers");
+
    while(ber.more_items()) {
       OID oid;
 
@@ -721,14 +723,13 @@ void Authority_Information_Access::decode_inner(const std::vector<uint8_t>& in) 
 
       info.decode(oid);
 
-      if(oid == OID::from_string("PKIX.OCSP")) {
+      if(oid == ocsp_responder) {
          const BER_Object name = info.get_next_object();
 
          if(name.is_a(6, ASN1_Class::ContextSpecific)) {
             m_ocsp_responders.push_back(ASN1::to_string(name));
          }
-      }
-      if(oid == OID::from_string("PKIX.CertificateAuthorityIssuers")) {
+      } else if(oid == ca_issuer) {
          const BER_Object name = info.get_next_object();
 
          if(name.is_a(6, ASN1_Class::ContextSpecific)) {
@@ -814,17 +815,11 @@ void CRL_Distribution_Points::decode_inner(const std::vector<uint8_t>& buf) {
    */
    BER_Decoder(buf, BER_Decoder::Limits::DER()).decode_list(m_distribution_points).verify_end();
 
-   std::stringstream ss;
-
    for(const auto& distribution_point : m_distribution_points) {
-      auto contents = distribution_point.point().contents();
-
-      for(const auto& pair : contents) {
-         ss << pair.first << ": " << pair.second << " ";
+      for(const auto& uri : distribution_point.point().uris()) {
+         m_crl_distribution_urls.push_back(uri);
       }
    }
-
-   m_crl_distribution_urls.push_back(ss.str());
 }
 
 void CRL_Distribution_Points::Distribution_Point::encode_into(DER_Encoder& der) const {
@@ -1692,6 +1687,9 @@ void ASBlocks::ASIdOrRange::decode_from(BER_Decoder& from) {
       from.start_sequence().decode(min).decode(max).end_cons();
       m_min = checked_cast_to<asnum_t>(min);
       m_max = checked_cast_to<asnum_t>(max);
+      if(m_min >= m_max) {
+         throw Decoding_Error("ASIdOrRange has min greater than max");
+      }
    } else {
       throw Decoding_Error(fmt("Unexpected type for ASIdOrRange {}", static_cast<uint32_t>(next_tag)));
    }

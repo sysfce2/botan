@@ -161,6 +161,25 @@ class BOTAN_PUBLIC_API(2, 0) X509_CRL final : public X509_Object {
       std::vector<std::string> issuing_distribution_points() const;
 
       /**
+      * Check if this CRL's scope covers the given certificate's CRL distribution points.
+      *
+      * Per RFC 5280 6.3.3 step (b)(2), if the certificate has a CRL Distribution Points
+      * extension (4.2.1.13) and this CRL has an Issuing Distribution Point extension
+      * (5.2.5), at least one general name from the IDP must match a general name in one
+      * of the certificate's distribution points.
+      *
+      * Returns true if the certificate has no CRLDP extension (this CRL's scope is
+      * unconstrained from the certificate's perspective), or if both extensions are
+      * present and their distribution point names overlap. Returns false otherwise,
+      * including when the certificate has a CRLDP but this CRL has no IDP.
+      *
+      * The nameRelativeToCRLIssuer RDN form of DistributionPointName is not currently
+      * parsed by Botan's CRLDP/IDP decoders, so this comparison operates only on the
+      * fullName (GeneralNames) form.
+      */
+      bool has_matching_distribution_point(const X509_Certificate& cert) const;
+
+      /**
       * Create an uninitialized CRL object. Any attempts to access
       * this object will throw an exception.
       */

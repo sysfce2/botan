@@ -13,6 +13,7 @@
 #include <botan/data_src.h>
 #include <botan/x509_ext.h>
 #include <botan/x509cert.h>
+#include <algorithm>
 #include <set>
 
 namespace Botan {
@@ -186,7 +187,9 @@ std::unique_ptr<CRL_Data> decode_crl_body(const std::vector<uint8_t>& body, cons
       data->m_auth_key_id = ext->get_key_id();
    }
    if(const auto* ext = data->m_extensions.get_extension_object_as<Cert_Extension::CRL_Issuing_Distribution_Point>()) {
-      data->m_idp_urls = ext->get_point().get_attribute("URL");
+      for(const auto& uri : ext->get_point().uris()) {
+         data->m_idp_urls.push_back(uri);
+      }
    }
 
    data->update_index();
@@ -272,6 +275,39 @@ std::string X509_CRL::crl_issuing_distribution_point() const {
 */
 std::vector<std::string> X509_CRL::issuing_distribution_points() const {
    return data().m_idp_urls;
+}
+
+namespace {
+
+/*
+* Compare two distribution point names for overlap, per RFC 5280 section 6.3.3
+* step (b)(2). In practice CRLDP/IDP general names are either uniformResourceIdentifier
+* or directoryName; the other GeneralName variants have no defined semantics for a
+* distribution point (RFC 5280 4.2.1.13 and 5.2.5) so they are ignored here.
+*/
+bool dp_names_overlap(const AlternativeName& a, const AlternativeName& b) {
+   auto has_common = [](const auto& s1, const auto& s2) {
+      return std::ranges::any_of(s1, [&](const auto& e) { return s2.contains(e); });
+   };
+
+   return has_common(a.uris(), b.uris()) || has_common(a.directory_names(), b.directory_names());
+}
+
+}  // namespace
+
+bool X509_CRL::has_matching_distribution_point(const X509_Certificate& cert) const {
+   const auto* cdp_ext = cert.v3_extensions().get_extension_object_as<Cert_Extension::CRL_Distribution_Points>();
+   if(cdp_ext == nullptr || cdp_ext->distribution_points().empty()) {
+      return true;
+   }
+
+   const auto* idp_ext = this->extensions().get_extension_object_as<Cert_Extension::CRL_Issuing_Distribution_Point>();
+   if(idp_ext == nullptr) {
+      return false;
+   }
+
+   return std::ranges::any_of(cdp_ext->distribution_points(),
+                              [&](const auto& dp) { return dp_names_overlap(dp.point(), idp_ext->get_point()); });
 }
 
 }  // namespace Botan

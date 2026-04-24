@@ -447,7 +447,8 @@ Certificate_Status_Code verify_ocsp_signing_cert(const X509_Certificate& signing
    //
    //    1. Matches a local configuration of OCSP signing authority
    //       for the certificate in question, or
-   if(restrictions.trusted_ocsp_responders()->contains(signing_cert)) {
+   if(restrictions.trusted_ocsp_responders() != nullptr &&
+      restrictions.trusted_ocsp_responders()->contains(signing_cert)) {
       return Certificate_Status_Code::OK;
    }
 
@@ -618,13 +619,8 @@ CertificatePathStatusCodes PKIX::check_crl(const std::vector<X509_Certificate>& 
                status.insert(Certificate_Status_Code::CERT_IS_REVOKED);
             }
 
-            const auto dp = subject.crl_distribution_points();
-            if(!dp.empty()) {
-               const auto crl_idp = crls[i]->crl_issuing_distribution_point();
-
-               if(std::find(dp.begin(), dp.end(), crl_idp) == dp.end()) {
-                  status.insert(Certificate_Status_Code::NO_MATCHING_CRLDP);
-               }
+            if(!crls[i]->has_matching_distribution_point(subject)) {
+               status.insert(Certificate_Status_Code::NO_MATCHING_CRLDP);
             }
 
             for(const auto& [extension, critical] : crls[i]->extensions().extensions()) {
