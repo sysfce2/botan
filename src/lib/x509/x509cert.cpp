@@ -56,7 +56,9 @@ struct X509_Certificate_Data {
 
       std::string m_fingerprint_sha1;
       std::string m_fingerprint_sha256;
-      std::array<uint8_t, 32> m_tag = {};
+
+      std::array<uint8_t, 20> m_cert_data_sha1 = {};
+      std::array<uint8_t, 32> m_cert_data_sha256 = {};
 
       AlternativeName m_subject_alt_name;
       AlternativeName m_issuer_alt_name;
@@ -85,13 +87,8 @@ X509_Certificate::X509_Certificate(DataSource& src) {
    load_data(src);
 }
 
-X509_Certificate::X509_Certificate(const std::vector<uint8_t>& vec) {
-   DataSource_Memory src(vec.data(), vec.size());
-   load_data(src);
-}
-
-X509_Certificate::X509_Certificate(const uint8_t data[], size_t len) {
-   DataSource_Memory src(data, len);
+X509_Certificate::X509_Certificate(std::span<const uint8_t> in) {
+   DataSource_Memory src(in);
    load_data(src);
 }
 
@@ -308,7 +305,9 @@ std::unique_ptr<X509_Certificate_Data> parse_x509_cert_body(const X509_Object& o
       data->m_subject_public_key_bitstring_sha1 = sha1->final_stdvec();
       // otherwise left as empty, and we will throw if subject_public_key_bitstring_sha1 is called
 
-      data->m_fingerprint_sha1 = create_hex_fingerprint(full_encoding, "SHA-1");
+      sha1->update(full_encoding);
+      sha1->final(data->m_cert_data_sha1);
+      data->m_fingerprint_sha1 = format_hex_fingerprint(data->m_cert_data_sha1);
    }
 
    // SHA-256 is a hard dependency of this module
@@ -320,8 +319,8 @@ std::unique_ptr<X509_Certificate_Data> parse_x509_cert_body(const X509_Object& o
    data->m_subject_dn_bits_sha256 = sha256->final_stdvec();
 
    sha256->update(full_encoding);
-   sha256->final(data->m_tag);
-   data->m_fingerprint_sha256 = format_hex_fingerprint(data->m_tag);
+   sha256->final(data->m_cert_data_sha256);
+   data->m_fingerprint_sha256 = format_hex_fingerprint(data->m_cert_data_sha256);
 
    return data;
 }
@@ -421,6 +420,17 @@ const std::vector<uint8_t>& X509_Certificate::raw_issuer_dn() const {
 
 const std::vector<uint8_t>& X509_Certificate::raw_subject_dn() const {
    return data().m_subject_dn_bits;
+}
+
+std::span<const uint8_t, 20> X509_Certificate::certificate_data_sha1() const {
+   if(data().m_fingerprint_sha1.empty()) {
+      throw Not_Implemented("SHA-1 not available");
+   }
+   return data().m_cert_data_sha1;
+}
+
+std::span<const uint8_t, 32> X509_Certificate::certificate_data_sha256() const {
+   return data().m_cert_data_sha256;
 }
 
 bool X509_Certificate::is_CA_cert() const {
@@ -665,7 +675,7 @@ std::string X509_Certificate::fingerprint(std::string_view hash_name) const {
 }
 
 X509_Certificate::Tag X509_Certificate::tag() const {
-   return Tag(data().m_tag);
+   return Tag(data().m_cert_data_sha256);
 }
 
 bool X509_Certificate::matches_dns_name(std::string_view name) const {
