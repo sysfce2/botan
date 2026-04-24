@@ -1,15 +1,15 @@
-  d= 0, l=5304: SEQUENCE
+  d= 0, l=5302: SEQUENCE
   d= 1, l=   9:  OBJECT                                     1.2.840.113549.1.7.2
-  d= 1, l=5289:  cons [0] context
-  d= 2, l=5285:   SEQUENCE
+  d= 1, l=5287:  cons [0] context
+  d= 2, l=5283:   SEQUENCE
   d= 3, l=   1:    INTEGER                                  1
   d= 3, l=  15:    SET
   d= 4, l=  13:     SEQUENCE
   d= 5, l=   9:      OBJECT                                 SHA-256 [2.16.840.1.101.3.4.2.1]
   d= 5, l=   0:      NULL
-  d= 3, l=  13:    SEQUENCE
+  d= 3, l=  11:    SEQUENCE
   d= 4, l=   9:     OBJECT                                  PKCS7.Data [1.2.840.113549.1.7.1]
-  d= 3, l=4679:    cons [0] context
+  d= 3, l=4677:    cons [0] context
   d= 4, l=1799:     SEQUENCE
   d= 5, l=1391:      SEQUENCE
   d= 6, l=   3:       cons [0] context
