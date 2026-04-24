@@ -743,6 +743,18 @@ Test::Result test_x509_authority_info_access_extension() {
    return result;
 }
 
+Test::Result test_crl_issuing_distribution_point_extension() {
+   Test::Result result("X509 CRL IssuingDistributionPoint extension");
+
+   // BSI CRL_12 has an IDP with a URI general name
+   const Botan::X509_CRL crl(Test::data_file("x509/bsi/CRL_12/crls/CRL_12_crl.pem.crl"));
+
+   result.test_str_eq(
+      "CRL IDP URI decoded correctly", crl.crl_issuing_distribution_point(), "http://localhost/subca/crldp/crl.crl");
+
+   return result;
+}
+
 Test::Result test_parse_rsa_pss_cert() {
    Test::Result result("X509 RSA-PSS certificate");
 
@@ -1544,6 +1556,23 @@ Test::Result test_x509_extensions(const Botan::Private_Key& ca_key,
          result.test_is_true("CDP URI present in self-signed certificate",
                              std::ranges::find(cdp_urls, cdp.point().get_first_attribute("URI")) != cdp_urls.end());
       }
+
+      // The accessor returns one entry per URI
+      const auto& urls = cert_cdps->crl_distribution_urls();
+      result.test_sz_eq("crl_distribution_urls has one entry per URI (self-signed)", urls.size(), cdp_urls.size());
+      for(const auto& url : urls) {
+         result.test_is_true("crl_distribution_urls entry is a bare URI (self-signed)",
+                             std::ranges::find(cdp_urls, url) != cdp_urls.end());
+      }
+
+      // Ensure X509_Certificate's cached accessor returns the same bare URIs
+      const auto cert_dp = self_signed_cert.crl_distribution_points();
+      result.test_sz_eq(
+         "X509_Certificate::crl_distribution_points size (self-signed)", cert_dp.size(), cdp_urls.size());
+      for(const auto& url : cert_dp) {
+         result.test_is_true("X509_Certificate::crl_distribution_points entry is a bare URI (self-signed)",
+                             std::ranges::find(cdp_urls, url) != cdp_urls.end());
+      }
    }
 
    const Botan::PKCS10_Request user_req = Botan::X509::create_cert_req(opts, *user_key, hash_fn, rng);
@@ -1575,11 +1604,25 @@ Test::Result test_x509_extensions(const Botan::Private_Key& ca_key,
    // check if CDPs are present in the CA-signed cert
    cert_cdps = ca_signed_cert.v3_extensions().get_extension_object_as<Botan::Cert_Extension::CRL_Distribution_Points>();
 
-   if(result.test_is_true("CRL Distribution Points extension present in self-signed certificate",
+   if(result.test_is_true("CRL Distribution Points extension present in CA-signed certificate",
                           !cert_cdps->crl_distribution_urls().empty())) {
       for(const auto& cdp : cert_cdps->distribution_points()) {
-         result.test_is_true("CDP URI present in self-signed certificate",
+         result.test_is_true("CDP URI present in CA-signed certificate",
                              std::ranges::find(cdp_urls, cdp.point().get_first_attribute("URI")) != cdp_urls.end());
+      }
+
+      const auto& urls = cert_cdps->crl_distribution_urls();
+      result.test_sz_eq("crl_distribution_urls has one entry per URI (CA-signed)", urls.size(), cdp_urls.size());
+      for(const auto& url : urls) {
+         result.test_is_true("crl_distribution_urls entry is a bare URI (CA-signed)",
+                             std::ranges::find(cdp_urls, url) != cdp_urls.end());
+      }
+
+      const auto cert_dp = ca_signed_cert.crl_distribution_points();
+      result.test_sz_eq("X509_Certificate::crl_distribution_points size (CA-signed)", cert_dp.size(), cdp_urls.size());
+      for(const auto& url : cert_dp) {
+         result.test_is_true("X509_Certificate::crl_distribution_points entry is a bare URI (CA-signed)",
+                             std::ranges::find(cdp_urls, url) != cdp_urls.end());
       }
    }
 
@@ -1854,6 +1897,7 @@ class X509_Cert_Unit_Tests final : public Test {
          results.push_back(test_x509_decode_list());
          results.push_back(test_rsa_oaep());
          results.push_back(test_x509_authority_info_access_extension());
+         results.push_back(test_crl_issuing_distribution_point_extension());
          results.push_back(test_verify_gost2012_cert());
          results.push_back(test_parse_rsa_pss_cert());
          results.push_back(test_x509_tn_auth_list_extension_decode());
