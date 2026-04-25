@@ -188,15 +188,16 @@ void Streebog::final_result(std::span<uint8_t> output) {
    compress(m_buffer.consume().data(), true);
 
    compress_64(m_S.data(), true);
-   // FIXME
-   std::memcpy(output.data(), &m_h[8 - output_length() / 8], output_length());
+
+   const size_t offset = 8 - output_length() / 8;
+   const size_t count = output_length() / sizeof(uint64_t);
+   typecast_copy(output, std::span<const uint64_t>(&m_h[offset], count));
    clear();
 }
 
 void Streebog::compress(const uint8_t input[], bool last_block) {
    uint64_t M[8];
-   std::memcpy(M, input, 64);
-
+   typecast_copy(M, std::span<const uint8_t>(input, 64));
    compress_64(M, last_block);
 }
 
