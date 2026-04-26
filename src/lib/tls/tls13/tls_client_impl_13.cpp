@@ -427,8 +427,9 @@ void Client_Impl_13::handle(const Encrypted_Extensions& encrypted_extensions_msg
       set_record_size_limits(outgoing_limit->limit(), incoming_limit->limit());
    }
 
-   if(exts.has<Server_Certificate_Type>() &&
-      m_handshake_state.client_hello().extensions().has<Server_Certificate_Type>()) {
+   if(exts.has<Server_Certificate_Type>()) {
+      // The unrequested-extension check above ensures the client offered this.
+      BOTAN_ASSERT_NOMSG(m_handshake_state.client_hello().extensions().has<Server_Certificate_Type>());
       const auto* server_cert_type = exts.get<Server_Certificate_Type>();
       const auto* our_server_cert_types = m_handshake_state.client_hello().extensions().get<Server_Certificate_Type>();
       our_server_cert_types->validate_selection(*server_cert_type);
@@ -522,7 +523,9 @@ void Client_Impl_13::send_client_authentication(Channel_Impl_13::AggregatedHands
    const auto cert_type = [&] {
       const auto& exts = m_handshake_state.encrypted_extensions().extensions();
       const auto& chexts = m_handshake_state.client_hello().extensions();
-      if(exts.has<Client_Certificate_Type>() && chexts.has<Client_Certificate_Type>()) {
+      if(exts.has<Client_Certificate_Type>()) {
+         // The unrequested-extension check in handle(Encrypted_Extensions) ensures the client offered this.
+         BOTAN_ASSERT_NOMSG(chexts.has<Client_Certificate_Type>());
          const auto* client_cert_type = exts.get<Client_Certificate_Type>();
          chexts.get<Client_Certificate_Type>()->validate_selection(*client_cert_type);
 
