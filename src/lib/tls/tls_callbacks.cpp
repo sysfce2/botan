@@ -289,6 +289,8 @@ KEM_Encapsulation TLS::Callbacks::tls_kem_encapsulate(TLS::Group_Params group,
 
       try {
          return PK_KEM_Encryptor(*kem_pub_key, "Raw").encrypt(rng);
+      } catch(const Decoding_Error& ex) {
+         throw TLS_Exception(Alert::IllegalParameter, ex.what());
       } catch(const Invalid_Argument& ex) {
          throw TLS_Exception(Alert::IllegalParameter, ex.what());
       }
@@ -313,7 +315,13 @@ secure_vector<uint8_t> TLS::Callbacks::tls_kem_decapsulate(TLS::Group_Params gro
       if(encapsulated_bytes.size() != kemdec.encapsulated_key_length()) {
          throw TLS_Exception(Alert::IllegalParameter, "Invalid encapsulated key length");
       }
-      return kemdec.decrypt(encapsulated_bytes, 0, {});
+      try {
+         return kemdec.decrypt(encapsulated_bytes, 0, {});
+      } catch(const Decoding_Error& ex) {
+         throw TLS_Exception(Alert::IllegalParameter, ex.what());
+      } catch(const Invalid_Argument& ex) {
+         throw TLS_Exception(Alert::IllegalParameter, ex.what());
+      }
    }
 
    try {
