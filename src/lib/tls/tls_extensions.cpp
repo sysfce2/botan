@@ -74,6 +74,9 @@ std::unique_ptr<Extension> make_extension(TLS_Data_Reader& reader,
       case Extension_Code::SupportedVersions:
          return std::make_unique<Supported_Versions>(reader, size, from);
 
+      case Extension_Code::Padding:
+         break;  // RFC 7685, recognized but not implemented; falls through to Unknown_Extension
+
 #if defined(BOTAN_HAS_TLS_12)
       case Extension_Code::EcPointFormats:
          return std::make_unique<Supported_Point_Formats>(reader, size);
@@ -290,9 +293,13 @@ void Extensions::reorder(const std::vector<Extension_Code>& order) {
       }
    }
 
-   // Then: extensions in the specified order
+   // Then: extensions in the specified order. Deduplicate so a caller that
+   // accidentally lists the same code twice doesn't cause it to be
+   // serialized twice (which would also break peers that reject duplicate
+   // extension codes per RFC 8446 4.2 / RFC 5246 7.4.1.4).
+   std::unordered_set<Extension_Code> already_pushed;
    for(auto code : order) {
-      if(m_extensions.contains(code)) {
+      if(m_extensions.contains(code) && already_pushed.insert(code).second) {
          new_codes.push_back(code);
       }
    }

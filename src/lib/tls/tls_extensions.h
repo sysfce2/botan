@@ -52,6 +52,9 @@ enum class Extension_Code : uint16_t {
    ClientCertificateType = 19,
    ServerCertificateType = 20,
 
+   Padding = 21,  // RFC 7685; not implemented but recognized so it can be
+                  // explicitly carved out of strict-mutation checks.
+
    EncryptThenMac = 22,        // TLS 1.2 exclusive
    ExtendedMasterSecret = 23,  // TLS 1.2 exclusive
 

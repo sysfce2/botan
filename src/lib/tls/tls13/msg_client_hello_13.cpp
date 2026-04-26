@@ -355,16 +355,12 @@ void Client_Hello_13::validate_updates(const Client_Hello_13& new_ch) {
    const auto oldexts = extension_types();
    const auto newexts = new_ch.extension_types();
 
-   // Check that extension omissions are justified
+   // Check that extension omissions are justified. RFC 8446 4.1.2 lists the
+   // only mutations the client may make between CH1 and CH2; any other
+   // extension removal is an illegal parameter regardless of whether the
+   // extension is one this implementation recognizes.
    for(const auto oldext : oldexts) {
       if(!newexts.contains(oldext)) {
-         auto* const ext = extensions().get(oldext);
-
-         // We don't make any assumptions about unimplemented extensions.
-         if(!ext->is_implemented()) {
-            continue;
-         }
-
          // RFC 8446 4.1.2
          //    Removing the "early_data" extension (Section 4.2.10) if one was
          //    present.  Early data is not permitted after a HelloRetryRequest.
@@ -375,25 +371,18 @@ void Client_Hello_13::validate_updates(const Client_Hello_13& new_ch) {
          // RFC 8446 4.1.2
          //    Optionally adding, removing, or changing the length of the
          //    "padding" extension.
-         //
-         // TODO: implement the Padding extension
-         // if(oldext == Padding::static_type())
-         //    continue;
+         if(oldext == Extension_Code::Padding) {
+            continue;
+         }
 
          throw TLS_Exception(Alert::IllegalParameter, "Extension removed in updated Client Hello");
       }
    }
 
-   // Check that extension additions are justified
+   // Check that extension additions are justified. Same reasoning: only the
+   // RFC-listed mutations are allowed, including for unknown extension codes.
    for(const auto newext : newexts) {
       if(!oldexts.contains(newext)) {
-         auto* const ext = new_ch.extensions().get(newext);
-
-         // We don't make any assumptions about unimplemented extensions.
-         if(!ext->is_implemented()) {
-            continue;
-         }
-
          // RFC 8446 4.1.2
          //    Including a "cookie" extension if one was provided in the
          //    HelloRetryRequest.
@@ -404,10 +393,9 @@ void Client_Hello_13::validate_updates(const Client_Hello_13& new_ch) {
          // RFC 8446 4.1.2
          //    Optionally adding, removing, or changing the length of the
          //    "padding" extension.
-         //
-         // TODO: implement the Padding extension
-         // if(newext == Padding::static_type())
-         //    continue;
+         if(newext == Extension_Code::Padding) {
+            continue;
+         }
 
          throw TLS_Exception(Alert::UnsupportedExtension, "Added an extension in updated Client Hello");
       }
@@ -427,8 +415,11 @@ void Client_Hello_13::validate_updates(const Client_Hello_13& new_ch) {
    // Verify that extensions whose content must not change between the
    // initial and retried Client Hello have identical wire encodings.
    const std::set<Extension_Code> extensions_allowed_to_change = {
-      Extension_Code::KeyShare, Extension_Code::PresharedKey, Extension_Code::EarlyData, Extension_Code::Cookie,
-      // TODO: add Padding extension code here once implemented
+      Extension_Code::KeyShare,
+      Extension_Code::PresharedKey,
+      Extension_Code::EarlyData,
+      Extension_Code::Cookie,
+      Extension_Code::Padding,
    };
 
    for(const auto ext_type : oldexts) {
@@ -439,9 +430,12 @@ void Client_Hello_13::validate_updates(const Client_Hello_13& new_ch) {
       const auto old_bytes = extensions().extension_raw_bytes(ext_type);
       const auto new_bytes = new_ch.extensions().extension_raw_bytes(ext_type);
 
-      // If both had wire bytes (i.e. both came from deserialization), compare them.
-      // Extensions that were added programmatically won't have raw bytes.
-      if(old_bytes.has_value() && new_bytes.has_value() && old_bytes.value() != new_bytes.value()) {
+      // Both Client Hellos validated here are received from the peer and went
+      // through Extensions::deserialize, which records raw bytes for every
+      // parsed extension. A missing raw_bytes on either side would mean an
+      // extension was added by us programmatically - which shouldn't happen
+      BOTAN_ASSERT_NOMSG(old_bytes.has_value() && new_bytes.has_value());
+      if(old_bytes.value() != new_bytes.value()) {
          throw TLS_Exception(Alert::IllegalParameter, "Extension content changed in updated Client Hello");
       }
    }
