@@ -143,6 +143,14 @@ Encrypted_Extensions::Encrypted_Extensions(const std::vector<uint8_t>& buf) {
 }
 
 std::vector<uint8_t> Encrypted_Extensions::serialize() const {
+   // RFC 8446 4.3.1: EncryptedExtensions carries Extension extensions<0..2^16-1>;
+   // an empty list still requires a 2-byte length-prefix on the wire.
+   // Extensions::serialize collapses empty to {} to suit other contexts, so
+   // emit the explicit length here. Mirrors the same fallback in
+   // New_Session_Ticket_13::serialize.
+   if(m_extensions.empty()) {
+      return {0x00, 0x00};
+   }
    return m_extensions.serialize(Connection_Side::Server);
 }
 

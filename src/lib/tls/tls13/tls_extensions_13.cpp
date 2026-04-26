@@ -46,16 +46,7 @@ Cookie::Cookie(TLS_Data_Reader& reader, uint16_t extension_size) {
 
 std::vector<uint8_t> Cookie::serialize(Connection_Side /*whoami*/) const {
    std::vector<uint8_t> buf;
-
-   const uint16_t len = static_cast<uint16_t>(m_cookie.size());
-
-   buf.push_back(get_byte<0>(len));
-   buf.push_back(get_byte<1>(len));
-
-   for(const auto& cookie_byte : m_cookie) {
-      buf.push_back(cookie_byte);
-   }
-
+   append_tls_length_value(buf, m_cookie, 2);
    return buf;
 }
 

@@ -62,6 +62,10 @@ Certificate_Request_12::Certificate_Request_12(Handshake_IO& io,
                                                const std::vector<X509_DN>& ca_certs) :
       m_names(ca_certs), m_cert_key_types({"RSA", "ECDSA"}) {
    m_schemes = policy.acceptable_signature_schemes();
+   // RFC 5246 7.4.4: supported_signature_algorithms<2..2^16-2>
+   if(m_schemes.empty()) {
+      throw Internal_Error("Policy returned no acceptable signature schemes for CertificateRequest");
+   }
    hash.update(io.send(*this));
 }
 
@@ -141,9 +145,8 @@ std::vector<uint8_t> Certificate_Request_12::serialize() const {
 
    append_tls_length_value(buf, cert_types, 1);
 
-   if(!m_schemes.empty()) {
-      buf += Signature_Algorithms(m_schemes).serialize(Connection_Side::Server);
-   }
+   // RFC 5246 7.4.4: supported_signature_algorithms<2..2^16-2>
+   buf += Signature_Algorithms(m_schemes).serialize(Connection_Side::Server);
 
    std::vector<uint8_t> encoded_names;
 

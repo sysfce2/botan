@@ -238,6 +238,9 @@ std::vector<uint8_t> Extensions::serialize(Connection_Side whoami) const {
 
       const std::vector<uint8_t> extn_val = extn->serialize(whoami);
 
+      // Each extension carries a uint16 length prefix.
+      BOTAN_ASSERT_NOMSG(extn_val.size() <= 0xFFFF);
+
       buf.push_back(get_byte<0>(extn_code));
       buf.push_back(get_byte<1>(extn_code));
 
@@ -247,6 +250,8 @@ std::vector<uint8_t> Extensions::serialize(Connection_Side whoami) const {
       buf += extn_val;
    }
 
+   // The outer extensions block is itself uint16-length-prefixed.
+   BOTAN_ASSERT_NOMSG(buf.size() - 2 <= 0xFFFF);
    const uint16_t extn_size = static_cast<uint16_t>(buf.size() - 2);
 
    buf[0] = get_byte<0>(extn_size);
@@ -375,6 +380,11 @@ std::vector<uint8_t> Server_Name_Indicator::serialize(Connection_Side whoami) co
 
    const size_t name_len = m_sni_host_name.size();
 
+   // RFC 6066 3: HostName<1..2^16-1>; the outer ServerNameList wraps a
+   // 1-byte name_type and a 2-byte length so the whole entry must fit in
+   // a uint16_t too.
+   BOTAN_ASSERT_NOMSG(name_len + 3 <= 0xFFFF);
+
    buf.push_back(get_byte<0>(static_cast<uint16_t>(name_len + 3)));
    buf.push_back(get_byte<1>(static_cast<uint16_t>(name_len + 3)));
    buf.push_back(0);  // DNS
@@ -485,6 +495,8 @@ std::vector<uint8_t> Application_Layer_Protocol_Notification::serialize(Connecti
       }
    }
 
+   // RFC 7301 3.1: ProtocolName protocol_name_list<2..2^16-1>;
+   BOTAN_ASSERT_NOMSG(buf.size() - 2 <= 0xFFFF);
    buf[0] = get_byte<0>(static_cast<uint16_t>(buf.size() - 2));
    buf[1] = get_byte<1>(static_cast<uint16_t>(buf.size() - 2));
 
@@ -632,6 +644,8 @@ std::vector<uint8_t> Supported_Groups::serialize(Connection_Side /*whoami*/) con
       }
    }
 
+   // RFC 8446 4.2.7: NamedGroup named_group_list<2..2^16-1>;
+   BOTAN_ASSERT_NOMSG(buf.size() - 2 <= 0xFFFF);
    buf[0] = get_byte<0>(static_cast<uint16_t>(buf.size() - 2));
    buf[1] = get_byte<1>(static_cast<uint16_t>(buf.size() - 2));
 
@@ -766,7 +780,9 @@ std::vector<uint8_t> Supported_Versions::serialize(Connection_Side whoami) const
       buf.push_back(m_versions[0].major_version());
       buf.push_back(m_versions[0].minor_version());
    } else {
+      // RFC 8446 4.2.1: ProtocolVersion versions<2..254>; - up to 127 entries.
       BOTAN_ASSERT_NOMSG(!m_versions.empty());
+      BOTAN_ASSERT_NOMSG(m_versions.size() <= 127);
       const uint8_t len = static_cast<uint8_t>(m_versions.size() * 2);
 
       buf.push_back(len);
