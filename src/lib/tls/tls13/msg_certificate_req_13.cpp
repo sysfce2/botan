@@ -105,6 +105,12 @@ Certificate_Request_13::Certificate_Request_13(const std::vector<X509_DN>& accep
    // TODO: Support cert_status_request for OCSP stapling
 
    callbacks.tls_modify_extensions(m_extensions, Connection_Side::Server, type());
+
+   if(!m_extensions.has<Signature_Algorithms>()) {
+      throw TLS_Exception(
+         Alert::InternalError,
+         "Application tls_modify_extensions callback removed Signature_Algorithms from the CertificateRequest");
+   }
 }
 
 std::optional<Certificate_Request_13> Certificate_Request_13::maybe_create(const Client_Hello_13& client_hello,

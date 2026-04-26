@@ -476,7 +476,9 @@ void Server_Impl_13::handle(const Client_Hello_13& client_hello) {
    if(!is_initial_client_hello) {
       const auto& hrr_exts = m_handshake_state.hello_retry_request().extensions();
       const auto offered_groups = exts.get<Key_Share>()->offered_groups();
-      const auto selected_group = hrr_exts.get<Key_Share>()->selected_group();
+      const auto* hrr_key_share = hrr_exts.get<Key_Share>();
+      BOTAN_ASSERT_NONNULL(hrr_key_share);
+      const auto selected_group = hrr_key_share->selected_group();
       if(offered_groups.size() != 1 || offered_groups.at(0) != selected_group) {
          throw TLS_Exception(Alert::IllegalParameter, "Client did not comply with the requested key exchange group");
       }

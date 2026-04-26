@@ -331,6 +331,11 @@ Server_Hello_13::Server_Hello_13(const Client_Hello_13& ch,
    }
 
    cb.tls_modify_extensions(m_data->extensions(), Connection_Side::Server, type());
+
+   if(!m_data->extensions().has<Key_Share>()) {
+      throw TLS_Exception(Alert::InternalError,
+                          "Application tls_modify_extensions callback removed Key_Share from the ServerHello");
+   }
 }
 
 std::optional<Protocol_Version> Server_Hello_13::random_signals_downgrade() const {
@@ -397,6 +402,11 @@ Hello_Retry_Request::Hello_Retry_Request(const Client_Hello_13& ch,
    // NOLINTEND(*-owning-memory)
 
    cb.tls_modify_extensions(m_data->extensions(), Connection_Side::Server, type());
+
+   if(!m_data->extensions().has<Key_Share>()) {
+      throw TLS_Exception(Alert::InternalError,
+                          "Application tls_modify_extensions callback removed Key_Share from the HelloRetryRequest");
+   }
 }
 
 }  // namespace Botan::TLS

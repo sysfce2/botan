@@ -260,6 +260,17 @@ Client_Hello_13::Client_Hello_13(const Policy& policy,
 
    cb.tls_modify_extensions(m_data->extensions(), Connection_Side::Client, type());
 
+   // The application's tls_modify_extensions callback could have stripped
+   // Supported_Groups or Key_Share, which must be there.
+   if(!m_data->extensions().has<Supported_Groups>()) {
+      throw TLS_Exception(Alert::InternalError,
+                          "Application tls_modify_extensions callback removed Supported_Groups from the ClientHello");
+   }
+   if(!m_data->extensions().has<Key_Share>()) {
+      throw TLS_Exception(Alert::InternalError,
+                          "Application tls_modify_extensions callback removed Key_Share from the ClientHello");
+   }
+
    if(m_data->extensions().has<PSK>()) {
       // RFC 8446 4.2.11
       //    The "pre_shared_key" extension MUST be the last extension in the
@@ -315,6 +326,18 @@ void Client_Hello_13::retry(const Hello_Retry_Request& hrr,
    //       retried Client_Hello after receiving a Hello_Retry_Request. We assume
    //       that the user keeps and detects this state themselves.
    cb.tls_modify_extensions(m_data->extensions(), Connection_Side::Client, type());
+
+   // Same invariants as in the constructor: the callback must not strip
+   // Supported_Groups or Key_Share
+   if(!m_data->extensions().has<Supported_Groups>()) {
+      throw TLS_Exception(
+         Alert::InternalError,
+         "Application tls_modify_extensions callback removed Supported_Groups from the retried ClientHello");
+   }
+   if(!m_data->extensions().has<Key_Share>()) {
+      throw TLS_Exception(Alert::InternalError,
+                          "Application tls_modify_extensions callback removed Key_Share from the retried ClientHello");
+   }
 
    auto* psk = m_data->extensions().get<PSK>();
    if(psk != nullptr) {

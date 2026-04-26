@@ -113,6 +113,22 @@ Encrypted_Extensions::Encrypted_Extensions(const Client_Hello_13& client_hello,
    //       * SRTP
 
    cb.tls_modify_extensions(m_extensions, Connection_Side::Server, type());
+
+   // After the application's tls_modify_extensions callback runs, re-check the
+   // RFC-MUST invariants we just established above. The application can add or
+   // reorder extensions, but shouldn't remove ones required direct response to
+   // ClientHello extensions would put us out of spec.
+   if(exts.has<Server_Certificate_Type>() && !m_extensions.has<Server_Certificate_Type>()) {
+      throw TLS_Exception(
+         Alert::InternalError,
+         "Application tls_modify_extensions callback removed Server_Certificate_Type from EncryptedExtensions");
+   }
+
+   if(requesting_client_auth && exts.has<Client_Certificate_Type>() && !m_extensions.has<Client_Certificate_Type>()) {
+      throw TLS_Exception(
+         Alert::InternalError,
+         "Application tls_modify_extensions callback removed Client_Certificate_Type from EncryptedExtensions");
+   }
 }
 
 Encrypted_Extensions::Encrypted_Extensions(const std::vector<uint8_t>& buf) {
