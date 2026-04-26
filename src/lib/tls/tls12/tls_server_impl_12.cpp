@@ -198,9 +198,14 @@ uint16_t choose_ciphersuite(const Policy& policy,
             }
          }
 
-         if(we_support_some_hash_by_client == false) {
-            throw TLS_Exception(Alert::HandshakeFailure,
-                                "Policy does not accept any hash function supported by client");
+         // The client's signature_algorithms list might not include a scheme
+         // matching this suite's sig_algo (e.g. the client offered ECDSA
+         // schemes but we're considering an RSA suite). That's just a
+         // mismatch on this candidate, not a handshake-fatal condition - try
+         // the next suite. The final "Can't agree on a ciphersuite" throw
+         // below fires only if no candidate works.
+         if(!we_support_some_hash_by_client) {
+            continue;
          }
       }
 
