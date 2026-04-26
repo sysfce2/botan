@@ -35,6 +35,13 @@
    #if defined(BOTAN_HAS_TLS_13)
       #include <botan/tls_psk_13.h>
    #endif
+
+   #if defined(BOTAN_HAS_TLS_12)
+      #include <botan/credentials_manager.h>
+      #include <botan/tls_callbacks.h>
+      #include <botan/tls_client.h>
+      #include <botan/tls_session_manager_memory.h>
+   #endif
 #endif
 
 namespace Botan_Tests {
@@ -507,6 +514,84 @@ class Test_TLS_Alert_Strings : public Test {
 };
 
 BOTAN_REGISTER_TEST("tls", "tls_alert_strings", Test_TLS_Alert_Strings);
+
+   #if defined(BOTAN_HAS_TLS_12)
+
+// Test that NoRenegotiation warning only tears down a pending state if
+// there is already an active state
+class Test_TLS12_NoRenegotiation_During_Initial_Handshake : public Test {
+   private:
+      class Capture_Callbacks final : public Botan::TLS::Callbacks {
+         public:
+            void tls_emit_data(std::span<const uint8_t> bits) override {
+               m_emitted.insert(m_emitted.end(), bits.begin(), bits.end());
+            }
+
+            void tls_record_received(uint64_t /*seq*/, std::span<const uint8_t> /*data*/) override {}
+
+            void tls_alert(Botan::TLS::Alert alert) override { m_alerts.push_back(alert); }
+
+            std::span<const Botan::TLS::Alert> alerts() const { return m_alerts; }
+
+            std::span<const uint8_t> emitted() const { return m_emitted; }
+
+         private:
+            std::vector<uint8_t> m_emitted;
+            std::vector<Botan::TLS::Alert> m_alerts;
+      };
+
+   public:
+      std::vector<Test::Result> run() override {
+         Test::Result result("TLS 1.2 NoRenegotiation alert during initial handshake");
+
+         auto rng = Test::new_shared_rng(this->test_name());
+         auto callbacks = std::make_shared<Capture_Callbacks>();
+         auto sessions = std::make_shared<Botan::TLS::Session_Manager_In_Memory>(rng);
+         auto creds = std::make_shared<Botan::Credentials_Manager>();
+         auto policy = std::make_shared<Botan::TLS::Policy>();
+
+         Botan::TLS::Client client(callbacks,
+                                   sessions,
+                                   creds,
+                                   policy,
+                                   rng,
+                                   Botan::TLS::Server_Information("server.example.com"),
+                                   Botan::TLS::Protocol_Version::TLS_V12);
+
+         result.test_is_true("client emitted ClientHello", !callbacks->emitted().empty());
+         result.test_is_true("client not active yet", !client.is_active());
+
+         // RFC 5246: record header type=21 (alert) version=0x0303, length=2, followed by
+         // alert level=1 (warning), description=100 (no_renegotiation)
+         const std::vector<uint8_t> no_renegotiation_alert = {21, 0x03, 0x03, 0x00, 0x02, 1, 100};
+         result.test_no_throw("alert record accepted", [&]() { (void)client.received_data(no_renegotiation_alert); });
+
+         const auto alerts = callbacks->alerts();
+         result.test_sz_eq("alert was delivered to application", alerts.size(), 1);
+         if(!alerts.empty()) {
+            result.test_is_true("alert was no_renegotiation", alerts[0].type() == Botan::TLS::Alert::NoRenegotiation);
+         }
+         result.test_is_true("client still not active", !client.is_active());
+         result.test_is_true("client not closed", !client.is_closed());
+
+         /*
+         Here we use renegotiate as a probe as to the internal state.
+
+         If there is already a pending state, renegotiate silently returns. But if
+         the state is torn down then renegotiate will throw because there is neither
+         an active or pending state.
+         */
+         result.test_no_throw("pending handshake state survived", [&]() { client.renegotiate(); });
+
+         return {result};
+      }
+};
+
+BOTAN_REGISTER_TEST("tls",
+                    "tls12_no_renegotiation_during_initial_handshake",
+                    Test_TLS12_NoRenegotiation_During_Initial_Handshake);
+
+   #endif
 
    #if defined(BOTAN_HAS_TLS_12) && defined(BOTAN_HAS_TLS_13) && defined(BOTAN_HAS_TLS_13_PQC) && \
       defined(BOTAN_HAS_X25519) && defined(BOTAN_HAS_X448)

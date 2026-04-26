@@ -451,7 +451,11 @@ void Channel_Impl_12::process_application_data(uint64_t seq_no, const secure_vec
 void Channel_Impl_12::process_alert(const secure_vector<uint8_t>& record) {
    const Alert alert_msg(record);
 
-   if(alert_msg.type() == Alert::NoRenegotiation) {
+   // RFC 5246 7.2.2:
+   //    no_renegotiation
+   //       Sent by the client in response to a hello request or by the
+   //       server in response to a client hello after initial handshaking.
+   if(alert_msg.type() == Alert::NoRenegotiation && active_state() != nullptr) {
       m_pending_state.reset();
    }
 
@@ -543,7 +547,7 @@ void Channel_Impl_12::send_alert(const Alert& alert) {
       }
    }
 
-   if(alert.type() == Alert::NoRenegotiation) {
+   if(alert.type() == Alert::NoRenegotiation && active_state() != nullptr) {
       m_pending_state.reset();
    }
 
