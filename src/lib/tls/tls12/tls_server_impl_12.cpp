@@ -15,6 +15,7 @@
 #include <botan/tls_messages_12.h>
 #include <botan/tls_policy.h>
 #include <botan/tls_version.h>
+#include <botan/internal/ct_utils.h>
 #include <botan/internal/stl_util.h>
 #include <botan/internal/tls_handshake_state.h>
 #include <botan/internal/tls_messages_internal.h>
@@ -423,7 +424,7 @@ void Server_Impl_12::process_client_hello_msg(const Handshake_State* active_stat
          const Hello_Verify_Request verify(
             pending_state.client_hello()->cookie_input_data(), client_identity, cookie_secret);
 
-         if(pending_state.client_hello()->cookie() != verify.cookie()) {
+         if(!CT::is_equal<uint8_t>(pending_state.client_hello()->cookie(), verify.cookie()).as_bool()) {
             if(epoch0_restart) {
                pending_state.handshake_io().send_under_epoch(verify, 0);
             } else {
