@@ -269,14 +269,14 @@ std::optional<Signature_Format> Signature_Scheme::format() const noexcept {
       case RSA_PSS_SHA256:
       case RSA_PSS_SHA384:
       case RSA_PSS_SHA512:
+      case EDDSA_25519:
+      case EDDSA_448:
          return Signature_Format::Standard;
 
       case ECDSA_SHA1:
       case ECDSA_SHA256:
       case ECDSA_SHA384:
       case ECDSA_SHA512:
-      case EDDSA_25519:
-      case EDDSA_448:
          return Signature_Format::DerSequence;
 
       default:
