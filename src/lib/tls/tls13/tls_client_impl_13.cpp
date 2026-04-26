@@ -249,6 +249,16 @@ void Client_Impl_13::handle(const Server_Hello_13& sh) {
 
    validate_server_hello_ish(ch, sh);
 
+   // RFC 8446 4.1.3: TLS 1.3 servers downgrading to TLS 1.2 or below set
+   // the last 8 bytes of ServerHello.random to a magic value so the client
+   // can detect a stripped-supported_versions downgrade attack. The Shim
+   // path (Server_Hello_12_Shim) already enforces this; catch it here too
+   // as defense in depth in case a misbehaving server writes the sentinel
+   // into an actual TLS 1.3 ServerHello.
+   if(sh.random_signals_downgrade().has_value()) {
+      throw TLS_Exception(Alert::IllegalParameter, "Downgrade attack detected");
+   }
+
    // RFC 8446 4.2
    //    Implementations MUST NOT send extension responses if the remote
    //    endpoint did not send the corresponding extension requests, [...]. Upon
