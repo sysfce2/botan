@@ -256,6 +256,7 @@ std::string map_to_bogo_error(const std::string& e) noexcept {
       {"Server resumed session but with wrong version", ":OLD_SESSION_VERSION_NOT_RETURNED:"},
       {"Server selected a group that is not compatible with the negotiated ciphersuite", ":WRONG_CURVE:"},
       {"Server sent ECC curve prohibited by policy", ":WRONG_CURVE:"},
+      {"Server selected a curve we did not offer", ":WRONG_CURVE:"},
       {"group was not advertised as supported", ":WRONG_CURVE:"},
       {"group was already offered", ":WRONG_CURVE:"},
       {"Server selected a key exchange group we didn't offer.", ":WRONG_CURVE:"},

@@ -16,6 +16,7 @@
 #include <botan/tls_extensions.h>
 #include <botan/tls_policy.h>
 #include <botan/internal/ct_utils.h>
+#include <botan/internal/stl_util.h>
 #include <botan/internal/tls_handshake_hash.h>
 #include <botan/internal/tls_handshake_io.h>
 #include <botan/internal/tls_handshake_state.h>
@@ -106,6 +107,15 @@ Client_Key_Exchange::Client_Key_Exchange(Handshake_IO& io,
          if(!curve_id.is_ecdh_named_curve() && !curve_id.is_x25519() && !curve_id.is_x448()) {
             throw TLS_Exception(Alert::IllegalParameter,
                                 "Server selected a group that is not compatible with the negotiated ciphersuite");
+         }
+
+         // RFC 8422 5.1: the server MUST select a curve from the
+         // supported_groups list the client offered. Check against the actual
+         // offered list (which may be a strict subset of the policy's
+         // key_exchange_groups() if the application narrowed it via
+         // tls_modify_extensions) rather than just the policy.
+         if(!value_exists(state.client_hello()->supported_ecc_curves(), curve_id)) {
+            throw TLS_Exception(Alert::IllegalParameter, "Server selected a curve we did not offer");
          }
 
          if(policy.choose_key_exchange_group({curve_id}, {}) != curve_id) {
