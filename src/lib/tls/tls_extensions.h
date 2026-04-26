@@ -140,14 +140,12 @@ class BOTAN_UNSTABLE_API Application_Layer_Protocol_Notification final : public 
       /**
       * Single protocol, used by server
       */
-      explicit Application_Layer_Protocol_Notification(std::string_view protocol) :
-            m_protocols(1, std::string(protocol)) {}
+      explicit Application_Layer_Protocol_Notification(std::string_view protocol);
 
       /**
       * List of protocols, used by client
       */
-      explicit Application_Layer_Protocol_Notification(const std::vector<std::string>& protocols) :
-            m_protocols(protocols) {}
+      explicit Application_Layer_Protocol_Notification(const std::vector<std::string>& protocols);
 
       Application_Layer_Protocol_Notification(TLS_Data_Reader& reader, uint16_t extension_size, Connection_Side from);
 

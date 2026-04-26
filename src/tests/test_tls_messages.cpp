@@ -380,6 +380,19 @@ class TLS_Extension_Parsing_Test final : public Text_Based_Test {
                   const auto expected_key_share = vars.get_req_bin("Expected_Content");
 
                   result.test_bin_eq("key_share_CH test", serialized_buffer, expected_key_share);
+               } else if(extension == "alpn") {
+                  Botan::TLS::TLS_Data_Reader tls_data_reader("ClientHello", buffer);
+                  const Botan::TLS::Application_Layer_Protocol_Notification alpn(
+                     tls_data_reader, static_cast<uint16_t>(buffer.size()), Botan::TLS::Connection_Side::Client);
+
+                  std::string protocols_joined;
+                  for(const auto& p : alpn.protocols()) {
+                     if(!protocols_joined.empty()) {
+                        protocols_joined.push_back(',');
+                     }
+                     protocols_joined += p;
+                  }
+                  result.test_str_eq("alpn protocols", protocols_joined, vars.get_req_str("Expected_Content"));
                } else {
                   throw Test_Error("Unknown extension type " + extension + " in TLS parsing tests");
                }
@@ -388,6 +401,30 @@ class TLS_Extension_Parsing_Test final : public Text_Based_Test {
                result.test_failure(e.what());
             }
          } else {
+            if(extension == "cookie") {
+               result.test_throws("invalid cookie extension input", exception, [&buffer]() {
+                  Botan::TLS::TLS_Data_Reader tls_data_reader("HelloRetryRequest", buffer);
+                  const Botan::TLS::Cookie cookie(tls_data_reader, static_cast<uint16_t>(buffer.size()));
+               });
+            } else if(extension == "supported_groups") {
+               result.test_throws("invalid supported_groups extension input", exception, [&buffer]() {
+                  Botan::TLS::TLS_Data_Reader tls_data_reader("ClientHello", buffer);
+                  const Botan::TLS::Supported_Groups supp_groups_ext(tls_data_reader,
+                                                                     static_cast<uint16_t>(buffer.size()));
+               });
+            } else if(extension == "key_share_CH") {
+               result.test_throws("invalid key_share_CH extension input", exception, [&buffer]() {
+                  Botan::TLS::TLS_Data_Reader tls_data_reader("ClientHello", buffer);
+                  const Botan::TLS::Key_Share key_share(
+                     tls_data_reader, static_cast<uint16_t>(buffer.size()), Botan::TLS::Handshake_Type::ClientHello);
+               });
+            } else if(extension == "alpn") {
+               result.test_throws("invalid alpn extension input", exception, [&buffer]() {
+                  Botan::TLS::TLS_Data_Reader tls_data_reader("ClientHello", buffer);
+                  const Botan::TLS::Application_Layer_Protocol_Notification alpn(
+                     tls_data_reader, static_cast<uint16_t>(buffer.size()), Botan::TLS::Connection_Side::Client);
+               });
+            }
          }
 
          return result;

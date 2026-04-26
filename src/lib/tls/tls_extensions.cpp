@@ -88,7 +88,7 @@ std::unique_ptr<Extension> make_extension(TLS_Data_Reader& reader,
          return std::make_unique<Encrypt_then_MAC>(reader, size);
 
       case Extension_Code::SessionTicket:
-         return std::make_unique<Session_Ticket_Extension>(reader, size);
+         return std::make_unique<Session_Ticket_Extension>(reader, size, from);
 #else
       case Extension_Code::EcPointFormats:
       case Extension_Code::SafeRenegotiation:
@@ -326,7 +326,10 @@ Server_Name_Indicator::Server_Name_Indicator(TLS_Data_Reader& reader, uint16_t e
 
       const uint16_t name_bytes = reader.get_uint16_t();
 
-      if(name_bytes + 2 != extension_size || name_bytes < 3) {
+      // RFC 6066 3: a ServerName carrying a host_name (the only NameType
+      // currently defined and the only one this implementation acts on)
+      // requires at least 1 byte name_type + 2 byte length + 1 byte HostName.
+      if(name_bytes + 2 != extension_size || name_bytes < 4) {
          throw Decoding_Error("Bad encoding of SNI extension");
       }
 
@@ -403,10 +406,25 @@ bool Server_Name_Indicator::hostname_acceptable_for_sni(std::string_view hostnam
    return true;
 }
 
+Application_Layer_Protocol_Notification::Application_Layer_Protocol_Notification(std::string_view protocol) {
+   BOTAN_ARG_CHECK(!protocol.empty(), "ALPN protocol name must not be empty");
+   BOTAN_ARG_CHECK(protocol.size() < 256, "ALPN protocol name too long");
+   m_protocols.emplace_back(protocol);
+}
+
+Application_Layer_Protocol_Notification::Application_Layer_Protocol_Notification(
+   const std::vector<std::string>& protocols) :
+      m_protocols(protocols) {
+   for(const auto& protocol : protocols) {
+      BOTAN_ARG_CHECK(!protocol.empty(), "ALPN protocol name must not be empty");
+      BOTAN_ARG_CHECK(protocol.size() < 256, "ALPN protocol name too long");
+   }
+}
+
 Application_Layer_Protocol_Notification::Application_Layer_Protocol_Notification(TLS_Data_Reader& reader,
                                                                                  uint16_t extension_size,
                                                                                  Connection_Side from) {
-   if(extension_size == 0) {
+   if(extension_size < 2) {
       throw Decoding_Error("ALPN extension cannot be empty");
    }
 
@@ -416,6 +434,11 @@ Application_Layer_Protocol_Notification::Application_Layer_Protocol_Notification
 
    if(name_bytes != bytes_remaining) {
       throw Decoding_Error("Bad encoding of ALPN extension, bad length field");
+   }
+
+   // RFC 7301 3.1: ProtocolName protocol_name_list<2..2^16-1>
+   if(name_bytes == 0) {
+      throw Decoding_Error("Empty ALPN protocol_name_list not allowed");
    }
 
    while(bytes_remaining > 0) {
@@ -513,6 +536,10 @@ Certificate_Type_Base::Certificate_Type_Base(TLS_Data_Reader& reader, uint16_t e
       const auto type_bytes = reader.get_tls_length_value(1);
       if(static_cast<size_t>(extension_size) != type_bytes.size() + 1) {
          throw Decoding_Error("certificate type extension had inconsistent length");
+      }
+      // RFC 7250 4: {client,server}_certificate_types<1..2^8-1> so must be non-empty
+      if(type_bytes.empty()) {
+         throw Decoding_Error("Certificate type extension contains no types");
       }
       std::transform(
          type_bytes.begin(), type_bytes.end(), std::back_inserter(m_certificate_types), [](const auto type_byte) {
@@ -618,6 +645,11 @@ Supported_Groups::Supported_Groups(TLS_Data_Reader& reader, uint16_t extension_s
       throw Decoding_Error("Inconsistent length field in supported groups list");
    }
 
+   // RFC 8446 4.2.7: NamedGroup named_group_list<2..2^16-1>;
+   if(len == 0) {
+      throw Decoding_Error("Empty supported groups list");
+   }
+
    if(len % 2 == 1) {
       throw Decoding_Error("Supported groups list of strange size");
    }
@@ -687,8 +719,17 @@ std::vector<uint8_t> Signature_Algorithms_Cert::serialize(Connection_Side /*whoa
 Signature_Algorithms_Cert::Signature_Algorithms_Cert(TLS_Data_Reader& reader, uint16_t extension_size) :
       m_schemes(parse_signature_algorithms(reader, extension_size)) {}
 
-SRTP_Protection_Profiles::SRTP_Protection_Profiles(TLS_Data_Reader& reader, uint16_t extension_size) :
-      m_pp(reader.get_range<uint16_t>(2, 0, 65535)) {
+SRTP_Protection_Profiles::SRTP_Protection_Profiles(TLS_Data_Reader& reader, uint16_t extension_size) {
+   // RFC 5764 4.1.1: UseSRTPData consists of
+   //    SRTPProtectionProfile SRTPProtectionProfiles<2..2^16-1>;
+   //    opaque srtp_mki<0..255>;
+   // for a wire size of 2 (profiles len) + 2*N + 1 (mki len) + mki_bytes,
+   // with N >= 1.
+   if(extension_size < 5) {
+      throw Decoding_Error("Truncated SRTP protection extension");
+   }
+   const size_t max_profile_pairs = (static_cast<size_t>(extension_size) - 3) / 2;
+   m_pp = reader.get_range<uint16_t>(2, 1, max_profile_pairs);
    const std::vector<uint8_t> mki = reader.get_range<uint8_t>(1, 0, 255);
 
    if(m_pp.size() * 2 + mki.size() + 3 != extension_size) {

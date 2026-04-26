@@ -138,6 +138,8 @@ Encrypted_Extensions::Encrypted_Extensions(const std::vector<uint8_t>& buf) {
    if(m_extensions.contains_implemented_extensions_other_than(allowed_exts)) {
       throw TLS_Exception(Alert::IllegalParameter, "Encrypted Extensions contained an extension that is not allowed");
    }
+
+   reader.assert_done();
 }
 
 std::vector<uint8_t> Encrypted_Extensions::serialize() const {

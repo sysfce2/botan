@@ -117,6 +117,7 @@ std::string map_to_bogo_error(const std::string& e) noexcept {
       {"Server certificate verification failed", ":BAD_SIGNATURE:"},
       {"compression is not supported in TLS 1.3", ":DECODE_ERROR:"},
       {"Cookie length must be at least 1 byte", ":DECODE_ERROR:"},
+      {"Empty cookie extension is illegal", ":DECODE_ERROR:"},
       {"Bad size (1) for TLS alert message", ":BAD_ALERT:"},
       {"Bad size (4) for TLS alert message", ":BAD_ALERT:"},
       {"CERTIFICATE decoding failed with PEM: No PEM header found", ":CANNOT_PARSE_LEAF_CERT:"},

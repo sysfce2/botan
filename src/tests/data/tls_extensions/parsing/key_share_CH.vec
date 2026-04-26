@@ -18,4 +18,8 @@ Exception =
 
 # not enough bytes in the buffer to decode the extension
 Buffer = 05ed413804929e
-Exception = Not enough bytes in the buffer to decode KeyShare (ClientHello) extension
+Exception = Invalid ClientHello: Expected 1170 bytes remaining, only 1 left
+
+# key share with incosistent length fields
+Buffer = 0004001700045b5b5b5b00
+Exception = Inconsistent length in client KeyShare extension

@@ -30,7 +30,8 @@ class Key_Share_Entry {
       explicit Key_Share_Entry(TLS_Data_Reader& reader) {
          // TODO check that the group actually exists before casting...
          m_group = static_cast<Named_Group>(reader.get_uint16_t());
-         m_key_exchange = reader.get_tls_length_value(2);
+         // RFC 8446 4.2.8: opaque key_exchange<1..2^16-1>
+         m_key_exchange = reader.get_range<uint8_t>(2, 1, 65535);
       }
 
       // Create an empty Key_Share_Entry with the selected group
@@ -176,7 +177,9 @@ class Key_Share_ClientHello {
          const auto read_bytes_so_far_begin = reader.read_so_far();
          auto remaining = [&] {
             const auto read_so_far = reader.read_so_far() - read_bytes_so_far_begin;
-            BOTAN_STATE_CHECK(read_so_far <= client_key_share_length);
+            if(read_so_far > client_key_share_length) {
+               throw TLS_Exception(Alert::DecodeError, "Inconsistent length in client KeyShare extension");
+            }
             return client_key_share_length - read_so_far;
          };
 
