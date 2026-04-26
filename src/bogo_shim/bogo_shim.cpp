@@ -213,6 +213,8 @@ std::string map_to_bogo_error(const std::string& e) noexcept {
       {"Policy forbids all available DTLS version", ":NO_SUPPORTED_VERSIONS_ENABLED:"},
       {"Policy forbids all available TLS version", ":NO_SUPPORTED_VERSIONS_ENABLED:"},
       {"Policy refuses to accept signing with any hash supported by peer", ":NO_COMMON_SIGNATURE_ALGORITHMS:"},
+      {"Could not agree on a signature scheme with peer for RSA key", ":NO_COMMON_SIGNATURE_ALGORITHMS:"},
+      {"Could not agree on a signature scheme with peer for ECDSA key", ":NO_COMMON_SIGNATURE_ALGORITHMS:"},
       {"Policy requires client send a certificate, but it did not", ":PEER_DID_NOT_RETURN_A_CERTIFICATE:"},
       {"PSK binder does not check out", ":DIGEST_CHECK_FAILED:"},
       {"PSK identity selected by server is out of bounds", ":PSK_IDENTITY_NOT_FOUND:"},
