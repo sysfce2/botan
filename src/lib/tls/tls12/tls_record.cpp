@@ -111,6 +111,7 @@ std::vector<uint8_t> Connection_Cipher_State::aead_nonce(uint64_t seq, RandomNum
          return nonce;
       }
       case Nonce_Format::AEAD_XOR_12: {
+         BOTAN_ASSERT_NOMSG(m_nonce.size() == 12);
          std::vector<uint8_t> nonce(12);
          store_be(seq, nonce.data() + 4);
          xor_buf(nonce, m_nonce.data(), m_nonce.size());
@@ -146,6 +147,7 @@ std::vector<uint8_t> Connection_Cipher_State::aead_nonce(const uint8_t record[],
          return nonce;
       }
       case Nonce_Format::AEAD_XOR_12: {
+         BOTAN_ASSERT_NOMSG(m_nonce.size() == 12);
          std::vector<uint8_t> nonce(12);
          store_be(seq, nonce.data() + 4);
          xor_buf(nonce, m_nonce.data(), m_nonce.size());
