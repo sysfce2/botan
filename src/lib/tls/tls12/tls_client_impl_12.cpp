@@ -69,6 +69,11 @@ class Client_Handshake_State_12 final : public Handshake_State {
          return m_resumed_session->supports_extended_master_secret();
       }
 
+      uint16_t resumed_session_ciphersuite_code() const {
+         BOTAN_STATE_CHECK(is_a_resumption());
+         return m_resumed_session->ciphersuite_code();
+      }
+
    private:
       std::unique_ptr<Public_Key> m_server_public_key;
 
@@ -402,6 +407,12 @@ void Client_Impl_12::process_handshake_msg(const Handshake_State* active_state,
          */
          if(state.server_hello()->legacy_version() != state.client_hello()->legacy_version()) {
             throw TLS_Exception(Alert::HandshakeFailure, "Server resumed session but with wrong version");
+         }
+
+         // RFC 5246 7.4.1.2: when resuming a session, the server MUST use
+         // the same cipher suite that was negotiated in the original session.
+         if(state.server_hello()->ciphersuite() != state.resumed_session_ciphersuite_code()) {
+            throw TLS_Exception(Alert::HandshakeFailure, "Server resumed session with a different ciphersuite");
          }
 
          if(state.server_hello()->supports_extended_master_secret() &&
