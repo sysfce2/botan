@@ -16,6 +16,7 @@
 #include <botan/tls_extensions.h>
 #include <botan/tls_policy.h>
 #include <botan/internal/ct_utils.h>
+#include <botan/internal/fmt.h>
 #include <botan/internal/stl_util.h>
 #include <botan/internal/tls_handshake_hash.h>
 #include <botan/internal/tls_handshake_io.h>
@@ -23,6 +24,32 @@
 #include <botan/internal/tls_reader.h>
 
 namespace Botan::TLS {
+
+namespace {
+
+/*
+* If the (p, g) pair the server sent corresponds to a known group
+* (RFC 7919 or RFC 3526), return that group.
+*/
+std::optional<DL_Group> match_well_known_dh_group(const BigInt& p, const BigInt& g) {
+   const size_t p_bits = p.bits();
+
+   if(p_bits != 2048 && p_bits != 3072 && p_bits != 4096 && p_bits != 6144 && p_bits != 8192) {
+      return {};
+   }
+
+   for(const char* prefix : {"ffdhe/ietf", "modp/ietf"}) {
+      const std::string name = fmt("{}/{}", prefix, p_bits);
+      auto candidate = DL_Group::from_name(name);
+      if(candidate.get_p() == p && candidate.get_g() == g) {
+         return candidate;
+      }
+   }
+
+   return std::nullopt;
+}
+
+}  // namespace
 
 /*
 * Create a new Client Key Exchange message
@@ -73,8 +100,7 @@ Client_Key_Exchange::Client_Key_Exchange(Handshake_IO& io,
          psk = creds.psk("tls-client", std::string(hostname), m_psk_identity.value());
 
          if(psk.empty()) {
-            throw TLS_Exception(Alert::InternalError,
-                                "Application did not provide a PSK for the negotiated identity");
+            throw TLS_Exception(Alert::InternalError, "Application did not provide a PSK for the negotiated identity");
          }
       }
 
@@ -94,11 +120,21 @@ Client_Key_Exchange::Client_Key_Exchange(Handshake_IO& io,
             throw TLS_Exception(Alert::IllegalParameter, "DH prime too large for policy");
          }
 
-         DL_Group group(modulus, generator);
-
-         if(!group.verify_group(rng, false)) {
-            throw TLS_Exception(Alert::InsufficientSecurity, "DH group validation failed");
-         }
+         const auto group = [&] {
+            if(auto matched = match_well_known_dh_group(modulus, generator)) {
+               return std::move(*matched);
+            } else {
+               /*
+               * Even if we sent ffdhe groups in the supported_groups extension
+               * a server may have replied with some other group.
+               */
+               DL_Group ad_hoc(modulus, generator);
+               if(!ad_hoc.verify_group(rng, false)) {
+                  throw TLS_Exception(Alert::InsufficientSecurity, "DH group validation failed");
+               }
+               return ad_hoc;
+            }
+         }();
 
          const auto private_key = state.callbacks().tls_generate_ephemeral_key(group, rng);
          m_pre_master = CT::strip_leading_zeros(
