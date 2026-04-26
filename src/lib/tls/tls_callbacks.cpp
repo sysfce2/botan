@@ -98,10 +98,17 @@ void TLS::Callbacks::tls_verify_cert_chain(const std::vector<X509_Certificate>& 
    const Path_Validation_Restrictions restrictions(policy.require_cert_revocation_info(),
                                                    policy.minimum_signature_strength());
 
+   /*
+   Hostname is always provided in order to allow host-specific logic if required,
+   but it should not be passed to x509_path_validate unless we are verifying
+   the server.
+   */
+   const std::string_view name_to_match = (usage == Usage_Type::TLS_CLIENT_AUTH) ? std::string_view{} : hostname;
+
    const Path_Validation_Result result = x509_path_validate(cert_chain,
                                                             restrictions,
                                                             trusted_roots,
-                                                            hostname,
+                                                            name_to_match,
                                                             usage,
                                                             tls_current_timestamp(),
                                                             tls_verify_cert_chain_ocsp_timeout(),
