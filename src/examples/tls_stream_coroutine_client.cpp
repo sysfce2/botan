@@ -10,7 +10,7 @@
    #define BOOST_VERSION_IS_COMPATIBLE
 #endif
 
-#if defined(BOOST_VERSION_IS_COMPATIBLE) && defined(BOTAN_HAS_HAS_DEFAULT_TLS_CONTEXT)
+#if defined(BOOST_VERSION_IS_COMPATIBLE) && defined(BOTAN_HAS_DEFAULT_TLS_CONTEXT)
 
    #include <botan/asio_stream.h>
    #include <botan/version.h>
@@ -114,7 +114,7 @@ int main() {
    std::cout << "Your boost version is too old, sorry.\n"
              << "Or did you compile Botan without --with-boost?\n";
    #endif
-   #if !defined(BOTAN_HAS_HAS_DEFAULT_TLS_CONTEXT)
+   #if !defined(BOTAN_HAS_DEFAULT_TLS_CONTEXT)
    std::cout << "Your system needs an auto seeded RNG and a certificate store.\n";
    #endif
    return 1;
