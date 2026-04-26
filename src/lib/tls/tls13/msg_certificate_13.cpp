@@ -294,7 +294,7 @@ Certificate_13::Certificate_Entry::Certificate_Entry(TLS_Data_Reader& reader,
    // Extensions are simply tacked at the end of the certificate entry. This
    // is a departure from the typical "tag-length-value" in a sense that the
    // Extensions deserializer needs the length value of the extensions.
-   const auto extensions_length = reader.peek_uint16_t();
+   const size_t extensions_length = reader.peek_uint16_t();
    const auto exts_buf = reader.get_fixed<uint8_t>(extensions_length + 2);
    TLS_Data_Reader exts_reader("extensions reader", exts_buf);
    m_extensions.deserialize(exts_reader, side, Handshake_Type::Certificate);
