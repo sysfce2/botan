@@ -445,6 +445,13 @@ void Channel_Impl_12::process_application_data(uint64_t seq_no, const secure_vec
       throw Unexpected_Message("Application data before handshake done");
    }
 
+   // ApplicationData must arrive under a non-zero read epoch
+   const uint16_t read_epoch =
+      m_is_datagram ? static_cast<uint16_t>(seq_no >> 48) : sequence_numbers().current_read_epoch();
+   if(read_epoch == 0) {
+      throw Unexpected_Message("Application data received in unexpected read epoch");
+   }
+
    callbacks().tls_record_received(seq_no, record);
 }
 
