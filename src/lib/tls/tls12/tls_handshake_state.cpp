@@ -223,6 +223,11 @@ std::pair<std::string, Signature_Format> Handshake_State::choose_sig_format(cons
       }
    }
 
+   if(!chosen_scheme.is_set()) {
+      throw TLS_Exception(Alert::HandshakeFailure,
+                          "Could not agree on a signature scheme with peer for " + sig_algo + " key");
+   }
+
    const std::string hash = chosen_scheme.hash_function_name();
 
    if(!policy.allowed_signature_hash(hash)) {
