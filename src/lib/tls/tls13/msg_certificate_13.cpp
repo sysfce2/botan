@@ -272,23 +272,26 @@ Certificate_13::Certificate_13(const Client_Hello_13& client_hello,
 Certificate_13::Certificate_Entry::Certificate_Entry(TLS_Data_Reader& reader,
                                                      Connection_Side side,
                                                      Certificate_Type cert_type) {
-   switch(cert_type) {
-      case Certificate_Type::X509:
-         // RFC 8446 4.2.2
-         //    [...] each CertificateEntry contains a DER-encoded X.509
-         //    certificate.
-         m_certificate = std::make_unique<X509_Certificate>(reader.get_tls_length_value(3));
+   if(cert_type == Certificate_Type::X509) {
+      // RFC 8446 4.2.2
+      //    [...] each CertificateEntry contains a DER-encoded X.509
+      //    certificate.
+      const auto cert_bytes = reader.get_tls_length_value(3);
+      try {
+         m_certificate = std::make_unique<X509_Certificate>(cert_bytes);
          m_raw_public_key = m_certificate->subject_public_key();
-         break;
-      case Certificate_Type::RawPublicKey:
-         // RFC 7250 3.
-         //    This specification uses raw public keys whereby the already
-         //    available encoding used in a PKIX certificate in the form of a
-         //    SubjectPublicKeyInfo structure is reused.
-         m_raw_public_key = X509::load_key(reader.get_tls_length_value(3));
-         break;
-      default:
-         throw TLS_Exception(Alert::InternalError, "Unknown certificate type");
+      } catch(Exception& e) {
+         // bad_certificate would make more sense but BoGo expects decoding_error
+         throw TLS_Exception(Alert::DecodeError, e.what());
+      }
+   } else if(cert_type == Certificate_Type::RawPublicKey) {
+      // RFC 7250 3.
+      //    This specification uses raw public keys whereby the already
+      //    available encoding used in a PKIX certificate in the form of a
+      //    SubjectPublicKeyInfo structure is reused.
+      m_raw_public_key = X509::load_key(reader.get_tls_length_value(3));
+   } else {
+      throw TLS_Exception(Alert::InternalError, "Unknown certificate type");
    }
 
    // Extensions are simply tacked at the end of the certificate entry. This
