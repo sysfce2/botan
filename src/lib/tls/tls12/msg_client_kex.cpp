@@ -247,7 +247,12 @@ Client_Key_Exchange::Client_Key_Exchange(const std::vector<uint8_t>& contents,
       if(key_exchange_is_psk(kex_algo)) {
          m_psk_identity = reader.get_string(2, 0, 65535);
 
-         psk = creds.psk("tls-server", state.client_hello()->sni_hostname(), m_psk_identity.value());
+         try {
+            psk = creds.psk("tls-server", state.client_hello()->sni_hostname(), m_psk_identity.value());
+         } catch(...) {
+            // Treat any lookup failure for the identity sent by the client as
+            // "no PSK for this identity" and let the logic below handle it
+         }
 
          if(psk.empty()) {
             if(policy.hide_unknown_users()) {
