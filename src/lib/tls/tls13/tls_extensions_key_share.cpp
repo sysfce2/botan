@@ -183,28 +183,22 @@ class Key_Share_ServerHello {
 class Key_Share_ClientHello {
    public:
       Key_Share_ClientHello(TLS_Data_Reader& reader, uint16_t /* extension_size */) {
-         // This construction is a crutch to make working with the incoming
-         // TLS_Data_Reader bearable. Currently, this reader spans the entire
-         // Client_Hello message. Hence, if offset or length fields are skewed
-         // or maliciously fabricated, it is possible to read further than the
-         // bounds of the current extension.
-         // Note that this applies to many locations in the code base.
-         //
-         // TODO: Overhaul the TLS_Data_Reader to allow for cheap "sub-readers"
-         //       that enforce read bounds of sub-structures while parsing.
+         // The reader is per-extension (Extensions::deserialize binds it to
+         // exactly extension_size bytes). Enforce that the inner
+         // client_shares length matches what the outer extension has left,
+         // then let the entry loop consume everything; extn_reader's
+         // assert_done() at the deserialize call site catches any leftover.
          const auto client_key_share_length = reader.get_uint16_t();
-         const auto read_bytes_so_far_begin = reader.read_so_far();
-         auto remaining = [&] {
-            const auto read_so_far = reader.read_so_far() - read_bytes_so_far_begin;
-            if(read_so_far > client_key_share_length) {
-               throw TLS_Exception(Alert::DecodeError, "Inconsistent length in client KeyShare extension");
-            }
-            return client_key_share_length - read_so_far;
-         };
+         if(reader.remaining_bytes() != client_key_share_length) {
+            throw TLS_Exception(Alert::DecodeError, "Inconsistent length in client KeyShare extension");
+         }
 
          std::unordered_set<uint16_t> seen_groups;
-         while(reader.has_remaining() && remaining() > 0) {
-            if(remaining() < 4) {
+         while(reader.has_remaining()) {
+            // Each KeyShareEntry is at least 4 bytes (group + 2-byte length).
+            // Cleaner failure than the reader underflow we'd otherwise hit
+            // when the inner buffer ends mid-entry.
+            if(reader.remaining_bytes() < 4) {
                throw TLS_Exception(Alert::DecodeError, "Not enough data to read another KeyShareEntry");
             }
 
@@ -220,10 +214,6 @@ class Key_Share_ClientHello {
             }
 
             m_client_shares.emplace_back(std::move(new_entry));
-         }
-
-         if((reader.read_so_far() - read_bytes_so_far_begin) != client_key_share_length) {
-            throw Decoding_Error("Read bytes are not equal client KeyShare length");
          }
       }
 
