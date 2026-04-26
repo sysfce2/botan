@@ -379,6 +379,7 @@ class TLS_Null_Tests final : public Text_Based_Test {
 
          tls_null_encrypt.set_key(key);
          tls_null_encrypt.set_associated_data(associated_data);
+         tls_null_encrypt.start();
 
          Botan::secure_vector<uint8_t> buffer(message.begin(), message.end());
          tls_null_encrypt.finish(buffer);
@@ -400,6 +401,7 @@ class TLS_Null_Tests final : public Text_Based_Test {
 
          tls_null_decrypt.set_key(key);
          tls_null_decrypt.set_associated_data(associated_data);
+         tls_null_decrypt.start();
 
          Botan::secure_vector<uint8_t> buffer(tls_fragment.begin(), tls_fragment.end());
 
@@ -423,7 +425,6 @@ class TLS_Null_Tests final : public Text_Based_Test {
 
          result.test_throws<Botan::Invalid_Argument>("TLS_NULL_HMAC_AEAD_Decryption::set_associated_data()",
                                                      [&]() { tls_null_decrypt.set_associated_data(associated_data); });
-         return;
       }
 
       Test::Result run_one_test(const std::string& header, const VarMap& vars) override {
