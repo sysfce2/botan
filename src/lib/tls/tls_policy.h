@@ -442,6 +442,17 @@ class BOTAN_PUBLIC_API(2, 0) Policy /* NOLINT(*-special-member-functions) */ {
       virtual bool negotiate_encrypt_then_mac() const;
 
       /**
+      * Require that TLS 1.2 / DTLS 1.2 handshakes use the Extended Master
+      * Secret extension (RFC 7627). When true, both the server and the client
+      * abort fresh handshakes whose peer did not negotiate EMS. RFC 9325 4.4
+      * recommends requiring this extension.
+      *
+      * @note Has no effect for TLS 1.3 connections, where the equivalent
+      *       binding is built in.
+      */
+      virtual bool require_extended_master_secret() const;
+
+      /**
        * Defines the maximum TLS record length for TLS connections.
        * This is based on the Record Size Limit extension described in RFC 8449.
        * By default (i.e. if std::nullopt is returned), TLS clients will omit
@@ -800,6 +811,8 @@ class BOTAN_PUBLIC_API(2, 0) Text_Policy : public Policy {
       bool server_uses_own_ciphersuite_preferences() const override;
 
       bool negotiate_encrypt_then_mac() const override;
+
+      bool require_extended_master_secret() const override;
 
       std::optional<uint16_t> record_size_limit() const override;
 

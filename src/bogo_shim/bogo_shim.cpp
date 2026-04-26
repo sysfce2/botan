@@ -1314,6 +1314,8 @@ class Shim_Policy final : public Botan::TLS::Policy {
 
       //bool negotiate_encrypt_then_mac() const override;
 
+      bool require_extended_master_secret() const override { return false; }
+
       bool support_cert_status_message() const override {
          if(m_args.flag_set("server")) {
             if(!m_args.option_used("ocsp-response")) {

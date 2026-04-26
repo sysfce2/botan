@@ -393,6 +393,12 @@ void Client_Impl_12::process_handshake_msg(const Handshake_State* active_state,
 
       secure_renegotiation_check(state.server_hello());
 
+      // RFC 7627 / RFC 9325 4.4: optionally require Extended Master Secret.
+      if(policy().require_extended_master_secret() && !state.server_hello()->supports_extended_master_secret()) {
+         throw TLS_Exception(Alert::HandshakeFailure,
+                             "Policy requires the Extended Master Secret extension but the server did not send it");
+      }
+
       const bool server_returned_same_session_id =
          !state.server_hello()->session_id().empty() &&
          (state.server_hello()->session_id() == state.client_hello()->session_id());

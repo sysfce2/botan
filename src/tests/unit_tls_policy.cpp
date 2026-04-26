@@ -49,8 +49,24 @@ class TLS_Policy_Unit_Tests final : public Test {
          results.push_back(test_peer_key_acceptable_ecdsa(this->rng()));
          results.push_back(test_peer_key_acceptable_dh());
          results.push_back(test_key_exchange_groups_to_offer());
+         results.push_back(test_require_extended_master_secret());
 
          return results;
+      }
+
+      static Test::Result test_require_extended_master_secret() {
+         Test::Result result("TLS Policy require_extended_master_secret");
+
+         const Botan::TLS::Policy default_policy;
+         result.test_is_true("default Policy requires EMS", default_policy.require_extended_master_secret());
+
+         using TP = Botan::TLS::Text_Policy;
+         result.test_is_true("default text policy requires EMS", TP("").require_extended_master_secret());
+         result.test_is_true("text policy override disables EMS requirement",
+                             !TP("require_extended_master_secret = false").require_extended_master_secret());
+         result.test_is_true("text policy override re-enables EMS requirement",
+                             TP("require_extended_master_secret = true").require_extended_master_secret());
+         return result;
       }
 
    private:

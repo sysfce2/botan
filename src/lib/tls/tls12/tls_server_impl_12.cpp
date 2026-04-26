@@ -448,9 +448,33 @@ void Server_Impl_12::process_client_hello_msg(const Handshake_State* active_stat
    if(epoch0_restart) {
       // If we reached here then we were able to verify the cookie
       reset_active_association_state();
+      // This was pointing to m_active_state which was freed by reset_active_association_state
+      active_state = nullptr;
    }
 
    secure_renegotiation_check(pending_state.client_hello());
+
+   // RFC 7627 / RFC 9325 4.4: optionally require Extended Master Secret
+   if(policy().require_extended_master_secret() && !pending_state.client_hello()->supports_extended_master_secret()) {
+      throw TLS_Exception(Alert::HandshakeFailure,
+                          "Policy requires the Extended Master Secret extension but the client did not send it");
+   }
+
+   // RFC 7627 5.3 has an explicit MUST regarding EMS mismatch on resumption
+   //
+   //    "If the original session used the 'extended_master_secret'
+   //     extension but the new ClientHello does not contain it, the
+   //     server MUST abort the abbreviated handshake."
+   //
+   // There is apparently no RFC requirement that a client must not drop EMS between the
+   // initial negotiation and a renegotiation... but there is also no RFC requirement
+   // that we must accept it. So we don't.
+   if(active_state != nullptr && active_state->server_hello() != nullptr &&
+      active_state->server_hello()->supports_extended_master_secret() &&
+      !pending_state.client_hello()->supports_extended_master_secret()) {
+      throw TLS_Exception(Alert::HandshakeFailure,
+                          "Renegotiation ClientHello dropped the Extended Master Secret extension");
+   }
 
    callbacks().tls_examine_extensions(
       pending_state.client_hello()->extensions(), Connection_Side::Client, Handshake_Type::ClientHello);
