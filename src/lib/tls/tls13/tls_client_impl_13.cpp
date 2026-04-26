@@ -586,7 +586,7 @@ void Client_Impl_13::handle(const Finished_13& finished_msg) {
    // Give the application a chance for a final veto before fully
    // establishing the connection.
    callbacks().tls_session_established(Session_Summary(m_handshake_state.server_hello(),
-                                                       Connection_Side::Server,
+                                                       Connection_Side::Client,
                                                        peer_cert_chain(),
                                                        peer_raw_public_key(),
                                                        external_psk_identity(),
