@@ -406,9 +406,10 @@ void Channel_Impl_12::process_handshake_ccs(const secure_vector<uint8_t>& record
 
             const uint16_t epoch = record_sequence >> 48;
 
-            if(epoch == sequence_numbers().current_read_epoch()) {
+            const uint16_t current_epoch = sequence_numbers().current_read_epoch();
+            if(epoch == current_epoch) {
                create_handshake_state(record_version);
-            } else if(epoch == sequence_numbers().current_read_epoch() - 1) {
+            } else if(current_epoch > 0 && epoch == current_epoch - 1) {
                BOTAN_ASSERT(m_active_state, "Have active state here");
                m_active_state->handshake_io().add_record(record.data(), record.size(), record_type, record_sequence);
             }

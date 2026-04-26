@@ -180,16 +180,23 @@ class Datagram_Handshake_IO final : public Handshake_IO {
 
             uint16_t epoch() const { return m_epoch; }
 
+            // 0 until the first fragment has set the declared msg_length.
+            size_t msg_length() const { return m_msg_length; }
+
             std::pair<Handshake_Type, std::vector<uint8_t>> message() const;
+
+            // Release the memory buffers; called after reassembly has completed
+            void release_buffers();
 
          private:
             Handshake_Type m_msg_type = Handshake_Type::None;
             size_t m_msg_length = 0;
+            size_t m_bytes_received = 0;
             uint16_t m_epoch = 0;
 
-            // vector<bool> m_seen;
-            // vector<uint8_t> m_fragments
-            std::map<size_t, uint8_t> m_fragments;
+            // Reassembly buffer (sized to m_msg_length once known) and a parallel
+            // byte-mask marking which positions have already been seen.
+            std::vector<uint8_t> m_received_mask;
             std::vector<uint8_t> m_message;
       };
 
@@ -206,6 +213,7 @@ class Datagram_Handshake_IO final : public Handshake_IO {
 
       class Connection_Sequence_Numbers& m_seqs;
       std::map<uint16_t, Handshake_Reassembly> m_messages;
+      size_t m_pending_reassembly_bytes = 0;
       std::set<uint16_t> m_ccs_epochs;
       std::vector<std::vector<uint16_t>> m_flights;
       std::map<uint16_t, Message_Info> m_flight_data;
