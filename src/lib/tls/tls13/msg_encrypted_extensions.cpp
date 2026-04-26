@@ -19,7 +19,8 @@ namespace Botan::TLS {
 Encrypted_Extensions::Encrypted_Extensions(const Client_Hello_13& client_hello,
                                            const Policy& policy,
                                            Callbacks& cb,
-                                           bool is_resumption) {
+                                           bool is_resumption,
+                                           bool requesting_client_auth) {
    const auto& exts = client_hello.extensions();
 
    // NOLINTBEGIN(*-owning-memory)
@@ -59,8 +60,14 @@ Encrypted_Extensions::Encrypted_Extensions(const Client_Hello_13& client_hello,
    //    If the server does not send a certificate_request payload [...],
    //    then the client_certificate_type payload in the server hello MUST be
    //    omitted.
+   //
+   // Note: requesting_client_auth tracks whether the caller will actually
+   // emit a CertificateRequest. The server-side decision in
+   // Certificate_Request_13::maybe_create depends on both the policy flag
+   // *and* the credentials manager's CA list, so re-checking just the
+   // policy flag here would miss the trusted-CAs-only configuration.
    if(auto* ch_client_cert_types = exts.get<Client_Certificate_Type>();
-      ch_client_cert_types != nullptr && policy.request_client_certificate_authentication()) {
+      ch_client_cert_types != nullptr && requesting_client_auth) {
       m_extensions.add(new Client_Certificate_Type(*ch_client_cert_types, policy));
    }
 
