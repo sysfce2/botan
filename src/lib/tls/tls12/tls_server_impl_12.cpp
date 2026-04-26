@@ -557,8 +557,11 @@ void Server_Impl_12::process_certificate_verify_msg(Server_Handshake_State& pend
       throw TLS_Exception(Alert::DecodeError, "No client certificate sent");
    }
 
-   if(!client_certs[0].allowed_usage(Key_Constraints::DigitalSignature)) {
-      throw TLS_Exception(Alert::BadCertificate, "Client certificate does not support signing");
+   const auto cert_constraints = client_certs[0].constraints();
+   if(!cert_constraints.empty()) {
+      if(!cert_constraints.includes_any(Key_Constraints::DigitalSignature, Key_Constraints::NonRepudiation)) {
+         throw TLS_Exception(Alert::BadCertificate, "Client certificate does not support signing");
+      }
    }
 
    const bool sig_valid = pending_state.client_verify()->verify(client_certs[0], pending_state, policy());
