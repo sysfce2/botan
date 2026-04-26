@@ -723,13 +723,23 @@ void Client_Impl_12::process_handshake_msg(const Handshake_State* active_state,
       //    If the client receives a session ticket from the server, then it
       //    discards any Session ID that was sent in the ServerHello.
       const auto handle = [&]() -> std::optional<Session_Handle> {
-         if(const auto& session_ticket = state.session_ticket(); !session_ticket.empty()) {
-            return Session_Handle(session_ticket);
-         } else if(const auto& session_id = state.server_hello()->session_id(); !session_id.empty()) {
-            return Session_Handle(session_id);
-         } else {
-            return std::nullopt;
+         /*
+         On successful resumption an empty (or absent) NewSessionTicket means "keep using
+         the old ticket" so we inherit it from the ClientHello. On a fresh negotiation
+         an empty NewSessionTicket means "no ticket for this session", so inheriting the
+         ClientHello's old ticket would store the new master secret under a ticket the
+         server has discarded.
+         */
+         if(const auto* nst = state.new_session_ticket(); nst != nullptr && !nst->ticket().empty()) {
+            return Session_Handle(nst->ticket());
          }
+         if(state.is_a_resumption() && !state.client_hello()->session_ticket().empty()) {
+            return Session_Handle(state.client_hello()->session_ticket());
+         }
+         if(const auto& session_id = state.server_hello()->session_id(); !session_id.empty()) {
+            return Session_Handle(session_id);
+         }
+         return std::nullopt;
       }();
 
       // Give the application a chance for a final veto before fully
