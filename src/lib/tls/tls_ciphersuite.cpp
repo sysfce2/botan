@@ -53,6 +53,24 @@ size_t Ciphersuite::nonce_bytes_from_record(Protocol_Version version) const {
 }
 
 bool Ciphersuite::is_scsv(uint16_t suite) {
+   // Both signaling cipher suite values - skip them when iterating
+   // negotiable ciphersuites. The two callers are:
+   //
+   // - 0x00FF: TLS_EMPTY_RENEGOTIATION_INFO_SCSV (RFC 5746). Consumed by
+   //   Client_Hello_12::Client_Hello_12 to set secure_renegotiation when
+   //   the renegotiation_info extension is absent.
+   //
+   // - 0x5600: TLS_FALLBACK_SCSV (RFC 7507). Recognized so it is filtered
+   //   out of negotiation, but the inappropriate_fallback enforcement is
+   //   intentionally not implemented:
+   //     * Botan does not support TLS 1.0 / 1.1, so the 1.2 -> 1.0/1.1
+   //       fallback that SCSV was originally designed to detect cannot
+   //       occur here.
+   //     * The 1.3 -> 1.2 downgrade is already protected by the
+   //       ServerHello.random sentinel (RFC 8446 4.1.3, DOWNGRADE_TLS12),
+   //       which Botan's TLS 1.3 client enforces at
+   //       tls_client_impl_13.cpp via random_signals_downgrade().
+   //
    // TODO: derive from IANA file in script
    return (suite == 0x00FF || suite == 0x5600);
 }
