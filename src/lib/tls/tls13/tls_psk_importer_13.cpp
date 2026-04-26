@@ -25,8 +25,20 @@ PSKImporter::PSKImporter(std::span<const uint8_t> key,
       m_context(context.begin(), context.end()),
       m_hash(hash) {
    BOTAN_ARG_CHECK(m_hash == "SHA-256" || m_hash == "SHA-384", "PSK importer hash must be SHA-256 or SHA-384");
-   BOTAN_ARG_CHECK(m_identity.size() <= std::numeric_limits<uint16_t>::max(), "PSK importer identity too long");
-   BOTAN_ARG_CHECK(m_context.size() <= std::numeric_limits<uint16_t>::max(), "PSK importer context too long");
+   // RFC 9258 5.1:
+   //    struct {
+   //       opaque external_identity<1...2^16-1>;
+   //       opaque context<0..2^16-1>;
+   //       uint16 target_protocol;
+   //       uint16 target_kdf;
+   //    } ImportedIdentity;
+
+   BOTAN_ARG_CHECK(!m_identity.empty(), "PSK importer identity must not be empty");
+
+   // The derived imported PSK identity (above) ends up as a TLS PSK identity
+   // (opaque<1..2^16-1>), so the whole assembled value must fit in.
+   BOTAN_ARG_CHECK(m_identity.size() + m_context.size() + 8 <= std::numeric_limits<uint16_t>::max(),
+                   "PSK importer identity + context too long for a TLS PSK identity");
 }
 
 ExternalPSK PSKImporter::derive_imported_psk(Protocol_Version version, std::string_view target_hash) const {
