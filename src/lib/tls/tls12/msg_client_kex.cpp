@@ -249,6 +249,7 @@ Client_Key_Exchange::Client_Key_Exchange(const std::vector<uint8_t>& contents,
       }
 
       if(kex_algo == Kex_Algo::PSK) {
+         reader.assert_done();
          const std::vector<uint8_t> zeros(psk.length());
          append_tls_length_value(m_pre_master, zeros, 2);
          append_tls_length_value(m_pre_master, psk.bits_of(), 2);
