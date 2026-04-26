@@ -11,6 +11,7 @@
 #include <botan/tls_alert.h>
 #include <botan/tls_exceptn.h>
 #include <botan/tls_version.h>
+#include <botan/internal/ct_utils.h>
 #include <botan/internal/loadstor.h>
 #include <botan/internal/tls_cipher_state.h>
 #include <algorithm>
@@ -356,11 +357,22 @@ Record_Layer::ReadResult<Record> Record_Layer::next_record(Cipher_State* cipher_
 
       record.seq_no = cipher_state->decrypt_record_fragment(plaintext_header.serialized(), record.fragment);
 
-      // Remove record padding (RFC 8446 5.4).
-      const auto end_of_content =
-         std::find_if(record.fragment.crbegin(), record.fragment.crend(), [](auto byte) { return byte != 0x00; });
+      // Remove record padding (RFC 8446 5.4). The TLSInnerPlaintext layout is
+      //   content || content_type || zero_padding
+      auto seen_nonzero = CT::Mask<uint8_t>::cleared();
+      uint8_t content_type_byte = 0;
+      size_t content_index = 0;
+      for(size_t i = record.fragment.size(); i-- > 0;) {
+         const uint8_t b = record.fragment[i];
+         const auto byte_is_nonzero = CT::Mask<uint8_t>::expand(b);
+         // Set on the first non-zero byte we encounter scanning right-to-left.
+         const auto first_nonzero = byte_is_nonzero & ~seen_nonzero;
+         content_type_byte = first_nonzero.select(b, content_type_byte);
+         content_index = CT::Mask<size_t>::expand(first_nonzero.value()).select(i, content_index);
+         seen_nonzero |= byte_is_nonzero;
+      }
 
-      if(end_of_content == record.fragment.crend()) {
+      if(!seen_nonzero.as_bool()) {
          // RFC 8446 5.4
          //   If a receiving implementation does not
          //   find a non-zero octet in the cleartext, it MUST terminate the
@@ -369,7 +381,7 @@ Record_Layer::ReadResult<Record> Record_Layer::next_record(Cipher_State* cipher_
       }
 
       // hydrate the actual content type from TLSInnerPlaintext
-      record.type = read_record_type(*end_of_content);
+      record.type = read_record_type(content_type_byte);
 
       if(record.type == Record_Type::ChangeCipherSpec) {
          // RFC 8446 5
@@ -378,8 +390,10 @@ Record_Layer::ReadResult<Record> Record_Layer::next_record(Cipher_State* cipher_
          throw TLS_Exception(Alert::UnexpectedMessage, "protected change cipher spec received");
       }
 
-      // erase content type and padding
-      record.fragment.erase((end_of_content + 1).base(), record.fragment.cend());
+      // Truncate to drop the content_type byte and padding. resize() on a
+      // vector of trivially-destructible elements is bookkeeping-only and
+      // does not allocate or iterate over the dropped suffix.
+      record.fragment.resize(content_index);
 
       // RFC 8446 5.4
       //    Implementations MUST NOT send Handshake and Alert records that have
