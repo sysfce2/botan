@@ -369,12 +369,17 @@ bool Cipher_State::is_compatible_with(const Ciphersuite& cipher) const {
    }
 
    BOTAN_ASSERT_NOMSG((m_encrypt == nullptr) == (m_decrypt == nullptr));
-   // TODO: Find a better way to check that the instantiated cipher algorithm
-   //       is compatible with the one required by the cipher suite.
-   // AEAD_Mode::create() sets defaults the tag length to 16 which is then
-   // reported via AEAD_Mode::name() and hinders the trivial string comparison.
-   if(m_encrypt && m_encrypt->name() != cipher.cipher_algo() && m_encrypt->name() != cipher.cipher_algo() + "(16)") {
-      return false;
+   // Compare canonical AEAD names rather than substring-matching cipher_algo
+   // against m_encrypt->name(). starts_with() is both too permissive (an
+   // AES-128/CCM-8 instance starts with "AES-128/CCM" so it would accept the
+   // CCM-16 suite) and too restrictive (cipher_algo "AES-128/CCM(8)" does not
+   // prefix the canonical "AES-128/CCM(8,3)"). Re-instantiating the AEAD from
+   // cipher_algo yields the same canonical name() the suite would produce.
+   if(m_encrypt) {
+      auto canonical = AEAD_Mode::create(cipher.cipher_algo(), Cipher_Dir::Encryption);
+      if(!canonical || canonical->name() != m_encrypt->name()) {
+         return false;
+      }
    }
 
    return true;

@@ -169,7 +169,7 @@ bool Ciphersuite::is_usable() const {
          const auto& mode = cipher_and_mode[1];
 
 #if !defined(BOTAN_HAS_AEAD_CCM)
-         if(mode == "CCM" || mode == "CCM-8") {
+         if(mode == "CCM" || mode == "CCM(8)") {
             return false;
          }
 #endif
