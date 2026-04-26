@@ -134,7 +134,7 @@ Certificate_Authorities::Certificate_Authorities(TLS_Data_Reader& reader, uint16
 
       BER_Decoder decoder(name_bits, BER_Decoder::Limits::DER());
       m_distinguished_names.emplace_back();
-      decoder.decode(m_distinguished_names.back());
+      decoder.decode(m_distinguished_names.back()).verify_end();
    }
 }
 

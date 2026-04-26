@@ -66,6 +66,8 @@ Certificate_Request_13::Certificate_Request_13(const std::vector<uint8_t>& buf, 
    if(m_extensions.contains_implemented_extensions_other_than(allowed_extensions)) {
       throw TLS_Exception(Alert::IllegalParameter, "Certificate Request contained an extension that is not allowed");
    }
+
+   reader.assert_done();
 }
 
 Certificate_Request_13::Certificate_Request_13(const std::vector<X509_DN>& acceptable_CAs,

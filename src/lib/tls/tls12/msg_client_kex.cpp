@@ -202,7 +202,8 @@ Client_Key_Exchange::Client_Key_Exchange(const std::vector<uint8_t>& contents,
       }
 
       TLS_Data_Reader reader("ClientKeyExchange", contents);
-      const std::vector<uint8_t> encrypted_pre_master = reader.get_range<uint8_t>(2, 0, 65535);
+      // RFC 5246 7.4.7.1: encrypted_pre_master_secret<1..2^16-1>.
+      const std::vector<uint8_t> encrypted_pre_master = reader.get_range<uint8_t>(2, 1, 65535);
       reader.assert_done();
 
       const PK_Decryptor_EME decryptor(*server_rsa_kex_key, rng, "PKCS1v15");
@@ -255,7 +256,7 @@ Client_Key_Exchange::Client_Key_Exchange(const std::vector<uint8_t>& contents,
          const PK_Key_Agreement_Key& ka_key = state.server_kex()->server_kex_key();
 
          const std::vector<uint8_t> client_pubkey = (ka_key.algo_name() == "DH")
-                                                       ? reader.get_range<uint8_t>(2, 0, 65535)
+                                                       ? reader.get_range<uint8_t>(2, 1, 65535)
                                                        : reader.get_range<uint8_t>(1, 1, 255);
 
          const auto shared_group = state.server_kex()->shared_group();
