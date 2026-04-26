@@ -11,6 +11,7 @@
 #include <botan/tls_callbacks.h>
 #include <botan/tls_exceptn.h>
 #include <botan/tls_policy.h>
+#include <botan/internal/stl_util.h>
 #include <botan/internal/tls_reader.h>
 
 namespace Botan::TLS {
@@ -86,8 +87,15 @@ Encrypted_Extensions::Encrypted_Extensions(const Client_Hello_13& client_hello,
    }
 
    if(auto* alpn_ext = exts.get<Application_Layer_Protocol_Notification>()) {
-      const auto next_protocol = cb.tls_server_choose_app_protocol(alpn_ext->protocols());
+      const auto& offered = alpn_ext->protocols();
+      const auto next_protocol = cb.tls_server_choose_app_protocol(offered);
       if(!next_protocol.empty()) {
+         // RFC 7301 3.2: if a protocol is selected, the server MUST select
+         // one of the protocols advertised by the client.
+         if(!value_exists(offered, next_protocol)) {
+            throw TLS_Exception(Alert::InternalError,
+                                "Application chose an ALPN protocol that the client did not offer");
+         }
          m_extensions.add(new Application_Layer_Protocol_Notification(next_protocol));
       }
    }

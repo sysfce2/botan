@@ -460,7 +460,14 @@ void Server_Impl_12::process_client_hello_msg(const Handshake_State* active_stat
 
    m_next_protocol = "";
    if(pending_state.client_hello()->supports_alpn()) {
-      m_next_protocol = callbacks().tls_server_choose_app_protocol(pending_state.client_hello()->next_protocols());
+      const auto offered = pending_state.client_hello()->next_protocols();
+      m_next_protocol = callbacks().tls_server_choose_app_protocol(offered);
+      // RFC 7301 3.2: if a protocol is selected, the server MUST select one
+      // of the protocols advertised by the client. An empty return signals
+      // "no ALPN" and is allowed.
+      if(!m_next_protocol.empty() && !value_exists(offered, m_next_protocol)) {
+         throw TLS_Exception(Alert::InternalError, "Application chose an ALPN protocol that the client did not offer");
+      }
    }
 
    if(session_info.has_value()) {
