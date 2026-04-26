@@ -190,6 +190,11 @@ PSK::PSK(TLS_Data_Reader& reader, uint16_t extension_size, Handshake_Type messag
             throw TLS_Exception(Alert::IllegalParameter, "Not enough PSK binders");
          }
 
+         // RFC 8446 4.2.11 declares PskBinderEntry opaque<32..255>, but we accept any
+         // 0..255 length here and let validate_binder reject, which yields a bad_record_mac
+         // alert rather than decode_error. BoringSSL behaves the same way and BoGo has
+         // tests that specifically expect this.
+
          psks.emplace_back(std::move(psk_identity), reader.get_tls_length_value(1));
       }
 
