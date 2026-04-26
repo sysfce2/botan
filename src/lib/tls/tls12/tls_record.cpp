@@ -101,11 +101,6 @@ std::vector<uint8_t> Connection_Cipher_State::aead_nonce(uint64_t seq, RandomNum
          return std::vector<uint8_t>{};
       }
       case Nonce_Format::CBC_MODE: {
-         if(!m_nonce.empty()) {
-            std::vector<uint8_t> nonce;
-            nonce.swap(m_nonce);
-            return nonce;
-         }
          std::vector<uint8_t> nonce(nonce_bytes_from_record());
          rng.randomize(nonce.data(), nonce.size());
          return nonce;
@@ -135,11 +130,6 @@ std::vector<uint8_t> Connection_Cipher_State::aead_nonce(const uint8_t record[],
          return std::vector<uint8_t>{};
       }
       case Nonce_Format::CBC_MODE: {
-         if(nonce_bytes_from_record() == 0 && !m_nonce.empty()) {
-            std::vector<uint8_t> nonce;
-            nonce.swap(m_nonce);
-            return nonce;
-         }
          if(record_len < nonce_bytes_from_record()) {
             throw Decoding_Error("Invalid CBC packet too short to be valid");
          }

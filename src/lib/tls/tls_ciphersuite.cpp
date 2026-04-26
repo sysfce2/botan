@@ -19,13 +19,8 @@ namespace Botan::TLS {
 
 size_t Ciphersuite::nonce_bytes_from_handshake() const {
    switch(m_nonce_format) {
-      case Nonce_Format::CBC_MODE: {
-         if(cipher_algo() == "3DES") {
-            return 8;
-         } else {
-            return 16;
-         }
-      }
+      case Nonce_Format::CBC_MODE:
+         return 0;
       case Nonce_Format::AEAD_IMPLICIT_4:
          return 4;
       case Nonce_Format::AEAD_XOR_12:
