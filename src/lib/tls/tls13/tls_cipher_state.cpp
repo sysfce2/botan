@@ -426,12 +426,17 @@ secure_vector<uint8_t> Cipher_State::psk(const Ticket_Nonce& nonce) const {
 
 Ticket_Nonce Cipher_State::next_ticket_nonce() {
    BOTAN_STATE_CHECK(m_state == State::Completed);
-   if(m_ticket_nonce == std::numeric_limits<decltype(m_ticket_nonce)>::max()) {
+   if(m_ticket_nonce_exhausted) {
       throw Botan::Invalid_State("ticket nonce pool exhausted");
    }
 
-   Ticket_Nonce retval(std::vector<uint8_t>(sizeof(m_ticket_nonce)));
-   store_be(m_ticket_nonce++, retval.data());
+   auto retval = store_be<Ticket_Nonce>(m_ticket_nonce);
+
+   if(m_ticket_nonce == std::numeric_limits<decltype(m_ticket_nonce)>::max()) {
+      m_ticket_nonce_exhausted = true;
+   } else {
+      ++m_ticket_nonce;
+   }
 
    return retval;
 }

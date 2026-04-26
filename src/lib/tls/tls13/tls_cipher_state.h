@@ -337,6 +337,7 @@ class BOTAN_TEST_API Cipher_State {
       uint32_t m_read_key_update_count;
 
       uint16_t m_ticket_nonce;
+      bool m_ticket_nonce_exhausted = false;
 
       secure_vector<uint8_t> m_finished_key;
       secure_vector<uint8_t> m_peer_finished_key;
