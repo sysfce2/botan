@@ -480,11 +480,13 @@ void Client_Impl_12::process_handshake_msg(const Handshake_State* active_state,
 
             state.set_expected_next(Handshake_Type::ServerKeyExchange);
             state.set_expected_next(Handshake_Type::ServerHelloDone);
-         } else if(state.ciphersuite().kex_method() != Kex_Algo::STATIC_RSA) {
-            state.set_expected_next(Handshake_Type::ServerKeyExchange);
          } else {
-            state.set_expected_next(Handshake_Type::CertificateRequest);  // optional
-            state.set_expected_next(Handshake_Type::ServerHelloDone);
+            // ECDHE_PSK ServerKeyExchange carries the ECDH parameters and
+            // immediately follows ServerHello.
+            //
+            // Suites using RSA key exchange or signature-authenticated ECDH
+            // were already routed to expect Certificate above.
+            state.set_expected_next(Handshake_Type::ServerKeyExchange);
          }
       }
    } else if(type == Handshake_Type::Certificate) {
