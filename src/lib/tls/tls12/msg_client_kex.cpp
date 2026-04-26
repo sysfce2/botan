@@ -50,6 +50,10 @@ Client_Key_Exchange::Client_Key_Exchange(Handshake_IO& io,
 
       const SymmetricKey psk = creds.psk("tls-client", std::string(hostname), m_psk_identity.value());
 
+      if(psk.empty()) {
+         throw TLS_Exception(Alert::InternalError, "Application did not provide a PSK for the negotiated identity");
+      }
+
       const std::vector<uint8_t> zeros(psk.length());
 
       append_tls_length_value(m_pre_master, zeros, 2);
@@ -67,6 +71,11 @@ Client_Key_Exchange::Client_Key_Exchange(Handshake_IO& io,
          append_tls_length_value(m_key_material, as_span_of_bytes(m_psk_identity.value()), 2);
 
          psk = creds.psk("tls-client", std::string(hostname), m_psk_identity.value());
+
+         if(psk.empty()) {
+            throw TLS_Exception(Alert::InternalError,
+                                "Application did not provide a PSK for the negotiated identity");
+         }
       }
 
       if(kex_algo == Kex_Algo::DH) {
