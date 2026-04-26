@@ -127,11 +127,19 @@ decltype(auto) default_session(Botan::TLS::Connection_Side side,
                                Botan::TLS::Callbacks& cbs,
                                Botan::TLS::Protocol_Version version = Botan::TLS::Protocol_Version::TLS_V12) {
    if(version.is_pre_tls_13()) {
-      return Botan::TLS::Session(
-         {}, version, 0x009C, side, true, true, {}, server_info(), 0, cbs.tls_current_timestamp());
+      return Botan::TLS::Session(Botan::secure_vector<uint8_t>(48, 0x42),
+                                 version,
+                                 0x009C,
+                                 side,
+                                 true,
+                                 true,
+                                 {},
+                                 server_info(),
+                                 0,
+                                 cbs.tls_current_timestamp());
    } else {
    #if defined(BOTAN_HAS_TLS_13)
-      return Botan::TLS::Session({},
+      return Botan::TLS::Session(Botan::secure_vector<uint8_t>(32, 0x42),
                                  std::nullopt,
                                  0,
                                  std::chrono::seconds(1024),
@@ -395,8 +403,11 @@ std::vector<Test::Result> test_session_manager_choose_ticket() {
    auto default_session = [&](const std::string& suite,
                               Botan::TLS::Callbacks& mycbs,
                               Botan::TLS::Protocol_Version version = Botan::TLS::Protocol_Version::TLS_V13) {
+      // The session deserializer enforces 48-byte master_secret on TLS 1.2
+      // and 32-or-48-byte session_psk on TLS 1.3. 48 bytes covers both.
+      const Botan::secure_vector<uint8_t> dummy_secret(48, 0x42);
       return (version.is_pre_tls_13())
-                ? Botan::TLS::Session({},
+                ? Botan::TLS::Session(dummy_secret,
                                       version,
                                       Botan::TLS::Ciphersuite::from_name(suite)->ciphersuite_code(),
                                       Botan::TLS::Connection_Side::Server,
@@ -406,7 +417,7 @@ std::vector<Test::Result> test_session_manager_choose_ticket() {
                                       server_info(),
                                       0,
                                       mycbs.tls_current_timestamp())
-                : Botan::TLS::Session({},
+                : Botan::TLS::Session(dummy_secret,
                                       std::nullopt,
                                       0,
                                       std::chrono::seconds(1024),

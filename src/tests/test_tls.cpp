@@ -55,7 +55,7 @@ class TLS_Session_Tests final : public Test {
       std::vector<Test::Result> run() override {
          Test::Result result("TLS::Session");
 
-         const Botan::TLS::Session session(Botan::secure_vector<uint8_t>{0xCC, 0xDD},
+         const Botan::TLS::Session session(Botan::secure_vector<uint8_t>(48, 0xCC),
                                            Botan::TLS::Protocol_Version::TLS_V12,
                                            0xC02F,
                                            Botan::TLS::Connection_Side::Client,
