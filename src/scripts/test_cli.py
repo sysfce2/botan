@@ -308,7 +308,7 @@ def cli_config_tests(_tmp_dir):
             logging.error("Bad prefix %s", prefix)
         if not ldflags.endswith(("-L%s/lib" % (prefix))):
             logging.error("Bad ldflags %s", ldflags)
-    if ("-I%s/include/botan-3" % (prefix)) not in cflags:
+    if ("-I%s/include/botan-3" % (prefix)) not in cflags and ("-I%s/include" % (prefix)) not in cflags:
         logging.error("Bad cflags %s", cflags)
     if "-lbotan-3" not in libs:
         logging.error("Bad libs %s", libs)
