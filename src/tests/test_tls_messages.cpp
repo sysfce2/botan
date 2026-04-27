@@ -418,12 +418,33 @@ class TLS_Extension_Parsing_Test final : public Text_Based_Test {
                   const Botan::TLS::Key_Share key_share(
                      tls_data_reader, static_cast<uint16_t>(buffer.size()), Botan::TLS::Handshake_Type::ClientHello);
                });
+            } else if(extension == "key_share_HRR") {
+               result.test_throws("invalid key_share_HRR extension input", exception, [&buffer]() {
+                  Botan::TLS::TLS_Data_Reader tls_data_reader("HelloRetryRequest", buffer);
+                  const Botan::TLS::Key_Share key_share(tls_data_reader,
+                                                        static_cast<uint16_t>(buffer.size()),
+                                                        Botan::TLS::Handshake_Type::HelloRetryRequest);
+               });
+            } else if(extension == "key_share_SH") {
+               result.test_throws("invalid key_share_SH extension input", exception, [&buffer]() {
+                  Botan::TLS::TLS_Data_Reader tls_data_reader("ServerHello", buffer);
+                  const Botan::TLS::Key_Share key_share(
+                     tls_data_reader, static_cast<uint16_t>(buffer.size()), Botan::TLS::Handshake_Type::ServerHello);
+               });
+            } else if(extension == "signature_algorithms_cert") {
+               result.test_throws("invalid signature_algorithms_cert extension input", exception, [&buffer]() {
+                  Botan::TLS::TLS_Data_Reader tls_data_reader("Extension", buffer);
+                  const Botan::TLS::Signature_Algorithms_Cert sig_algo_cert(tls_data_reader,
+                                                                            static_cast<uint16_t>(buffer.size()));
+               });
             } else if(extension == "alpn") {
                result.test_throws("invalid alpn extension input", exception, [&buffer]() {
                   Botan::TLS::TLS_Data_Reader tls_data_reader("ClientHello", buffer);
                   const Botan::TLS::Application_Layer_Protocol_Notification alpn(
                      tls_data_reader, static_cast<uint16_t>(buffer.size()), Botan::TLS::Connection_Side::Client);
                });
+            } else {
+               throw Test_Error("Unknown extension type " + extension + " in TLS parsing negative tests");
             }
          }
 
