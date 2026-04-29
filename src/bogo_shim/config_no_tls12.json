@@ -60,7 +60,19 @@
         "WrongMessageType-TLS13-ClientCertificate-TLS": "too picky TLS alert",
         "TrailingMessageData-TLS13-ClientCertificate-TLS": "too picky TLS alert",
         "GarbageCertificate-Server-TLS13": "too picky TLS alert",
-        "AppDataBeforeTLS13KeyChange": "too picky TLS alert"
+        "AppDataBeforeTLS13KeyChange": "too picky TLS alert",
+        "ExtensionTrailingData-ServerName-Client-TLS-TLS12": "Botan sends illegal_parameter for malformed server SNI; BoGo expects decode_error",
+        "ExtensionTrailingData-ServerName-Client-TLS-TLS13": "Botan sends illegal_parameter for malformed server SNI; BoGo expects decode_error",
+        "ExtensionTrailingData-ServerName-Client-DTLS-TLS12": "Botan sends illegal_parameter for malformed server SNI; BoGo expects decode_error",
+        "ClientCertificateType-Server-RejectsInvalidEmptyExtension-VerifyPeer-TLS13": "Botan sends decode_error, BoGo expects illegal_parameter",
+        "ClientCertificateType-Server-RejectsInvalidEmptyExtension-FailIfNoClientCert-TLS13": "Botan sends decode_error, BoGo expects illegal_parameter",
+        "ClientCertificateType-Server-RejectsInvalidDefaultOnly-FailIfNoClientCert-TLS13": "Botan reports PEER_DID_NOT_RETURN_A_CERTIFICATE, BoGo expects DECODE_ERROR",
+        "ClientCertificateType-Server-NoClientHelloCertTypes-NoSharedType-FailIfNoClientCert-TLS13": "Botan reports PEER_DID_NOT_RETURN_A_CERTIFICATE, BoGo expects UNSUPPORTED_CERTIFICATE",
+        "ServerCertificateType-Client-RequestsRPKOnly-NegotiatedRPK-ServerIncorrectlySentX509-TLS13": "Botan parses RPK as X.509 and fails with BER decode error rather than DECODE_ERROR cleanly",
+        "ServerCertificateType-Client-RequestsRPKOnly-ServerSentEmptyRPK-TLS13": "Empty RPK rejected with generic ASN.1 error rather than INVALID_RAW_PUBLIC_KEY",
+        "ClientCertificateType-Server-RPKReceived-RPKAccepted-ClientSentX509InError-VerifyPeer-TLS13": "Botan parses RPK as X.509 and fails with BER decode error rather than DECODE_ERROR cleanly",
+        "ClientCertificateType-Server-RPKReceived-RPKAccepted-ClientSentX509InError-FailIfNoClientCert-TLS13": "Botan parses RPK as X.509 and fails with BER decode error rather than DECODE_ERROR cleanly",
+        "ClientCertificateType-Server-ClientSentEmptyRPK-TLS13": "Empty RPK rejected with generic ASN.1 error rather than INVALID_RAW_PUBLIC_KEY"
     },
     "DisabledTests": {
         "*TLS1": "No TLS 1.0",
@@ -277,14 +289,27 @@
         "TLS12-NoTicket-NoOffer": "Different session ticket/ID handling",
         "PAKE-*": "No PAKE support",
         "TrustAnchors-EmptyID-*": "No TrustAnchors extension support",
+        "TrustAnchors-ServerSelect-*": "No TrustAnchors extension support",
+        "TrustAnchors-ServerReceiveEmptyRequest": "No TrustAnchors extension support",
+        "ExtensionTrailingData-TrustAnchors-ClientHello-Server-TLS-TLS13": "No TrustAnchors extension support",
+        "PSK-Server-CertOrPSK-Cert-*": "Botan shim does not honor credential ordering between PSK and X.509",
+        "ClientCertificateType-Client-OffersRPKOnly-ServerOmitsExtension-TLS13": "Botan does not reject when server omits cert_type extension and client only offers RPK",
+        "*ML-DSA*": "Need support for the LAMPS tagged seed keys",
         "TLS13-EmptyRecords-DTLS": "No DTLS 1.3",
         "TLS13-RecordPadding-DTLS": "No DTLS 1.3",
         "ClientCertificateType-Server-*-TLS12": "Botan does not support RPK certificate type negotiation in TLS 1.2",
-        "ClientCertificateType-Server-RejectsInvalidEmptyExtension-TLS13": "Botan does not validate empty cert type extension",
-        "ClientCertificateType-Server-RejectsInvalidDefaultOnly-TLS13": "Botan does not reject X509-only cert type extension",
-        "ClientCertificateType-Server-IgnoresUnknownValue-NoOtherType-TLS13": "Botan does not reject when no shared cert type exists",
-        "ClientCertificateType-Server-IgnoresUnknownValue-NoSharedType-TLS13": "Botan does not reject when no shared cert type exists",
-        "ClientCertificateType-Server-NoClientHelloCertTypes-NoSharedType-TLS13": "Botan does not reject when no shared cert type exists",
+        "ClientCertificateType-Client-*-TLS12*": "Botan does not support RPK certificate type negotiation in TLS 1.2",
+        "ServerCertificateType-Server-*-TLS12*": "Botan does not support RPK certificate type negotiation in TLS 1.2",
+        "ServerCertificateType-Client-RequestsRPKOnly-*-TLS12": "Botan does not support RPK certificate type negotiation in TLS 1.2",
+        "ServerCertificateType-Client-RequestsRPKX509-*-TLS12": "Botan does not support RPK certificate type negotiation in TLS 1.2",
+        "ServerCertificateType-Client-RequestsX509RPK-*-TLS12": "Botan does not support RPK certificate type negotiation in TLS 1.2",
+        "ServerCertificateType-Client-RPKVerifyFail-TLS12": "Botan does not support RPK certificate type negotiation in TLS 1.2",
+        "ServerCertificateType-Client-RequestsDefaultOnly-ServerPickedRPKInError-TLS12": "Botan does not support RPK certificate type negotiation in TLS 1.2",
+        "ClientCertificateType-Server-RejectsInvalidDefaultOnly-VerifyPeer-TLS13": "Botan does not reject X509-only cert type extension",
+        "ClientCertificateType-Server-NoClientHelloCertTypes-NoSharedType-VerifyPeer-TLS13": "Botan does not reject when no shared cert type exists",
+        "ServerCertificateType-Server-RejectsDefaultOnly-TLS12": "Botan does not reject X509-only cert type extension as server",
+        "ServerCertificateType-Server-RejectsDefaultOnly-TLS13": "Botan does not reject X509-only cert type extension as server",
+        "ServerCertificateType-Client-RequestsRPKOnly-ServerPickedX509ByDefaultInError-TLS13": "Botan does not enforce client-side cert type rejection of unsolicited X509",
         "PSK-Client-PSKRequired-TLS": "Botan client does not enforce PSK-only mode",
         "PSK-Client-PSKRequired-TLS12-TLS": "Botan client does not enforce PSK-only mode",
         "PSK-*-DTLS": "No DTLS 1.3",
@@ -296,6 +321,13 @@
     },
     "ErrorMap": {
         ":CLIENTHELLO_PARSE_FAILED:": [
+            ":DECODE_ERROR:"
+        ],
+        ":BAD_DECRYPT:": [
+            ":DECRYPTION_FAILED_OR_BAD_RECORD_MAC:"
+        ],
+        ":ERROR_PARSING_EXTENSION:": [
+            ":ERROR_PARSING_EXTENSION:",
             ":DECODE_ERROR:"
         ]
     }
