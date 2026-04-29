@@ -332,7 +332,7 @@ int botan_scrub_mem(void* mem, size_t bytes) {
 }
 
 int botan_hex_encode(const uint8_t* in, size_t len, char* out, uint32_t flags) {
-   if(len > 0 && in == nullptr) {
+   if(len > 0 && (in == nullptr || out == nullptr)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
    return ffi_guard_thunk(__func__, [=]() -> int {
