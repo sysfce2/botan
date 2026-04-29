@@ -406,9 +406,10 @@ void Channel_Impl_12::process_handshake_ccs(const secure_vector<uint8_t>& record
 
             const uint16_t epoch = record_sequence >> 48;
 
-            if(epoch == sequence_numbers().current_read_epoch()) {
+            const uint16_t current_epoch = sequence_numbers().current_read_epoch();
+            if(epoch == current_epoch) {
                create_handshake_state(record_version);
-            } else if(epoch == sequence_numbers().current_read_epoch() - 1) {
+            } else if(current_epoch > 0 && epoch == current_epoch - 1) {
                BOTAN_ASSERT(m_active_state, "Have active state here");
                m_active_state->handshake_io().add_record(record.data(), record.size(), record_type, record_sequence);
             }
@@ -445,13 +446,24 @@ void Channel_Impl_12::process_application_data(uint64_t seq_no, const secure_vec
       throw Unexpected_Message("Application data before handshake done");
    }
 
+   // ApplicationData must arrive under a non-zero read epoch
+   const uint16_t read_epoch =
+      m_is_datagram ? static_cast<uint16_t>(seq_no >> 48) : sequence_numbers().current_read_epoch();
+   if(read_epoch == 0) {
+      throw Unexpected_Message("Application data received in unexpected read epoch");
+   }
+
    callbacks().tls_record_received(seq_no, record);
 }
 
 void Channel_Impl_12::process_alert(const secure_vector<uint8_t>& record) {
    const Alert alert_msg(record);
 
-   if(alert_msg.type() == Alert::NoRenegotiation) {
+   // RFC 5246 7.2.2:
+   //    no_renegotiation
+   //       Sent by the client in response to a hello request or by the
+   //       server in response to a client hello after initial handshaking.
+   if(alert_msg.type() == Alert::NoRenegotiation && active_state() != nullptr) {
       m_pending_state.reset();
    }
 
@@ -543,7 +555,7 @@ void Channel_Impl_12::send_alert(const Alert& alert) {
       }
    }
 
-   if(alert.type() == Alert::NoRenegotiation) {
+   if(alert.type() == Alert::NoRenegotiation && active_state() != nullptr) {
       m_pending_state.reset();
    }
 

@@ -307,17 +307,23 @@ void Server_Impl_13::handle_reply_to_client_hello(Server_Hello_13 server_hello) 
       }
    }();
 
+   // Decide up front whether we will request client authentication so the
+   // EncryptedExtensions can attach client_certificate_type when applicable
+   // (RFC 7250 4.2 requires the two messages to agree).
+   auto certificate_request =
+      uses_psk ? std::nullopt
+               : Certificate_Request_13::maybe_create(client_hello, credentials_manager(), callbacks(), policy());
+
    auto flight = aggregate_handshake_messages();
-   flight.add(m_handshake_state.sending(
-      Encrypted_Extensions(client_hello, policy(), callbacks(), m_resumed_session.has_value())));
+   flight.add(m_handshake_state.sending(Encrypted_Extensions(
+      client_hello, policy(), callbacks(), m_resumed_session.has_value(), certificate_request.has_value())));
 
    if(!uses_psk) {
       // RFC 8446 4.3.2
       //    A server which is authenticating with a certificate MAY optionally
       //    request a certificate from the client. This message, if sent, MUST
       //    follow EncryptedExtensions.
-      if(auto certificate_request =
-            Certificate_Request_13::maybe_create(client_hello, credentials_manager(), callbacks(), policy())) {
+      if(certificate_request.has_value()) {
          flight.add(m_handshake_state.sending(std::move(certificate_request.value())));
       }
 
@@ -470,7 +476,9 @@ void Server_Impl_13::handle(const Client_Hello_13& client_hello) {
    if(!is_initial_client_hello) {
       const auto& hrr_exts = m_handshake_state.hello_retry_request().extensions();
       const auto offered_groups = exts.get<Key_Share>()->offered_groups();
-      const auto selected_group = hrr_exts.get<Key_Share>()->selected_group();
+      const auto* hrr_key_share = hrr_exts.get<Key_Share>();
+      BOTAN_ASSERT_NONNULL(hrr_key_share);
+      const auto selected_group = hrr_key_share->selected_group();
       if(offered_groups.size() != 1 || offered_groups.at(0) != selected_group) {
          throw TLS_Exception(Alert::IllegalParameter, "Client did not comply with the requested key exchange group");
       }

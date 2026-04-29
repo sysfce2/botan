@@ -62,7 +62,12 @@ Certificate_12::Certificate_12(const std::vector<uint8_t>& buf, const Policy& po
       }
 
       DataSource_Memory cert_buf(&certs[3], cert_size);
-      m_certs.push_back(X509_Certificate(cert_buf));
+      try {
+         m_certs.push_back(X509_Certificate(cert_buf));
+      } catch(Exception& e) {
+         // bad_certificate would make more sense but BoGo expects decoding_error
+         throw TLS_Exception(Alert::DecodeError, e.what());
+      }
 
       certs += cert_size + 3;
    }

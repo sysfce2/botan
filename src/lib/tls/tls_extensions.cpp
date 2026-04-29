@@ -74,6 +74,9 @@ std::unique_ptr<Extension> make_extension(TLS_Data_Reader& reader,
       case Extension_Code::SupportedVersions:
          return std::make_unique<Supported_Versions>(reader, size, from);
 
+      case Extension_Code::Padding:
+         break;  // RFC 7685, recognized but not implemented; falls through to Unknown_Extension
+
 #if defined(BOTAN_HAS_TLS_12)
       case Extension_Code::EcPointFormats:
          return std::make_unique<Supported_Point_Formats>(reader, size);
@@ -88,7 +91,7 @@ std::unique_ptr<Extension> make_extension(TLS_Data_Reader& reader,
          return std::make_unique<Encrypt_then_MAC>(reader, size);
 
       case Extension_Code::SessionTicket:
-         return std::make_unique<Session_Ticket_Extension>(reader, size);
+         return std::make_unique<Session_Ticket_Extension>(reader, size, from);
 #else
       case Extension_Code::EcPointFormats:
       case Extension_Code::SafeRenegotiation:
@@ -238,6 +241,9 @@ std::vector<uint8_t> Extensions::serialize(Connection_Side whoami) const {
 
       const std::vector<uint8_t> extn_val = extn->serialize(whoami);
 
+      // Each extension carries a uint16 length prefix.
+      BOTAN_ASSERT_NOMSG(extn_val.size() <= 0xFFFF);
+
       buf.push_back(get_byte<0>(extn_code));
       buf.push_back(get_byte<1>(extn_code));
 
@@ -247,6 +253,8 @@ std::vector<uint8_t> Extensions::serialize(Connection_Side whoami) const {
       buf += extn_val;
    }
 
+   // The outer extensions block is itself uint16-length-prefixed.
+   BOTAN_ASSERT_NOMSG(buf.size() - 2 <= 0xFFFF);
    const uint16_t extn_size = static_cast<uint16_t>(buf.size() - 2);
 
    buf[0] = get_byte<0>(extn_size);
@@ -285,9 +293,13 @@ void Extensions::reorder(const std::vector<Extension_Code>& order) {
       }
    }
 
-   // Then: extensions in the specified order
+   // Then: extensions in the specified order. Deduplicate so a caller that
+   // accidentally lists the same code twice doesn't cause it to be
+   // serialized twice (which would also break peers that reject duplicate
+   // extension codes per RFC 8446 4.2 / RFC 5246 7.4.1.4).
+   std::unordered_set<Extension_Code> already_pushed;
    for(auto code : order) {
-      if(m_extensions.contains(code)) {
+      if(m_extensions.contains(code) && already_pushed.insert(code).second) {
          new_codes.push_back(code);
       }
    }
@@ -326,7 +338,10 @@ Server_Name_Indicator::Server_Name_Indicator(TLS_Data_Reader& reader, uint16_t e
 
       const uint16_t name_bytes = reader.get_uint16_t();
 
-      if(name_bytes + 2 != extension_size || name_bytes < 3) {
+      // RFC 6066 3: a ServerName carrying a host_name (the only NameType
+      // currently defined and the only one this implementation acts on)
+      // requires at least 1 byte name_type + 2 byte length + 1 byte HostName.
+      if(name_bytes + 2 != extension_size || name_bytes < 4) {
          throw Decoding_Error("Bad encoding of SNI extension");
       }
 
@@ -372,6 +387,11 @@ std::vector<uint8_t> Server_Name_Indicator::serialize(Connection_Side whoami) co
 
    const size_t name_len = m_sni_host_name.size();
 
+   // RFC 6066 3: HostName<1..2^16-1>; the outer ServerNameList wraps a
+   // 1-byte name_type and a 2-byte length so the whole entry must fit in
+   // a uint16_t too.
+   BOTAN_ASSERT_NOMSG(name_len + 3 <= 0xFFFF);
+
    buf.push_back(get_byte<0>(static_cast<uint16_t>(name_len + 3)));
    buf.push_back(get_byte<1>(static_cast<uint16_t>(name_len + 3)));
    buf.push_back(0);  // DNS
@@ -403,10 +423,25 @@ bool Server_Name_Indicator::hostname_acceptable_for_sni(std::string_view hostnam
    return true;
 }
 
+Application_Layer_Protocol_Notification::Application_Layer_Protocol_Notification(std::string_view protocol) {
+   BOTAN_ARG_CHECK(!protocol.empty(), "ALPN protocol name must not be empty");
+   BOTAN_ARG_CHECK(protocol.size() < 256, "ALPN protocol name too long");
+   m_protocols.emplace_back(protocol);
+}
+
+Application_Layer_Protocol_Notification::Application_Layer_Protocol_Notification(
+   const std::vector<std::string>& protocols) :
+      m_protocols(protocols) {
+   for(const auto& protocol : protocols) {
+      BOTAN_ARG_CHECK(!protocol.empty(), "ALPN protocol name must not be empty");
+      BOTAN_ARG_CHECK(protocol.size() < 256, "ALPN protocol name too long");
+   }
+}
+
 Application_Layer_Protocol_Notification::Application_Layer_Protocol_Notification(TLS_Data_Reader& reader,
                                                                                  uint16_t extension_size,
                                                                                  Connection_Side from) {
-   if(extension_size == 0) {
+   if(extension_size < 2) {
       throw Decoding_Error("ALPN extension cannot be empty");
    }
 
@@ -416,6 +451,11 @@ Application_Layer_Protocol_Notification::Application_Layer_Protocol_Notification
 
    if(name_bytes != bytes_remaining) {
       throw Decoding_Error("Bad encoding of ALPN extension, bad length field");
+   }
+
+   // RFC 7301 3.1: ProtocolName protocol_name_list<2..2^16-1>
+   if(name_bytes == 0) {
+      throw Decoding_Error("Empty ALPN protocol_name_list not allowed");
    }
 
    while(bytes_remaining > 0) {
@@ -462,6 +502,8 @@ std::vector<uint8_t> Application_Layer_Protocol_Notification::serialize(Connecti
       }
    }
 
+   // RFC 7301 3.1: ProtocolName protocol_name_list<2..2^16-1>;
+   BOTAN_ASSERT_NOMSG(buf.size() - 2 <= 0xFFFF);
    buf[0] = get_byte<0>(static_cast<uint16_t>(buf.size() - 2));
    buf[1] = get_byte<1>(static_cast<uint16_t>(buf.size() - 2));
 
@@ -513,6 +555,10 @@ Certificate_Type_Base::Certificate_Type_Base(TLS_Data_Reader& reader, uint16_t e
       const auto type_bytes = reader.get_tls_length_value(1);
       if(static_cast<size_t>(extension_size) != type_bytes.size() + 1) {
          throw Decoding_Error("certificate type extension had inconsistent length");
+      }
+      // RFC 7250 4: {client,server}_certificate_types<1..2^8-1> so must be non-empty
+      if(type_bytes.empty()) {
+         throw Decoding_Error("Certificate type extension contains no types");
       }
       std::transform(
          type_bytes.begin(), type_bytes.end(), std::back_inserter(m_certificate_types), [](const auto type_byte) {
@@ -605,6 +651,8 @@ std::vector<uint8_t> Supported_Groups::serialize(Connection_Side /*whoami*/) con
       }
    }
 
+   // RFC 8446 4.2.7: NamedGroup named_group_list<2..2^16-1>;
+   BOTAN_ASSERT_NOMSG(buf.size() - 2 <= 0xFFFF);
    buf[0] = get_byte<0>(static_cast<uint16_t>(buf.size() - 2));
    buf[1] = get_byte<1>(static_cast<uint16_t>(buf.size() - 2));
 
@@ -616,6 +664,11 @@ Supported_Groups::Supported_Groups(TLS_Data_Reader& reader, uint16_t extension_s
 
    if(len + 2 != extension_size) {
       throw Decoding_Error("Inconsistent length field in supported groups list");
+   }
+
+   // RFC 8446 4.2.7: NamedGroup named_group_list<2..2^16-1>;
+   if(len == 0) {
+      throw Decoding_Error("Empty supported groups list");
    }
 
    if(len % 2 == 1) {
@@ -687,8 +740,17 @@ std::vector<uint8_t> Signature_Algorithms_Cert::serialize(Connection_Side /*whoa
 Signature_Algorithms_Cert::Signature_Algorithms_Cert(TLS_Data_Reader& reader, uint16_t extension_size) :
       m_schemes(parse_signature_algorithms(reader, extension_size)) {}
 
-SRTP_Protection_Profiles::SRTP_Protection_Profiles(TLS_Data_Reader& reader, uint16_t extension_size) :
-      m_pp(reader.get_range<uint16_t>(2, 0, 65535)) {
+SRTP_Protection_Profiles::SRTP_Protection_Profiles(TLS_Data_Reader& reader, uint16_t extension_size) {
+   // RFC 5764 4.1.1: UseSRTPData consists of
+   //    SRTPProtectionProfile SRTPProtectionProfiles<2..2^16-1>;
+   //    opaque srtp_mki<0..255>;
+   // for a wire size of 2 (profiles len) + 2*N + 1 (mki len) + mki_bytes,
+   // with N >= 1.
+   if(extension_size < 5) {
+      throw Decoding_Error("Truncated SRTP protection extension");
+   }
+   const size_t max_profile_pairs = (static_cast<size_t>(extension_size) - 3) / 2;
+   m_pp = reader.get_range<uint16_t>(2, 1, max_profile_pairs);
    const std::vector<uint8_t> mki = reader.get_range<uint8_t>(1, 0, 255);
 
    if(m_pp.size() * 2 + mki.size() + 3 != extension_size) {
@@ -725,7 +787,9 @@ std::vector<uint8_t> Supported_Versions::serialize(Connection_Side whoami) const
       buf.push_back(m_versions[0].major_version());
       buf.push_back(m_versions[0].minor_version());
    } else {
+      // RFC 8446 4.2.1: ProtocolVersion versions<2..254>; - up to 127 entries.
       BOTAN_ASSERT_NOMSG(!m_versions.empty());
+      BOTAN_ASSERT_NOMSG(m_versions.size() <= 127);
       const uint8_t len = static_cast<uint8_t>(m_versions.size() * 2);
 
       buf.push_back(len);

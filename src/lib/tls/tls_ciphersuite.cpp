@@ -19,13 +19,8 @@ namespace Botan::TLS {
 
 size_t Ciphersuite::nonce_bytes_from_handshake() const {
    switch(m_nonce_format) {
-      case Nonce_Format::CBC_MODE: {
-         if(cipher_algo() == "3DES") {
-            return 8;
-         } else {
-            return 16;
-         }
-      }
+      case Nonce_Format::CBC_MODE:
+         return 0;
       case Nonce_Format::AEAD_IMPLICIT_4:
          return 4;
       case Nonce_Format::AEAD_XOR_12:
@@ -53,6 +48,24 @@ size_t Ciphersuite::nonce_bytes_from_record(Protocol_Version version) const {
 }
 
 bool Ciphersuite::is_scsv(uint16_t suite) {
+   // Both signaling cipher suite values - skip them when iterating
+   // negotiable ciphersuites. The two callers are:
+   //
+   // - 0x00FF: TLS_EMPTY_RENEGOTIATION_INFO_SCSV (RFC 5746). Consumed by
+   //   Client_Hello_12::Client_Hello_12 to set secure_renegotiation when
+   //   the renegotiation_info extension is absent.
+   //
+   // - 0x5600: TLS_FALLBACK_SCSV (RFC 7507). Recognized so it is filtered
+   //   out of negotiation, but the inappropriate_fallback enforcement is
+   //   intentionally not implemented:
+   //     * Botan does not support TLS 1.0 / 1.1, so the 1.2 -> 1.0/1.1
+   //       fallback that SCSV was originally designed to detect cannot
+   //       occur here.
+   //     * The 1.3 -> 1.2 downgrade is already protected by the
+   //       ServerHello.random sentinel (RFC 8446 4.1.3, DOWNGRADE_TLS12),
+   //       which Botan's TLS 1.3 client enforces at
+   //       tls_client_impl_13.cpp via random_signals_downgrade().
+   //
    // TODO: derive from IANA file in script
    return (suite == 0x00FF || suite == 0x5600);
 }
@@ -169,7 +182,7 @@ bool Ciphersuite::is_usable() const {
          const auto& mode = cipher_and_mode[1];
 
 #if !defined(BOTAN_HAS_AEAD_CCM)
-         if(mode == "CCM" || mode == "CCM-8") {
+         if(mode == "CCM" || mode == "CCM(8)") {
             return false;
          }
 #endif

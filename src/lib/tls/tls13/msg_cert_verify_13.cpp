@@ -38,7 +38,9 @@ Signature_Scheme choose_signature_scheme(const Private_Key& key,
                                          const std::vector<Signature_Scheme>& allowed_schemes,
                                          const std::vector<Signature_Scheme>& peer_allowed_schemes) {
    for(Signature_Scheme scheme : allowed_schemes) {
-      if(scheme.is_available() && scheme.is_suitable_for(key) && value_exists(peer_allowed_schemes, scheme)) {
+      // RFC 8446 4.4.3 forbids the rsa_pkcs1_* schemes in CertificateVerify, those are TLS 1.2 only.
+      if(scheme.is_available() && scheme.is_compatible_with(Protocol_Version::TLS_V13) && scheme.is_suitable_for(key) &&
+         value_exists(peer_allowed_schemes, scheme)) {
          return scheme;
       }
    }

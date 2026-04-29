@@ -19,9 +19,9 @@ Exception = Bad encoding on signature algorithms extension
 
 # incorrect extension content size 0
 Buffer = 00000304
-Exception = signature_algorithms_cert length must be bigger than 0
+Exception = Bad encoding on signature algorithms extension
 
 # incorrect extension content size 256
 Buffer = 0100040104030804
-Exception = Too many signature schemes
+Exception = Bad encoding on signature algorithms extension
 

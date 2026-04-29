@@ -24,3 +24,7 @@ Exception = Inconsistent length field in supported groups list
 # incorrect extension odd bytes number
 Buffer = 0003001700
 Exception = Supported groups list of strange size
+
+# empty list (RFC 8446 4.2.7 requires named_group_list<2..2^16-1>)
+Buffer = 0000
+Exception = Empty supported groups list

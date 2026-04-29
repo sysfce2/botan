@@ -456,7 +456,7 @@ std::vector<Test::Result> test_secret_derivation_rfc8448_rtt1() {
                      result.test_bin_eq("nonce is 0x00, 0x01", cs->next_ticket_nonce().get(), "0001");
                      result.test_bin_eq("nonce is 0x00, 0x02", cs->next_ticket_nonce().get(), "0002");
 
-                     for(uint32_t i = 3; i < std::numeric_limits<uint16_t>::max(); ++i) {
+                     for(uint32_t i = 3; i <= std::numeric_limits<uint16_t>::max(); ++i) {
                         cs->next_ticket_nonce();
                      }
 

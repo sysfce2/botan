@@ -15,6 +15,7 @@
 #include <botan/tls_messages_12.h>
 #include <botan/tls_policy.h>
 #include <botan/tls_version.h>
+#include <botan/internal/ct_utils.h>
 #include <botan/internal/stl_util.h>
 #include <botan/internal/tls_handshake_state.h>
 #include <botan/internal/tls_messages_internal.h>
@@ -197,9 +198,14 @@ uint16_t choose_ciphersuite(const Policy& policy,
             }
          }
 
-         if(we_support_some_hash_by_client == false) {
-            throw TLS_Exception(Alert::HandshakeFailure,
-                                "Policy does not accept any hash function supported by client");
+         // The client's signature_algorithms list might not include a scheme
+         // matching this suite's sig_algo (e.g. the client offered ECDSA
+         // schemes but we're considering an RSA suite). That's just a
+         // mismatch on this candidate, not a handshake-fatal condition - try
+         // the next suite. The final "Can't agree on a ciphersuite" throw
+         // below fires only if no candidate works.
+         if(!we_support_some_hash_by_client) {
+            continue;
          }
       }
 
@@ -423,7 +429,7 @@ void Server_Impl_12::process_client_hello_msg(const Handshake_State* active_stat
          const Hello_Verify_Request verify(
             pending_state.client_hello()->cookie_input_data(), client_identity, cookie_secret);
 
-         if(pending_state.client_hello()->cookie() != verify.cookie()) {
+         if(!CT::is_equal<uint8_t>(pending_state.client_hello()->cookie(), verify.cookie()).as_bool()) {
             if(epoch0_restart) {
                pending_state.handshake_io().send_under_epoch(verify, 0);
             } else {
@@ -442,9 +448,33 @@ void Server_Impl_12::process_client_hello_msg(const Handshake_State* active_stat
    if(epoch0_restart) {
       // If we reached here then we were able to verify the cookie
       reset_active_association_state();
+      // This was pointing to m_active_state which was freed by reset_active_association_state
+      active_state = nullptr;
    }
 
    secure_renegotiation_check(pending_state.client_hello());
+
+   // RFC 7627 / RFC 9325 4.4: optionally require Extended Master Secret
+   if(policy().require_extended_master_secret() && !pending_state.client_hello()->supports_extended_master_secret()) {
+      throw TLS_Exception(Alert::HandshakeFailure,
+                          "Policy requires the Extended Master Secret extension but the client did not send it");
+   }
+
+   // RFC 7627 5.3 has an explicit MUST regarding EMS mismatch on resumption
+   //
+   //    "If the original session used the 'extended_master_secret'
+   //     extension but the new ClientHello does not contain it, the
+   //     server MUST abort the abbreviated handshake."
+   //
+   // There is apparently no RFC requirement that a client must not drop EMS between the
+   // initial negotiation and a renegotiation... but there is also no RFC requirement
+   // that we must accept it. So we don't.
+   if(active_state != nullptr && active_state->server_hello() != nullptr &&
+      active_state->server_hello()->supports_extended_master_secret() &&
+      !pending_state.client_hello()->supports_extended_master_secret()) {
+      throw TLS_Exception(Alert::HandshakeFailure,
+                          "Renegotiation ClientHello dropped the Extended Master Secret extension");
+   }
 
    callbacks().tls_examine_extensions(
       pending_state.client_hello()->extensions(), Connection_Side::Client, Handshake_Type::ClientHello);
@@ -459,7 +489,14 @@ void Server_Impl_12::process_client_hello_msg(const Handshake_State* active_stat
 
    m_next_protocol = "";
    if(pending_state.client_hello()->supports_alpn()) {
-      m_next_protocol = callbacks().tls_server_choose_app_protocol(pending_state.client_hello()->next_protocols());
+      const auto offered = pending_state.client_hello()->next_protocols();
+      m_next_protocol = callbacks().tls_server_choose_app_protocol(offered);
+      // RFC 7301 3.2: if a protocol is selected, the server MUST select one
+      // of the protocols advertised by the client. An empty return signals
+      // "no ALPN" and is allowed.
+      if(!m_next_protocol.empty() && !value_exists(offered, m_next_protocol)) {
+         throw TLS_Exception(Alert::InternalError, "Application chose an ALPN protocol that the client did not offer");
+      }
    }
 
    if(session_info.has_value()) {
@@ -520,8 +557,11 @@ void Server_Impl_12::process_certificate_verify_msg(Server_Handshake_State& pend
       throw TLS_Exception(Alert::DecodeError, "No client certificate sent");
    }
 
-   if(!client_certs[0].allowed_usage(Key_Constraints::DigitalSignature)) {
-      throw TLS_Exception(Alert::BadCertificate, "Client certificate does not support signing");
+   const auto cert_constraints = client_certs[0].constraints();
+   if(!cert_constraints.empty()) {
+      if(!cert_constraints.includes_any(Key_Constraints::DigitalSignature, Key_Constraints::NonRepudiation)) {
+         throw TLS_Exception(Alert::BadCertificate, "Client certificate does not support signing");
+      }
    }
 
    const bool sig_valid = pending_state.client_verify()->verify(client_certs[0], pending_state, policy());

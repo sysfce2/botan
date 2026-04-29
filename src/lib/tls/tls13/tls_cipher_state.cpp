@@ -254,7 +254,6 @@ uint64_t Cipher_State::encrypt_record_fragment(const std::vector<uint8_t>& heade
       throw Invalid_State("TLS write sequence number overflow");
    }
 
-   m_encrypt->set_key(m_write_key);
    m_encrypt->set_associated_data(header);
    m_encrypt->start(current_nonce(m_write_seq_no, m_write_iv));
    m_encrypt->finish(fragment);
@@ -273,7 +272,6 @@ uint64_t Cipher_State::decrypt_record_fragment(const std::vector<uint8_t>& heade
       throw Invalid_State("TLS read sequence number overflow");
    }
 
-   m_decrypt->set_key(m_read_key);
    m_decrypt->set_associated_data(header);
    m_decrypt->start(current_nonce(m_read_seq_no, m_read_iv));
 
@@ -369,12 +367,17 @@ bool Cipher_State::is_compatible_with(const Ciphersuite& cipher) const {
    }
 
    BOTAN_ASSERT_NOMSG((m_encrypt == nullptr) == (m_decrypt == nullptr));
-   // TODO: Find a better way to check that the instantiated cipher algorithm
-   //       is compatible with the one required by the cipher suite.
-   // AEAD_Mode::create() sets defaults the tag length to 16 which is then
-   // reported via AEAD_Mode::name() and hinders the trivial string comparison.
-   if(m_encrypt && m_encrypt->name() != cipher.cipher_algo() && m_encrypt->name() != cipher.cipher_algo() + "(16)") {
-      return false;
+   // Compare canonical AEAD names rather than substring-matching cipher_algo
+   // against m_encrypt->name(). starts_with() is both too permissive (an
+   // AES-128/CCM-8 instance starts with "AES-128/CCM" so it would accept the
+   // CCM-16 suite) and too restrictive (cipher_algo "AES-128/CCM(8)" does not
+   // prefix the canonical "AES-128/CCM(8,3)"). Re-instantiating the AEAD from
+   // cipher_algo yields the same canonical name() the suite would produce.
+   if(m_encrypt) {
+      auto canonical = AEAD_Mode::create(cipher.cipher_algo(), Cipher_Dir::Encryption);
+      if(!canonical || canonical->name() != m_encrypt->name()) {
+         return false;
+      }
    }
 
    return true;
@@ -421,12 +424,17 @@ secure_vector<uint8_t> Cipher_State::psk(const Ticket_Nonce& nonce) const {
 
 Ticket_Nonce Cipher_State::next_ticket_nonce() {
    BOTAN_STATE_CHECK(m_state == State::Completed);
-   if(m_ticket_nonce == std::numeric_limits<decltype(m_ticket_nonce)>::max()) {
+   if(m_ticket_nonce_exhausted) {
       throw Botan::Invalid_State("ticket nonce pool exhausted");
    }
 
-   Ticket_Nonce retval(std::vector<uint8_t>(sizeof(m_ticket_nonce)));
-   store_be(m_ticket_nonce++, retval.data());
+   auto retval = store_be<Ticket_Nonce>(m_ticket_nonce);
+
+   if(m_ticket_nonce == std::numeric_limits<decltype(m_ticket_nonce)>::max()) {
+      m_ticket_nonce_exhausted = true;
+   } else {
+      ++m_ticket_nonce;
+   }
 
    return retval;
 }
@@ -550,6 +558,8 @@ void Cipher_State::derive_write_traffic_key(const secure_vector<uint8_t>& traffi
    m_write_iv = hkdf_expand_label(traffic_secret, "iv", {}, NONCE_LENGTH);
    m_write_seq_no = 0;
 
+   m_encrypt->set_key(m_write_key);
+
    if(handshake_traffic_secret) {
       // Key derivation for the MAC in the "Finished" handshake message as described in RFC 8446 4.4.4
       // (will be cleared in advance_with_server_finished())
@@ -564,6 +574,8 @@ void Cipher_State::derive_read_traffic_key(const secure_vector<uint8_t>& traffic
    m_read_key = hkdf_expand_label(traffic_secret, "key", {}, m_decrypt->minimum_keylength());
    m_read_iv = hkdf_expand_label(traffic_secret, "iv", {}, NONCE_LENGTH);
    m_read_seq_no = 0;
+
+   m_decrypt->set_key(m_read_key);
 
    if(handshake_traffic_secret) {
       // Key derivation for the MAC in the "Finished" handshake message as described in RFC 8446 4.4.4

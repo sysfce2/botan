@@ -8,6 +8,7 @@
 #include <botan/tls_messages.h>
 
 #include <botan/mac.h>
+#include <botan/internal/tls_reader.h>
 
 namespace Botan::TLS {
 
@@ -55,8 +56,7 @@ std::vector<uint8_t> Hello_Verify_Request::serialize() const {
    std::vector<uint8_t> bits;
    bits.push_back(format_version.major_version());
    bits.push_back(format_version.minor_version());
-   bits.push_back(static_cast<uint8_t>(m_cookie.size()));
-   bits += m_cookie;
+   append_tls_length_value(bits, m_cookie, 1);
    return bits;
 }
 

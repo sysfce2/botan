@@ -213,7 +213,7 @@ class Stream {
                       std::shared_ptr<StreamCallbacks> callbacks = std::make_shared<StreamCallbacks>()) :
             Stream(std::move(context), std::move(callbacks), std::forward<Arg>(arg)) {}
 
-   #if defined(BOTAN_HAS_HAS_DEFAULT_TLS_CONTEXT)
+   #if defined(BOTAN_HAS_DEFAULT_TLS_CONTEXT)
       /**
        * @brief Conveniently construct a new Stream with default settings
        *

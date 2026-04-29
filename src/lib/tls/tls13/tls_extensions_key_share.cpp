@@ -25,12 +25,30 @@ namespace Botan::TLS {
 
 namespace {
 
+// RFC 8446 4.2.8.2: TLS 1.3 removes ec_point_formats negotiation and
+// requires that ECDH key shares are uncompressed.
+//
+// This logic happens to also work for the existing PQ shares since they
+// place the ECDH part of the key share first
+void check_ecdh_uncompressed_format(Group_Params group, std::span<const uint8_t> bytes) {
+   const auto hybrid_ecc = group.pqc_hybrid_ecc();
+   const bool has_ecdh =
+      group.is_ecdh_named_curve() || (hybrid_ecc.has_value() && Group_Params(hybrid_ecc.value()).is_ecdh_named_curve());
+   if(!has_ecdh) {
+      return;
+   }
+   if(bytes.empty() || bytes[0] != 0x04) {
+      throw TLS_Exception(Alert::IllegalParameter, "TLS 1.3 ECDH key share must use uncompressed point format");
+   }
+}
+
 class Key_Share_Entry {
    public:
       explicit Key_Share_Entry(TLS_Data_Reader& reader) {
          // TODO check that the group actually exists before casting...
          m_group = static_cast<Named_Group>(reader.get_uint16_t());
-         m_key_exchange = reader.get_tls_length_value(2);
+         // RFC 8446 4.2.8: opaque key_exchange<1..2^16-1>
+         m_key_exchange = reader.get_range<uint8_t>(2, 1, 65535);
       }
 
       // Create an empty Key_Share_Entry with the selected group
@@ -90,6 +108,7 @@ class Key_Share_Entry {
                                          const Policy& policy,
                                          Callbacks& cb,
                                          RandomNumberGenerator& rng) {
+         check_ecdh_uncompressed_format(m_group, client_share.m_key_exchange);
          auto [encapsulated_shared_key, shared_key] =
             KEM_Encapsulation::destructure(cb.tls_kem_encapsulate(m_group, client_share.m_key_exchange, rng, policy));
          m_key_exchange = std::move(encapsulated_shared_key);
@@ -109,6 +128,7 @@ class Key_Share_Entry {
          auto scope = scoped_cleanup([&] { m_private_key.reset(); });
          BOTAN_ASSERT_NOMSG(m_group == received.m_group);
          BOTAN_STATE_CHECK(m_private_key != nullptr);
+         check_ecdh_uncompressed_format(m_group, received.m_key_exchange);
          return cb.tls_kem_decapsulate(m_group, *m_private_key, received.m_key_exchange, rng, policy);
       }
 
@@ -163,26 +183,22 @@ class Key_Share_ServerHello {
 class Key_Share_ClientHello {
    public:
       Key_Share_ClientHello(TLS_Data_Reader& reader, uint16_t /* extension_size */) {
-         // This construction is a crutch to make working with the incoming
-         // TLS_Data_Reader bearable. Currently, this reader spans the entire
-         // Client_Hello message. Hence, if offset or length fields are skewed
-         // or maliciously fabricated, it is possible to read further than the
-         // bounds of the current extension.
-         // Note that this applies to many locations in the code base.
-         //
-         // TODO: Overhaul the TLS_Data_Reader to allow for cheap "sub-readers"
-         //       that enforce read bounds of sub-structures while parsing.
+         // The reader is per-extension (Extensions::deserialize binds it to
+         // exactly extension_size bytes). Enforce that the inner
+         // client_shares length matches what the outer extension has left,
+         // then let the entry loop consume everything; extn_reader's
+         // assert_done() at the deserialize call site catches any leftover.
          const auto client_key_share_length = reader.get_uint16_t();
-         const auto read_bytes_so_far_begin = reader.read_so_far();
-         auto remaining = [&] {
-            const auto read_so_far = reader.read_so_far() - read_bytes_so_far_begin;
-            BOTAN_STATE_CHECK(read_so_far <= client_key_share_length);
-            return client_key_share_length - read_so_far;
-         };
+         if(reader.remaining_bytes() != client_key_share_length) {
+            throw TLS_Exception(Alert::DecodeError, "Inconsistent length in client KeyShare extension");
+         }
 
          std::unordered_set<uint16_t> seen_groups;
-         while(reader.has_remaining() && remaining() > 0) {
-            if(remaining() < 4) {
+         while(reader.has_remaining()) {
+            // Each KeyShareEntry is at least 4 bytes (group + 2-byte length).
+            // Cleaner failure than the reader underflow we'd otherwise hit
+            // when the inner buffer ends mid-entry.
+            if(reader.remaining_bytes() < 4) {
                throw TLS_Exception(Alert::DecodeError, "Not enough data to read another KeyShareEntry");
             }
 
@@ -198,10 +214,6 @@ class Key_Share_ClientHello {
             }
 
             m_client_shares.emplace_back(std::move(new_entry));
-         }
-
-         if((reader.read_so_far() - read_bytes_so_far_begin) != client_key_share_length) {
-            throw Decoding_Error("Read bytes are not equal client KeyShare length");
          }
       }
 

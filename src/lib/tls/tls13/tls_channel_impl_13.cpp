@@ -169,7 +169,13 @@ size_t Channel_Impl_13::from_peer(std::span<const uint8_t> data) {
             if(!m_cipher_state->can_decrypt_application_traffic()) {
                throw Unexpected_Message("Application data received before handshake completion");
             }
-            BOTAN_ASSERT(record.seq_no.has_value(), "decrypted application traffic had a sequence number");
+            /*
+            The record sequence number is set in Record_Layer::next_record only when
+            the record contents are decrypted under the current set of traffic keys
+            */
+            if(!record.seq_no.has_value()) {
+               throw Unexpected_Message("Application data must have a sequence number");
+            }
             callbacks().tls_record_received(record.seq_no.value(), record.fragment);
          } else if(record.type == Record_Type::Alert) {
             process_alert(record.fragment);

@@ -117,6 +117,7 @@ std::string map_to_bogo_error(const std::string& e) noexcept {
       {"Server certificate verification failed", ":BAD_SIGNATURE:"},
       {"compression is not supported in TLS 1.3", ":DECODE_ERROR:"},
       {"Cookie length must be at least 1 byte", ":DECODE_ERROR:"},
+      {"Empty cookie extension is illegal", ":DECODE_ERROR:"},
       {"Bad size (1) for TLS alert message", ":BAD_ALERT:"},
       {"Bad size (4) for TLS alert message", ":BAD_ALERT:"},
       {"CERTIFICATE decoding failed with PEM: No PEM header found", ":CANNOT_PARSE_LEAF_CERT:"},
@@ -212,6 +213,8 @@ std::string map_to_bogo_error(const std::string& e) noexcept {
       {"Policy forbids all available DTLS version", ":NO_SUPPORTED_VERSIONS_ENABLED:"},
       {"Policy forbids all available TLS version", ":NO_SUPPORTED_VERSIONS_ENABLED:"},
       {"Policy refuses to accept signing with any hash supported by peer", ":NO_COMMON_SIGNATURE_ALGORITHMS:"},
+      {"Could not agree on a signature scheme with peer for RSA key", ":NO_COMMON_SIGNATURE_ALGORITHMS:"},
+      {"Could not agree on a signature scheme with peer for ECDSA key", ":NO_COMMON_SIGNATURE_ALGORITHMS:"},
       {"Policy requires client send a certificate, but it did not", ":PEER_DID_NOT_RETURN_A_CERTIFICATE:"},
       {"PSK binder does not check out", ":DIGEST_CHECK_FAILED:"},
       {"PSK identity selected by server is out of bounds", ":PSK_IDENTITY_NOT_FOUND:"},
@@ -255,6 +258,7 @@ std::string map_to_bogo_error(const std::string& e) noexcept {
       {"Server resumed session but with wrong version", ":OLD_SESSION_VERSION_NOT_RETURNED:"},
       {"Server selected a group that is not compatible with the negotiated ciphersuite", ":WRONG_CURVE:"},
       {"Server sent ECC curve prohibited by policy", ":WRONG_CURVE:"},
+      {"Server selected a curve we did not offer", ":WRONG_CURVE:"},
       {"group was not advertised as supported", ":WRONG_CURVE:"},
       {"group was already offered", ":WRONG_CURVE:"},
       {"Server selected a key exchange group we didn't offer.", ":WRONG_CURVE:"},
@@ -1311,6 +1315,8 @@ class Shim_Policy final : public Botan::TLS::Policy {
       //bool server_uses_own_ciphersuite_preferences() const override;
 
       //bool negotiate_encrypt_then_mac() const override;
+
+      bool require_extended_master_secret() const override { return false; }
 
       bool support_cert_status_message() const override {
          if(m_args.flag_set("server")) {

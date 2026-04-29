@@ -75,7 +75,7 @@ class BOTAN_UNSTABLE_API Session_Ticket_Extension final : public Extension {
       /**
       * Deserialize a session ticket
       */
-      Session_Ticket_Extension(TLS_Data_Reader& reader, uint16_t extension_size);
+      Session_Ticket_Extension(TLS_Data_Reader& reader, uint16_t extension_size, Connection_Side from);
 
       std::vector<uint8_t> serialize(Connection_Side /*whoami*/) const override { return m_ticket.get(); }
 

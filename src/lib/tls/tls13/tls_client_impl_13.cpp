@@ -249,6 +249,16 @@ void Client_Impl_13::handle(const Server_Hello_13& sh) {
 
    validate_server_hello_ish(ch, sh);
 
+   // RFC 8446 4.1.3: TLS 1.3 servers downgrading to TLS 1.2 or below set
+   // the last 8 bytes of ServerHello.random to a magic value so the client
+   // can detect a stripped-supported_versions downgrade attack. The Shim
+   // path (Server_Hello_12_Shim) already enforces this; catch it here too
+   // as defense in depth in case a misbehaving server writes the sentinel
+   // into an actual TLS 1.3 ServerHello.
+   if(sh.random_signals_downgrade().has_value()) {
+      throw TLS_Exception(Alert::IllegalParameter, "Downgrade attack detected");
+   }
+
    // RFC 8446 4.2
    //    Implementations MUST NOT send extension responses if the remote
    //    endpoint did not send the corresponding extension requests, [...]. Upon
@@ -427,8 +437,9 @@ void Client_Impl_13::handle(const Encrypted_Extensions& encrypted_extensions_msg
       set_record_size_limits(outgoing_limit->limit(), incoming_limit->limit());
    }
 
-   if(exts.has<Server_Certificate_Type>() &&
-      m_handshake_state.client_hello().extensions().has<Server_Certificate_Type>()) {
+   if(exts.has<Server_Certificate_Type>()) {
+      // The unrequested-extension check above ensures the client offered this.
+      BOTAN_ASSERT_NOMSG(m_handshake_state.client_hello().extensions().has<Server_Certificate_Type>());
       const auto* server_cert_type = exts.get<Server_Certificate_Type>();
       const auto* our_server_cert_types = m_handshake_state.client_hello().extensions().get<Server_Certificate_Type>();
       our_server_cert_types->validate_selection(*server_cert_type);
@@ -522,7 +533,9 @@ void Client_Impl_13::send_client_authentication(Channel_Impl_13::AggregatedHands
    const auto cert_type = [&] {
       const auto& exts = m_handshake_state.encrypted_extensions().extensions();
       const auto& chexts = m_handshake_state.client_hello().extensions();
-      if(exts.has<Client_Certificate_Type>() && chexts.has<Client_Certificate_Type>()) {
+      if(exts.has<Client_Certificate_Type>()) {
+         // The unrequested-extension check in handle(Encrypted_Extensions) ensures the client offered this.
+         BOTAN_ASSERT_NOMSG(chexts.has<Client_Certificate_Type>());
          const auto* client_cert_type = exts.get<Client_Certificate_Type>();
          chexts.get<Client_Certificate_Type>()->validate_selection(*client_cert_type);
 
@@ -583,7 +596,7 @@ void Client_Impl_13::handle(const Finished_13& finished_msg) {
    // Give the application a chance for a final veto before fully
    // establishing the connection.
    callbacks().tls_session_established(Session_Summary(m_handshake_state.server_hello(),
-                                                       Connection_Side::Server,
+                                                       Connection_Side::Client,
                                                        peer_cert_chain(),
                                                        peer_raw_public_key(),
                                                        external_psk_identity(),

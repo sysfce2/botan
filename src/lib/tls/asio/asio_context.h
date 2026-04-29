@@ -23,6 +23,9 @@
    #include <botan/tls_session_manager.h>
 
    #if defined(BOTAN_HAS_AUTO_SEEDING_RNG) && defined(BOTAN_HAS_CERTSTOR_SYSTEM)
+      #define BOTAN_HAS_DEFAULT_TLS_CONTEXT
+
+      // TODO(Botan4) remove this
       #define BOTAN_HAS_HAS_DEFAULT_TLS_CONTEXT
    #endif
 
@@ -51,7 +54,7 @@ class BOTAN_PUBLIC_API(2, 11) Context {
        */
       using Verify_Callback = detail::fn_signature_helper<decltype(&Callbacks::tls_verify_cert_chain)>::type;
 
-   #if defined(BOTAN_HAS_HAS_DEFAULT_TLS_CONTEXT)
+   #if defined(BOTAN_HAS_DEFAULT_TLS_CONTEXT)
       /**
        * @brief Construct a TLS stream context with typical defaults
        *

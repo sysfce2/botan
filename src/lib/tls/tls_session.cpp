@@ -389,7 +389,18 @@ Session::Session(std::span<const uint8_t> ber_data) /* NOLINT(*-member-init) */ 
    m_ciphersuite = ciphersuite_code;
    m_version = Protocol_Version(major_version, minor_version);
    m_start_time = std::chrono::system_clock::from_time_t(start_time);
+   if(side_code != static_cast<uint8_t>(Connection_Side::Client) &&
+      side_code != static_cast<uint8_t>(Connection_Side::Server)) {
+      throw Decoding_Error("Serialized TLS session contains unknown connection side " + std::to_string(side_code));
+   }
    m_connection_side = static_cast<Connection_Side>(side_code);
+
+   const bool valid_secret_size = m_version.is_pre_tls_13()
+                                     ? (m_master_secret.size() == 48)
+                                     : (m_master_secret.size() == 32 || m_master_secret.size() == 48);
+   if(!valid_secret_size) {
+      throw Decoding_Error("Serialized TLS session has master_secret of unexpected length");
+   }
    m_srtp_profile = static_cast<uint16_t>(srtp_profile);
 
    m_server_info =

@@ -69,6 +69,11 @@ class Client_Handshake_State_12 final : public Handshake_State {
          return m_resumed_session->supports_extended_master_secret();
       }
 
+      uint16_t resumed_session_ciphersuite_code() const {
+         BOTAN_STATE_CHECK(is_a_resumption());
+         return m_resumed_session->ciphersuite_code();
+      }
+
    private:
       std::unique_ptr<Public_Key> m_server_public_key;
 
@@ -388,6 +393,12 @@ void Client_Impl_12::process_handshake_msg(const Handshake_State* active_state,
 
       secure_renegotiation_check(state.server_hello());
 
+      // RFC 7627 / RFC 9325 4.4: optionally require Extended Master Secret.
+      if(policy().require_extended_master_secret() && !state.server_hello()->supports_extended_master_secret()) {
+         throw TLS_Exception(Alert::HandshakeFailure,
+                             "Policy requires the Extended Master Secret extension but the server did not send it");
+      }
+
       const bool server_returned_same_session_id =
          !state.server_hello()->session_id().empty() &&
          (state.server_hello()->session_id() == state.client_hello()->session_id());
@@ -402,6 +413,12 @@ void Client_Impl_12::process_handshake_msg(const Handshake_State* active_state,
          */
          if(state.server_hello()->legacy_version() != state.client_hello()->legacy_version()) {
             throw TLS_Exception(Alert::HandshakeFailure, "Server resumed session but with wrong version");
+         }
+
+         // RFC 5246 7.4.1.2: when resuming a session, the server MUST use
+         // the same cipher suite that was negotiated in the original session.
+         if(state.server_hello()->ciphersuite() != state.resumed_session_ciphersuite_code()) {
+            throw TLS_Exception(Alert::HandshakeFailure, "Server resumed session with a different ciphersuite");
          }
 
          if(state.server_hello()->supports_extended_master_secret() &&
@@ -480,11 +497,13 @@ void Client_Impl_12::process_handshake_msg(const Handshake_State* active_state,
 
             state.set_expected_next(Handshake_Type::ServerKeyExchange);
             state.set_expected_next(Handshake_Type::ServerHelloDone);
-         } else if(state.ciphersuite().kex_method() != Kex_Algo::STATIC_RSA) {
-            state.set_expected_next(Handshake_Type::ServerKeyExchange);
          } else {
-            state.set_expected_next(Handshake_Type::CertificateRequest);  // optional
-            state.set_expected_next(Handshake_Type::ServerHelloDone);
+            // ECDHE_PSK ServerKeyExchange carries the ECDH parameters and
+            // immediately follows ServerHello.
+            //
+            // Suites using RSA key exchange or signature-authenticated ECDH
+            // were already routed to expect Certificate above.
+            state.set_expected_next(Handshake_Type::ServerKeyExchange);
          }
       }
    } else if(type == Handshake_Type::Certificate) {
@@ -704,13 +723,23 @@ void Client_Impl_12::process_handshake_msg(const Handshake_State* active_state,
       //    If the client receives a session ticket from the server, then it
       //    discards any Session ID that was sent in the ServerHello.
       const auto handle = [&]() -> std::optional<Session_Handle> {
-         if(const auto& session_ticket = state.session_ticket(); !session_ticket.empty()) {
-            return Session_Handle(session_ticket);
-         } else if(const auto& session_id = state.server_hello()->session_id(); !session_id.empty()) {
-            return Session_Handle(session_id);
-         } else {
-            return std::nullopt;
+         /*
+         On successful resumption an empty (or absent) NewSessionTicket means "keep using
+         the old ticket" so we inherit it from the ClientHello. On a fresh negotiation
+         an empty NewSessionTicket means "no ticket for this session", so inheriting the
+         ClientHello's old ticket would store the new master secret under a ticket the
+         server has discarded.
+         */
+         if(const auto* nst = state.new_session_ticket(); nst != nullptr && !nst->ticket().empty()) {
+            return Session_Handle(nst->ticket());
          }
+         if(state.is_a_resumption() && !state.client_hello()->session_ticket().empty()) {
+            return Session_Handle(state.client_hello()->session_ticket());
+         }
+         if(const auto& session_id = state.server_hello()->session_id(); !session_id.empty()) {
+            return Session_Handle(session_id);
+         }
+         return std::nullopt;
       }();
 
       // Give the application a chance for a final veto before fully

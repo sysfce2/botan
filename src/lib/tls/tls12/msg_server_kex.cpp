@@ -183,7 +183,9 @@ Server_Key_Exchange::Server_Key_Exchange(const std::vector<uint8_t>& buf,
 
    if(auth_method != Auth_Method::IMPLICIT) {
       m_scheme = Signature_Scheme(reader.get_uint16_t());
-      m_signature = reader.get_range<uint8_t>(2, 0, 65535);
+      // RFC 5246 4.7: digitally-signed signatures are opaque<1..2^16-1>.
+      // Matches the parallel check in Certificate_Verify.
+      m_signature = reader.get_range<uint8_t>(2, 1, 65535);
    }
 
    reader.assert_done();
