@@ -9,3 +9,5 @@ minimum_rsa_bits = 1024
 key_exchange_methods = ECDH DH
 
 signature_methods = ECDSA RSA IMPLICIT
+
+require_extended_master_secret = false
