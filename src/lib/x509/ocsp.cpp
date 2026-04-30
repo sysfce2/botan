@@ -123,6 +123,12 @@ void SingleResponse::decode_from(BER_Decoder& from) {
       .decode_optional(extensions, ASN1_Type(1), ASN1_Class::ContextSpecific | ASN1_Class::Constructed)
       .end_cons();
 
+   const auto cert_status_class = cert_status.get_class();
+   if(cert_status_class != ASN1_Class::ContextSpecific &&
+      cert_status_class != (ASN1_Class::ContextSpecific | ASN1_Class::Constructed)) {
+      throw Decoding_Error("OCSP::SingleResponse: certStatus has unexpected class tag");
+   }
+
    // TODO: should verify the cert_status body and decode RevokedInfo
    m_cert_status = static_cast<uint32_t>(cert_status.type());
 }

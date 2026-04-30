@@ -59,6 +59,13 @@ void ASN1_Time::encode_into(DER_Encoder& der) const {
 void ASN1_Time::decode_from(BER_Decoder& source) {
    const BER_Object ber_time = source.get_next_object();
 
+   if(ber_time.get_class() != ASN1_Class::Universal ||
+      (ber_time.type() != ASN1_Type::UtcTime && ber_time.type() != ASN1_Type::GeneralizedTime)) {
+      throw Decoding_Error(fmt("ASN1_Time: Unexpected tag {}/{}",
+                               static_cast<uint32_t>(ber_time.type()),
+                               static_cast<uint32_t>(ber_time.get_class())));
+   }
+
    set_to(ASN1::to_string(ber_time), ber_time.type());
 }
 

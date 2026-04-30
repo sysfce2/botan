@@ -88,9 +88,10 @@ void ASN1_String::encode_into(DER_Encoder& encoder) const {
 void ASN1_String::decode_from(BER_Decoder& source) {
    const BER_Object obj = source.get_next_object();
 
-   if(!is_asn1_string_type(obj.type())) {
+   if(obj.get_class() != ASN1_Class::Universal || !is_asn1_string_type(obj.type())) {
       auto typ = static_cast<uint32_t>(obj.type());
-      throw Decoding_Error(fmt("ASN1_String: Unknown string type {}", typ));
+      auto cls = static_cast<uint32_t>(obj.get_class());
+      throw Decoding_Error(fmt("ASN1_String: Unknown string type {}/{}", typ, cls));
    }
 
    m_tag = obj.type();

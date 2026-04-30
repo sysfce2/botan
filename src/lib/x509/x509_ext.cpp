@@ -378,35 +378,25 @@ std::vector<uint8_t> Key_Usage::encode_inner() const {
 */
 void Key_Usage::decode_inner(const std::vector<uint8_t>& in) {
    /* RFC 5280 Section 4.2.1.3 - KeyUsage ::= BIT STRING */
-   BER_Decoder ber(in, BER_Decoder::Limits::DER());
+   std::vector<uint8_t> bits;
+   BER_Decoder(in, BER_Decoder::Limits::DER())
+      .decode(bits, ASN1_Type::BitString, ASN1_Type::BitString, ASN1_Class::Universal)
+      .verify_end();
 
-   const BER_Object obj = ber.get_next_object();
-
-   obj.assert_is_a(ASN1_Type::BitString, ASN1_Class::Universal, "usage constraint");
-
-   if(obj.length() == 2 || obj.length() == 3) {
-      uint16_t usage = 0;
-
-      const uint8_t* bits = obj.bits();
-
-      if(bits[0] >= 8) {
-         throw BER_Decoding_Error("Invalid unused bits in usage constraint");
+   const uint16_t usage = [&bits]() -> uint16_t {
+      switch(bits.size()) {
+         case 0:
+            return 0;
+         case 1:
+            return make_uint16(bits[0], 0);
+         case 2:
+            return make_uint16(bits[0], bits[1]);
+         default:
+            throw Decoding_Error("Invalid KeyUsage bitstring encoding");
       }
+   }();
 
-      const uint8_t mask = static_cast<uint8_t>(0xFF << bits[0]);
-
-      if(obj.length() == 2) {
-         usage = make_uint16(bits[1] & mask, 0);
-      } else if(obj.length() == 3) {
-         usage = make_uint16(bits[1], bits[2] & mask);
-      }
-
-      m_constraints = Key_Constraints(usage);
-   } else {
-      m_constraints = Key_Constraints(0);
-   }
-
-   ber.verify_end();
+   m_constraints = Key_Constraints(usage);
 }
 
 /*
@@ -722,19 +712,13 @@ void Authority_Information_Access::decode_inner(const std::vector<uint8_t>& in) 
       BER_Decoder info = ber.start_sequence();
 
       info.decode(oid);
+      const BER_Object name = info.get_next_object();
+      info.end_cons();
 
-      if(oid == ocsp_responder) {
-         const BER_Object name = info.get_next_object();
-
-         if(name.is_a(6, ASN1_Class::ContextSpecific)) {
-            m_ocsp_responders.push_back(ASN1::to_string(name));
-         }
-      } else if(oid == ca_issuer) {
-         const BER_Object name = info.get_next_object();
-
-         if(name.is_a(6, ASN1_Class::ContextSpecific)) {
-            m_ca_issuers.push_back(ASN1::to_string(name));
-         }
+      if(oid == ocsp_responder && name.is_a(6, ASN1_Class::ContextSpecific)) {
+         m_ocsp_responders.push_back(ASN1::to_string(name));
+      } else if(oid == ca_issuer && name.is_a(6, ASN1_Class::ContextSpecific)) {
+         m_ca_issuers.push_back(ASN1::to_string(name));
       }
    }
 
@@ -867,6 +851,10 @@ void TNAuthList::Entry::encode_into(DER_Encoder& /*to*/) const {
 
 void TNAuthList::Entry::decode_from(class BER_Decoder& ber) {
    const BER_Object obj = ber.get_next_object();
+
+   if(obj.get_class() != (ASN1_Class::ContextSpecific | ASN1_Class::Constructed)) {
+      throw Decoding_Error(fmt("Unexpected TNEntry class tag {}", static_cast<uint32_t>(obj.get_class())));
+   }
 
    const uint32_t type_tag = static_cast<Type>(obj.type_tag());
 
