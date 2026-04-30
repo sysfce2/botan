@@ -864,9 +864,9 @@ bool Supported_Versions::supports(Protocol_Version version) const {
 }
 
 Record_Size_Limit::Record_Size_Limit(const uint16_t limit) : m_limit(limit) {
-   BOTAN_ASSERT(limit >= 64, "RFC 8449 does not allow record size limits smaller than 64 bytes");
-   BOTAN_ASSERT(limit <= MAX_PLAINTEXT_SIZE + 1 /* encrypted content type byte */,
-                "RFC 8449 does not allow record size limits larger than 2^14+1");
+   BOTAN_ARG_CHECK(limit >= 64, "RFC 8449 does not allow record size limits smaller than 64 bytes");
+   BOTAN_ARG_CHECK(limit <= MAX_PLAINTEXT_SIZE + 1 /* encrypted content type byte */,
+                   "RFC 8449 does not allow record size limits larger than 2^14+1");
 }
 
 Record_Size_Limit::Record_Size_Limit(TLS_Data_Reader& reader, uint16_t extension_size, Connection_Side from) {
