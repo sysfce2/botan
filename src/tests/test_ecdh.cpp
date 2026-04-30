@@ -94,6 +94,18 @@ class ECDH_AllGroups_Tests : public Test {
                   const auto a_ss = ka.derive_key(0, sec1_infinity);
                });
 
+               // Regression test: prohibit loading a point not on the curve
+               result.test_throws<Botan::Decoding_Error>("point is not on curve", [&] {
+                  const auto& base_point = Botan::EC_AffinePoint::generator(group);
+                  auto encoded = base_point.serialize_uncompressed();
+                  encoded[3] -= 1;
+
+                  const Botan::ECDH_PrivateKey a_priv(rng(), group);
+                  const auto a_pub = a_priv.public_value();
+                  const Botan::PK_Key_Agreement a_ka(a_priv, rng(), kdf);
+                  const auto a_ss = a_ka.derive_key(0, encoded);
+               });
+
                for(size_t i = 0; i != 100; ++i) {
                   const Botan::ECDH_PrivateKey a_priv(rng(), group);
                   const auto a_pub = a_priv.public_value();
