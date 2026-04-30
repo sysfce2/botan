@@ -150,10 +150,12 @@ int botan_pubkey_destroy(botan_pubkey_t key) {
 }
 
 int botan_privkey_export_pubkey(botan_pubkey_t* pubout, botan_privkey_t key_obj) {
+   if(pubout == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
    return ffi_guard_thunk(__func__, [=]() -> int {
       auto public_key = safe_get(key_obj).public_key();
-      ffi_new_object(pubout, std::move(public_key));
-      return BOTAN_FFI_SUCCESS;
+      return ffi_new_object(pubout, std::move(public_key));
    });
 }
 

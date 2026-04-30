@@ -176,6 +176,9 @@ int ffi_delete_object(botan_struct<T, M>* obj, const char* func_name) {
 
 template <typename T, typename... Args>
 BOTAN_FFI_ERROR ffi_new_object(T* obj, Args&&... args) {
+   if(obj == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
    // NOLINTNEXTLINE(*-owning-memory)
    *obj = new std::remove_pointer_t<T>(std::forward<Args>(args)...);
    return BOTAN_FFI_SUCCESS;

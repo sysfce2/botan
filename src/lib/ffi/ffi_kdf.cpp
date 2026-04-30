@@ -64,6 +64,12 @@ int botan_pwdhash(const char* algo,
    if(algo == nullptr || password == nullptr) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
+   if(out_len > 0 && out == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
+   if(salt_len > 0 && salt == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
 
    if(password_len == 0) {
       password_len = std::strlen(password);
@@ -96,6 +102,12 @@ int botan_pwdhash_timed(const char* algo,
                         const uint8_t salt[],
                         size_t salt_len) {
    if(algo == nullptr || password == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
+   if(out_len > 0 && out == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
+   if(salt_len > 0 && salt == nullptr) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
 
@@ -138,6 +150,10 @@ int botan_kdf(const char* kdf_algo,
               const uint8_t label[],
               size_t label_len) {
    if(kdf_algo == nullptr) {
+      return BOTAN_FFI_ERROR_NULL_POINTER;
+   }
+   if((out_len > 0 && out == nullptr) || (secret_len > 0 && secret == nullptr) || (salt_len > 0 && salt == nullptr) ||
+      (label_len > 0 && label == nullptr)) {
       return BOTAN_FFI_ERROR_NULL_POINTER;
    }
    return ffi_guard_thunk(__func__, [=]() -> int {
