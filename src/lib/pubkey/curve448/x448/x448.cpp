@@ -28,7 +28,9 @@ void x448_basepoint_from_data(std::span<uint8_t, X448_LEN> mypublic, std::span<c
 secure_vector<uint8_t> ber_decode_sk(std::span<const uint8_t> key_bits) {
    secure_vector<uint8_t> decoded_bits;
    BER_Decoder(key_bits, BER_Decoder::Limits::DER()).decode(decoded_bits, ASN1_Type::OctetString).verify_end();
-   BOTAN_ASSERT_NOMSG(decoded_bits.size() == X448_LEN);
+   if(decoded_bits.size() != X448_LEN) {
+      throw Decoding_Error("Invalid size for X448 private key");
+   }
    return decoded_bits;
 }
 
@@ -109,8 +111,9 @@ class X448_KA_Operation final : public PK_Ops::Key_Agreement_with_KDF {
          auto scope = CT::scoped_poison(m_sk);
 
          const std::span<const uint8_t> w(w_data, w_len);
-         BOTAN_ARG_CHECK(w.size() == X448_LEN, "Invalid size for X448 private key");
-         BOTAN_ASSERT_NOMSG(m_sk.size() == X448_LEN);
+         if(w.size() != X448_LEN) {
+            throw Decoding_Error("Invalid size for X448 public key");
+         }
          const auto k = decode_scalar(m_sk);
          const auto u = decode_point(w);
 

@@ -24,7 +24,7 @@ PSS_Params PSS_Params::from_padding_name(std::string_view padding_name) {
    }
 
    const std::string hash_fn = scanner.arg(0);
-   BOTAN_ASSERT_NOMSG(scanner.arg(1) == "MGF1");
+   BOTAN_ARG_CHECK(scanner.arg(1) == "MGF1", "PSS requires MGF1");
    const size_t salt_len = scanner.arg_as_integer(2);
    return PSS_Params(hash_fn, salt_len);
 }
