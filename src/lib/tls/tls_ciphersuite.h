@@ -139,7 +139,7 @@ class BOTAN_PUBLIC_API(2, 0) Ciphersuite final {
       bool operator<(const uint16_t c) const { return ciphersuite_code() < c; }
 
    private:
-      bool is_usable() const;
+      static bool is_known_usable(uint16_t code);
 
       Ciphersuite(uint16_t ciphersuite_code,
                   const char* iana_id,
@@ -161,7 +161,7 @@ class BOTAN_PUBLIC_API(2, 0) Ciphersuite final {
             m_mac_algo(mac_algo),
             m_cipher_keylen(cipher_keylen),
             m_mac_keylen(mac_keylen),
-            m_usable(is_usable()) {}
+            m_usable(is_known_usable(ciphersuite_code)) {}
 
       uint16_t m_ciphersuite_code = 0;
 
