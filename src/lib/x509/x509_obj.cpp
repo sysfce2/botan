@@ -26,6 +26,8 @@ void X509_Object::load_data(DataSource& in) {
       if(ASN1::maybe_BER(in) && !PEM_Code::matches(in)) {
          BER_Decoder dec(in, BER_Decoder::Limits::DER());
          decode_from(dec);
+         // Call to verify_end omitted here since we have to sometimes decode
+         // multiple certificates encoded sequentially in a DataSource
       } else {
          std::string got_label;
          DataSource_Memory ber(PEM_Code::decode(in, got_label));
@@ -46,6 +48,8 @@ void X509_Object::load_data(DataSource& in) {
 
          BER_Decoder dec(ber, BER_Decoder::Limits::DER());
          decode_from(dec);
+         // Call to verify_end omitted here since we have to sometimes decode
+         // multiple certificates encoded sequentially in a DataSource
       }
    } catch(Decoding_Error& e) {
       throw Decoding_Error(PEM_label() + " decoding", e);
