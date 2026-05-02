@@ -105,7 +105,8 @@ secure_vector<uint8_t> PKCS8_decode(DataSource& source,
          .decode(pk_alg_id)
          .decode(key, ASN1_Type::OctetString)
          .discard_remaining()
-         .end_cons();
+         .end_cons()
+         .verify_end();
    } catch(std::exception& e) {
       throw Decoding_Error("PKCS #8 private key decoding", e);
    }

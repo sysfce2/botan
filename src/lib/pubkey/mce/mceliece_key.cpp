@@ -113,7 +113,8 @@ McEliece_PublicKey::McEliece_PublicKey(std::span<const uint8_t> key_bits) {
       .decode(t)
       .end_cons()
       .decode(m_public_matrix, ASN1_Type::OctetString)
-      .end_cons();
+      .end_cons()
+      .verify_end();
 
    if(n == 0 || t == 0) {
       throw Decoding_Error("Invalid McEliece parameters");
@@ -277,7 +278,7 @@ McEliece_PrivateKey::McEliece_PrivateKey(std::span<const uint8_t> key_bits) {
       m_Linv.push_back(el);
    }
    secure_vector<uint8_t> enc_H;
-   dec3.decode(enc_H, ASN1_Type::OctetString).end_cons();
+   dec3.decode(enc_H, ASN1_Type::OctetString).end_cons().verify_end();
    if(enc_H.size() % 4 != 0) {
       throw Decoding_Error("encoded parity check matrix has length which is not a multiple of four");
    }
