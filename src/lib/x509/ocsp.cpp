@@ -237,6 +237,23 @@ Response::Response(const uint8_t response_bits[], size_t response_bits_len) :
 
    response_outer.decode(resp_status, ASN1_Type::Enumerated, ASN1_Class::Universal);
 
+   /*
+   RFC 6960 4.2.1
+
+   OCSPResponseStatus ::= ENUMERATED {
+       successful            (0),  -- Response has valid confirmations
+       malformedRequest      (1),  -- Illegal confirmation request
+       internalError         (2),  -- Internal error in issuer
+       tryLater              (3),  -- Try again later
+                                   -- (4) is not used
+       sigRequired           (5),  -- Must sign the request
+       unauthorized          (6)   -- Request unauthorized
+   }
+   */
+   if(resp_status >= 7) {
+      throw Decoding_Error("Unknown OCSPResponseStatus code");
+   }
+
    m_status = static_cast<Response_Status_Code>(resp_status);
 
    if(m_status != Response_Status_Code::Successful) {
