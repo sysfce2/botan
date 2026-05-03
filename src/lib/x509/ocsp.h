@@ -19,6 +19,7 @@
 
 namespace Botan {
 
+class Path_Validation_Restrictions;
 class Certificate_Store;
 
 namespace OCSP {
@@ -175,6 +176,21 @@ class BOTAN_PUBLIC_API(2, 0) Response final {
       * @return status code indicating the validity of the signature
       */
       Certificate_Status_Code verify_signature(const X509_Certificate& signing_certificate) const;
+
+      /**
+      * Check signature of the OCSP response.
+      *
+      * Note: It is the responsibility of the caller to verify that signing
+      *       certificate is trustworthy and authorized to do so.
+      *
+      * @param signing_certificate the certificate that signed this response
+      *                            (@sa Response::find_signing_certificate)
+      * @param restrictions on the signature validation
+      *
+      * @return status code indicating the validity of the signature
+      */
+      Certificate_Status_Code verify_signature(const X509_Certificate& signing_certificate,
+                                               const Path_Validation_Restrictions& restrictions) const;
 
       /**
       * @return the status of the response

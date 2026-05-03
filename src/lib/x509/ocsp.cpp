@@ -14,6 +14,7 @@
 #include <botan/hash.h>
 #include <botan/pubkey.h>
 #include <botan/x509_ext.h>
+#include <botan/x509path.h>
 
 #if defined(BOTAN_HAS_HTTP_UTIL)
    #include <botan/internal/http_util.h>
@@ -328,6 +329,13 @@ bool Response::is_issued_by(const X509_Certificate& candidate) const {
 }
 
 Certificate_Status_Code Response::verify_signature(const X509_Certificate& issuer) const {
+   const Path_Validation_Restrictions restrictions;
+
+   return this->verify_signature(issuer, restrictions);
+}
+
+Certificate_Status_Code Response::verify_signature(const X509_Certificate& issuer,
+                                                   const Path_Validation_Restrictions& restrictions) const {
    if(m_dummy_response_status) {
       return m_dummy_response_status.value();
    }
@@ -345,11 +353,22 @@ Certificate_Status_Code Response::verify_signature(const X509_Certificate& issue
 
       PK_Verifier verifier(*pub_key, m_sig_algo);
 
-      if(verifier.verify_message(ASN1::put_in_sequence(m_tbs_bits), m_signature)) {
-         return Certificate_Status_Code::OCSP_SIGNATURE_OK;
-      } else {
+      const bool valid_signature = verifier.verify_message(ASN1::put_in_sequence(m_tbs_bits), m_signature);
+
+      if(valid_signature == false) {
          return Certificate_Status_Code::OCSP_SIGNATURE_ERROR;
       }
+
+      const auto& trusted_hashes = restrictions.trusted_hashes();
+      if(!trusted_hashes.empty() && !trusted_hashes.contains(verifier.hash_function())) {
+         return Certificate_Status_Code::UNTRUSTED_HASH;
+      }
+
+      if(pub_key->estimated_strength() < restrictions.minimum_key_strength()) {
+         return Certificate_Status_Code::SIGNATURE_METHOD_TOO_WEAK;
+      }
+
+      return Certificate_Status_Code::OCSP_SIGNATURE_OK;
    } catch(Exception&) {
       return Certificate_Status_Code::OCSP_SIGNATURE_ERROR;
    }

@@ -536,7 +536,7 @@ std::set<Certificate_Status_Code> evaluate_ocsp_response(const OCSP::Response& o
    }
 
    // Verify the cryptographic signature on the OCSP response
-   auto sig_status = ocsp_response.verify_signature(signing_cert.value());
+   auto sig_status = ocsp_response.verify_signature(signing_cert.value(), restrictions);
    if(sig_status != Certificate_Status_Code::OCSP_SIGNATURE_OK) {
       return {sig_status};
    }
