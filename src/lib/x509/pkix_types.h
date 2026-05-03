@@ -570,6 +570,12 @@ class BOTAN_PUBLIC_API(2, 0) Extensions final : public ASN1_Object {
       const std::vector<OID>& get_extension_oids() const { return m_extension_oids; }
 
       /**
+      * Return the set of critical extensions in the order they appeared in the extension list
+      * (This may be an empty vector)
+      */
+      std::vector<OID> critical_extensions() const;
+
+      /**
       * Return true if an extension was set
       */
       bool extension_set(const OID& oid) const;

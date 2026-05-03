@@ -104,6 +104,20 @@ bool is_valid_telephone_number(const ASN1_String& tn) {
 
 }  // namespace
 
+std::vector<OID> Extensions::critical_extensions() const {
+   std::vector<OID> crit;
+
+   for(const auto& oid : m_extension_oids) {
+      auto ext_info = m_extension_info.find(oid);
+      BOTAN_ASSERT_NOMSG(ext_info != m_extension_info.end());
+      if(ext_info->second.is_critical()) {
+         crit.push_back(oid);
+      }
+   }
+
+   return crit;
+}
+
 /*
 * Create a Certificate_Extension object of some kind to handle
 */

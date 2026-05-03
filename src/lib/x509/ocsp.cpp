@@ -132,6 +132,12 @@ void SingleResponse::decode_from(BER_Decoder& from) {
 
    // TODO: should verify the cert_status body and decode RevokedInfo
    m_cert_status = static_cast<uint32_t>(cert_status.type());
+   if(m_cert_status > 2) {
+      throw Decoding_Error("Unknown OCSP CertStatus tag");
+   }
+
+   // We don't currently recognize any extensions here so if any are critical we should reject
+   m_has_unknown_critical_ext = !extensions.critical_extensions().empty();
 }
 
 namespace {
@@ -310,10 +316,23 @@ Response::Response(const uint8_t response_bits[], size_t response_bits_len) :
 
       response_bytes.verify_end();
       response_bytes_ctx.verify_end();
+
+      // We don't currently recognize any extensions here so if any are critical we should reject
+      m_has_unknown_critical_ext = !extensions.critical_extensions().empty();
    }
 
    response_outer.verify_end();
    outer_decoder.verify_end();
+
+   if(m_has_unknown_critical_ext == false) {
+      // Check all of the SingleResponse extensions
+      for(const auto& sr : m_responses) {
+         if(sr.has_unknown_critical_extension()) {
+            m_has_unknown_critical_ext = true;
+            break;
+         }
+      }
+   }
 }
 
 bool Response::is_issued_by(const X509_Certificate& candidate) const {
@@ -357,6 +376,10 @@ Certificate_Status_Code Response::verify_signature(const X509_Certificate& issue
 
       if(valid_signature == false) {
          return Certificate_Status_Code::OCSP_SIGNATURE_ERROR;
+      }
+
+      if(m_has_unknown_critical_ext) {
+         return Certificate_Status_Code::UNKNOWN_CRITICAL_EXTENSION;
       }
 
       const auto& trusted_hashes = restrictions.trusted_hashes();
