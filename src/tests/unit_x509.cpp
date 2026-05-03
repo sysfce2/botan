@@ -636,7 +636,7 @@ Test::Result test_x509_any_key_extended_usage() {
       result.test_is_true("is CA cert", any_eku_cert.is_CA_cert());
       result.test_is_true("DigitalSignature is allowed", any_eku_cert.allowed_usage(Key_Constraints::DigitalSignature));
       result.test_is_true("CrlSign is allowed", any_eku_cert.allowed_usage(Key_Constraints::CrlSign));
-      result.test_is_true("OCSP responder is allowed", any_eku_cert.allowed_usage(Usage_Type::OCSP_RESPONDER));
+      result.test_is_false("OCSP responder is not allowed", any_eku_cert.allowed_usage(Usage_Type::OCSP_RESPONDER));
    } catch(const Botan::Decoding_Error& ex) {
       result.test_failure(ex.what());
    }
