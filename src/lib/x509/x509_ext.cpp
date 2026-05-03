@@ -80,6 +80,10 @@ std::unique_ptr<Certificate_Extension> extension_from_oid(const OID& oid) {
       }
    }
 
+   if(oid == Cert_Extension::OCSP_NoCheck::static_oid()) {
+      return make_extension<Cert_Extension::OCSP_NoCheck>(oid);
+   }
+
    return nullptr;  // unknown
 }
 
@@ -1747,9 +1751,13 @@ void ASBlocks::validate(const X509_Certificate& /* unused */,
    }
 }
 
+std::vector<uint8_t> OCSP_NoCheck::encode_inner() const {
+   return {0x05, 0x00};  // NULL
+}
+
 void OCSP_NoCheck::decode_inner(const std::vector<uint8_t>& buf) {
-   /* RFC 6960 Section 4.2.2.2.1 - id-pkix-ocsp-nocheck (value is NULL or empty) */
-   BER_Decoder(buf, BER_Decoder::Limits::DER()).verify_end();
+   /* RFC 6960 Section 4.2.2.2.1 - id-pkix-ocsp-nocheck (value SHALL be NULL) */
+   BER_Decoder(buf, BER_Decoder::Limits::DER()).decode_null().verify_end();
 }
 
 std::vector<uint8_t> Unknown_Extension::encode_inner() const {
