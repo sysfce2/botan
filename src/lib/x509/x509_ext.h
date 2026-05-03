@@ -525,7 +525,7 @@ class OCSP_NoCheck final : public Certificate_Extension {
 
       bool should_encode() const override { return true; }
 
-      std::vector<uint8_t> encode_inner() const override { return {}; }
+      std::vector<uint8_t> encode_inner() const override;
 
       void decode_inner(const std::vector<uint8_t>& in) override;
 };

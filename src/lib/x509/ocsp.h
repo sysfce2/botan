@@ -19,6 +19,7 @@
 
 namespace Botan {
 
+class Path_Validation_Restrictions;
 class Certificate_Store;
 
 namespace OCSP {
@@ -58,11 +59,14 @@ class BOTAN_PUBLIC_API(2, 0) SingleResponse final : public ASN1_Object {
 
       void decode_from(BER_Decoder& from) override;
 
+      bool has_unknown_critical_extension() const { return m_has_unknown_critical_ext; }
+
    private:
       CertID m_certid;
       size_t m_cert_status = 2;  // unknown
       X509_Time m_thisupdate;
       X509_Time m_nextupdate;
+      bool m_has_unknown_critical_ext = false;
 };
 
 /**
@@ -177,6 +181,21 @@ class BOTAN_PUBLIC_API(2, 0) Response final {
       Certificate_Status_Code verify_signature(const X509_Certificate& signing_certificate) const;
 
       /**
+      * Check signature of the OCSP response.
+      *
+      * Note: It is the responsibility of the caller to verify that signing
+      *       certificate is trustworthy and authorized to do so.
+      *
+      * @param signing_certificate the certificate that signed this response
+      *                            (@sa Response::find_signing_certificate)
+      * @param restrictions on the signature validation
+      *
+      * @return status code indicating the validity of the signature
+      */
+      Certificate_Status_Code verify_signature(const X509_Certificate& signing_certificate,
+                                               const Path_Validation_Restrictions& restrictions) const;
+
+      /**
       * @return the status of the response
       */
       Response_Status_Code status() const { return m_status; }
@@ -247,6 +266,8 @@ class BOTAN_PUBLIC_API(2, 0) Response final {
       std::vector<SingleResponse> m_responses;
 
       std::optional<Certificate_Status_Code> m_dummy_response_status;
+
+      bool m_has_unknown_critical_ext = false;
 };
 
 #if defined(BOTAN_HAS_HTTP_UTIL)

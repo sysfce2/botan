@@ -18,7 +18,6 @@
 #include <botan/x509_ext.h>
 #include <botan/x509_key.h>
 #include <botan/internal/parsing.h>
-#include <algorithm>
 #include <sstream>
 
 namespace Botan {
@@ -537,11 +536,27 @@ bool X509_Certificate::has_ex_constraint(std::string_view ex_constraint) const {
 }
 
 bool X509_Certificate::has_ex_constraint(const OID& usage) const {
-   const std::vector<OID>& ex = extended_key_usage();
    const auto any_eku = OID::from_name("X509v3.AnyExtendedKeyUsage");
-   return std::find_if(ex.begin(), ex.end(), [&any_eku, &usage](auto& oid) {
-             return oid == usage || oid == any_eku;
-          }) != ex.end();
+   const auto ocsp_eku = OID::from_name("PKIX.OCSPSigning");
+
+   for(const auto& ext_ku : extended_key_usage()) {
+      if(ext_ku == usage) {
+         return true;
+      }
+
+      /*
+      Do not accept AnyExtendedKeyUsage for OCSP due to RFC 6960 4.2.2.2:
+
+      OCSP signing delegation SHALL be designated by the inclusion of
+      id-kp-OCSPSigning in an extended key usage certificate extension
+      included in the OCSP response signer's certificate.
+      */
+      if(ext_ku == any_eku && usage != ocsp_eku) {
+         return true;
+      }
+   }
+
+   return false;
 }
 
 /*

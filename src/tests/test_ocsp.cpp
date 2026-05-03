@@ -266,10 +266,14 @@ class OCSP_Tests final : public Test {
             const Botan::Path_Validation_Restrictions pvr(false, 110, false, max_age);
             const auto ocsp_status = Botan::PKIX::check_ocsp(cert_path, {ocsp}, {&certstore}, valid_time, pvr);
 
-            return result.test_sz_eq("Expected size of ocsp_status", ocsp_status.size(), 1) &&
-                   result.test_sz_eq("Expected size of ocsp_status[0]", ocsp_status[0].size(), 1) &&
-                   result.test_is_true(std::string("Status: '") + Botan::to_string(expected) + "'",
-                                       ocsp_status[0].contains(expected));
+            result.test_sz_eq("Expected size of ocsp_status", ocsp_status.size(), 1);
+
+            if(!ocsp_status.empty()) {
+               result.test_sz_eq("Expected size of ocsp_status[0]", ocsp_status[0].size(), 1);
+
+               result.test_is_true(std::string("Status: '") + Botan::to_string(expected) + "'",
+                                   ocsp_status[0].contains(expected));
+            }
          };
 
          check_ocsp(Botan::calendar_point(2019, 5, 28, 7, 0, 0).to_std_timepoint(),
@@ -301,10 +305,13 @@ class OCSP_Tests final : public Test {
             const auto ocsp_status = Botan::PKIX::check_ocsp(
                cert_path, {ocsp}, {&certstore}, valid_time, Botan::Path_Validation_Restrictions());
 
-            return result.test_sz_eq("Expected size of ocsp_status", ocsp_status.size(), 1) &&
-                   result.test_sz_eq("Expected size of ocsp_status[0]", ocsp_status[0].size(), 1) &&
-                   result.test_is_true(std::string("Status: '") + Botan::to_string(expected) + "'",
-                                       ocsp_status[0].contains(expected));
+            result.test_sz_eq("Expected size of ocsp_status", ocsp_status.size(), 1);
+
+            if(!ocsp_status.empty()) {
+               result.test_sz_eq("Expected size of ocsp_status[0]", ocsp_status[0].size(), 1);
+               result.test_is_true(std::string("Status: '") + Botan::to_string(expected) + "'",
+                                   ocsp_status[0].contains(expected));
+            }
          };
 
          check_ocsp(Botan::calendar_point(2019, 5, 28, 7, 0, 0).to_std_timepoint(),

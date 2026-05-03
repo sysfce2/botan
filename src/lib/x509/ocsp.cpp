@@ -14,6 +14,7 @@
 #include <botan/hash.h>
 #include <botan/pubkey.h>
 #include <botan/x509_ext.h>
+#include <botan/x509path.h>
 
 #if defined(BOTAN_HAS_HTTP_UTIL)
    #include <botan/internal/http_util.h>
@@ -131,6 +132,12 @@ void SingleResponse::decode_from(BER_Decoder& from) {
 
    // TODO: should verify the cert_status body and decode RevokedInfo
    m_cert_status = static_cast<uint32_t>(cert_status.type());
+   if(m_cert_status > 2) {
+      throw Decoding_Error("Unknown OCSP CertStatus tag");
+   }
+
+   // We don't currently recognize any extensions here so if any are critical we should reject
+   m_has_unknown_critical_ext = !extensions.critical_extensions().empty();
 }
 
 namespace {
@@ -230,6 +237,23 @@ Response::Response(const uint8_t response_bits[], size_t response_bits_len) :
 
    response_outer.decode(resp_status, ASN1_Type::Enumerated, ASN1_Class::Universal);
 
+   /*
+   RFC 6960 4.2.1
+
+   OCSPResponseStatus ::= ENUMERATED {
+       successful            (0),  -- Response has valid confirmations
+       malformedRequest      (1),  -- Illegal confirmation request
+       internalError         (2),  -- Internal error in issuer
+       tryLater              (3),  -- Try again later
+                                   -- (4) is not used
+       sigRequired           (5),  -- Must sign the request
+       unauthorized          (6)   -- Request unauthorized
+   }
+   */
+   if(resp_status >= 7) {
+      throw Decoding_Error("Unknown OCSPResponseStatus code");
+   }
+
    m_status = static_cast<Response_Status_Code>(resp_status);
 
    if(m_status != Response_Status_Code::Successful) {
@@ -309,10 +333,23 @@ Response::Response(const uint8_t response_bits[], size_t response_bits_len) :
 
       response_bytes.verify_end();
       response_bytes_ctx.verify_end();
+
+      // We don't currently recognize any extensions here so if any are critical we should reject
+      m_has_unknown_critical_ext = !extensions.critical_extensions().empty();
    }
 
    response_outer.verify_end();
    outer_decoder.verify_end();
+
+   if(m_has_unknown_critical_ext == false) {
+      // Check all of the SingleResponse extensions
+      for(const auto& sr : m_responses) {
+         if(sr.has_unknown_critical_extension()) {
+            m_has_unknown_critical_ext = true;
+            break;
+         }
+      }
+   }
 }
 
 bool Response::is_issued_by(const X509_Certificate& candidate) const {
@@ -328,6 +365,13 @@ bool Response::is_issued_by(const X509_Certificate& candidate) const {
 }
 
 Certificate_Status_Code Response::verify_signature(const X509_Certificate& issuer) const {
+   const Path_Validation_Restrictions restrictions;
+
+   return this->verify_signature(issuer, restrictions);
+}
+
+Certificate_Status_Code Response::verify_signature(const X509_Certificate& issuer,
+                                                   const Path_Validation_Restrictions& restrictions) const {
    if(m_dummy_response_status) {
       return m_dummy_response_status.value();
    }
@@ -345,11 +389,26 @@ Certificate_Status_Code Response::verify_signature(const X509_Certificate& issue
 
       PK_Verifier verifier(*pub_key, m_sig_algo);
 
-      if(verifier.verify_message(ASN1::put_in_sequence(m_tbs_bits), m_signature)) {
-         return Certificate_Status_Code::OCSP_SIGNATURE_OK;
-      } else {
+      const bool valid_signature = verifier.verify_message(ASN1::put_in_sequence(m_tbs_bits), m_signature);
+
+      if(valid_signature == false) {
          return Certificate_Status_Code::OCSP_SIGNATURE_ERROR;
       }
+
+      if(m_has_unknown_critical_ext) {
+         return Certificate_Status_Code::UNKNOWN_CRITICAL_EXTENSION;
+      }
+
+      const auto& trusted_hashes = restrictions.trusted_hashes();
+      if(!trusted_hashes.empty() && !trusted_hashes.contains(verifier.hash_function())) {
+         return Certificate_Status_Code::UNTRUSTED_HASH;
+      }
+
+      if(pub_key->estimated_strength() < restrictions.minimum_key_strength()) {
+         return Certificate_Status_Code::SIGNATURE_METHOD_TOO_WEAK;
+      }
+
+      return Certificate_Status_Code::OCSP_SIGNATURE_OK;
    } catch(Exception&) {
       return Certificate_Status_Code::OCSP_SIGNATURE_ERROR;
    }
