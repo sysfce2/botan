@@ -712,15 +712,15 @@ CertificatePathStatusCodes PKIX::check_ocsp_online(const std::vector<X509_Certif
                                          ocsp_req.BER_encode(),
                                          /*redirects*/ 1,
                                          timeout);
+
+                  if(http.status_code() != 200) {
+                     return OCSP::Response(Certificate_Status_Code::OCSP_SERVER_NOT_AVAILABLE);
+                  }
+
+                  return OCSP::Response(http.body());
                } catch(std::exception&) {
-                  // log e.what() ?
-               }
-               if(http.status_code() != 200) {
                   return OCSP::Response(Certificate_Status_Code::OCSP_SERVER_NOT_AVAILABLE);
                }
-               // Check the MIME type?
-
-               return OCSP::Response(http.body());
             }));
       }
    }
